@@ -13,8 +13,14 @@ contract ServiceNodeRewards is Ownable {
     using SafeERC20 for IERC20;
     ERC20 public immutable designatedToken;
 
-    constructor(address _token) {
-       designatedToken = IERC20(_token);
+    string immutable proofOfPossessionTag = "BLS_SIG_TRYANDINCREMENT_POP" + block.chainid + address(this);
+    string immutable messageTag = "BLS_SIG_TRYANDINCREMENT_REWARD" + block.chainid + address(this);
+
+    uint256 stakingRequirement;
+
+    constructor(address _token, uint256 _stakingRequirement) {
+        designatedToken = IERC20(_token);
+        stakingRequirement = _stakingRequirement;
     }
 
     // To review below here
@@ -83,17 +89,51 @@ contract ServiceNodeRewards is Ownable {
     // MANAGING BLS PUBLIC KEY LIST
 
     // Add Public Key Function
-    function _addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 amount) internal {
-         serviceNodes[identifier] = (ServiceNode(previous, msg.sender, G1Point(pkX, pkY), next));
-         if (validators.length == 1) {
-            _aggregate_pubkey = validators[validators.length - 1].pubkey;
-         } else {
-            _aggregate_pubkey = add(_aggregate_pubkey, validators[validators.length - 1].pubkey);
-         }
-         emit newValidator(validators.length - 1);
+    function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) public {
+        _addBLSPublicKey(pkX, pkY, stakingRequirement, sigs0, sigs1, sigs2, sigs3, msg.sender);
     }
-    // Remove Public Key
+
+    function _addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, address recipient) internal {
+        validateProofOfPossession(pkX, pkY, sigs0, sigs1, sigs2, sigs3);
+        serviceNodes[identifier] = (ServiceNode(previous, recipient, G1Point(pkX, pkY), next));
+        if (validators.length == 1) {
+            _aggregate_pubkey = validators[validators.length - 1].pubkey;
+        } else {
+            _aggregate_pubkey = add(_aggregate_pubkey, validators[validators.length - 1].pubkey);
+        }
+        /*function safeTransferFrom(IERC20 token, address from, address to, uint256 value) internal {*/
+        SafeERC20.safeTransferFrom(designatedToken, recipient, address(this), stakingRequirement);
+        emit newValidator(validators.length - 1);
+    }
+
+    // Proof of possession tag: "BLS_SIG_TRYANDINCREMENT_POP" || block.chainid ||  address(this) || PUBKEY
+    function validateProofOfPossession(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) internal {
+        G1Point memory pubkey = G1Point(pkX, pkY);
+        G2Point memory Hm = hashToG2(hashToField(proofOfPossessionTag.concat(string(abi.encodePacked(pkX, pkY)))));
+        G2Point memory signature = G2Point([sigs1,sigs0],[sigs3,sigs2]);
+        require(pairing2(P1(), signature, negate(pubkey), Hm), "Invalid Proof of Possession");
+    }
+
+
+    /*checks*/
+    /*effects*/
+    /*interactions*/
+
     // Initiate Remove Public Key
+    // Checking proof of possession again
+
+
+    // Remove Public Key
+    // Validating Signature from network
+    function _removeBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, address recipient) internal {
+    }
+
     // Liquidate Public Key
     // State
+
+    // seedPublicKeyList:
+    /*An owner guarded function to set up the initial public key list. Before the hardfork our*/
+    /*current service node operators will need to provide their own BLS keys, the foundation*/
+    /*will take that list and initialise the list so that the network can immediately start on*/
+    /*hardfork.*/
 }

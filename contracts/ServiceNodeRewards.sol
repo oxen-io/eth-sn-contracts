@@ -16,7 +16,7 @@ contract ServiceNodeRewards is Ownable {
     IERC20 public immutable designatedToken;
     IERC20 public immutable foundationPool;
 
-    uint public nextServiceNodeID;
+    uint64 public nextServiceNodeID;
     uint64 public constant LIST_END = type(uint64).max;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
 
@@ -34,13 +34,14 @@ contract ServiceNodeRewards is Ownable {
     uint256 poolShareOfLiquidationRatio;
     uint256 recipientRatio;
 
-    constructor(address _token, uint256 _stakingRequirement, uint256 _liquidatorRewardRatio, uint256 _poolShareOfLiquidationRatio, uint256 _recipientRatio) Ownable(msg.sender) {
+    constructor(address _token, address _foundationPool, uint256 _stakingRequirement, uint256 _liquidatorRewardRatio, uint256 _poolShareOfLiquidationRatio, uint256 _recipientRatio) Ownable(msg.sender) {
         proofOfPossessionTag = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
         rewardTag = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
         removalTag = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
         liquidateTag = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
 
         designatedToken = IERC20(_token);
+        foundationPool = IERC20(_foundationPool);
         stakingRequirement = _stakingRequirement;
 
         poolShareOfLiquidationRatio = _poolShareOfLiquidationRatio;
@@ -56,11 +57,11 @@ contract ServiceNodeRewards is Ownable {
     }
 
     struct ServiceNode {
+        uint64 next;
         uint64 previous;
         address recipient;
         BN256G1.G1Point pubkey;
-        uint64 next;
-        uint64 leaveRequestTimestamp;
+        uint256 leaveRequestTimestamp;
         uint256 deposit;
     }
 
@@ -110,8 +111,8 @@ contract ServiceNodeRewards is Ownable {
 
 
         // TODO parse these from message
-        address recipientAddress = "something";
-        uint256 recipientAmount = 69420;
+        address recipientAddress;
+        uint256 recipientAmount;
 
         uint256 previousBalance = recipients[recipientAddress].rewards;
         recipients[recipientAddress].rewards = recipientAmount;
@@ -139,7 +140,7 @@ contract ServiceNodeRewards is Ownable {
 
     // Add Public Key Function
     function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) public {
-        _addBLSPublicKey(pkX, pkY, stakingRequirement, sigs0, sigs1, sigs2, sigs3, msg.sender);
+        _addBLSPublicKey(pkX, pkY, sigs0, sigs1, sigs2, sigs3, msg.sender);
     }
 
     function _addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, address recipient) internal {
@@ -172,7 +173,7 @@ contract ServiceNodeRewards is Ownable {
     }
 
     // Proof of possession tag: "BLS_SIG_TRYANDINCREMENT_POP" || block.chainid ||  address(this) || PUBKEY
-    function validateProofOfPossession(BN256G1.G1Point calldata pubkey, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) internal {
+    function validateProofOfPossession(BN256G1.G1Point memory pubkey, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) internal {
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(proofOfPossessionTag, pubkey.X, pubkey.Y))));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSProofOfPossession();
@@ -213,7 +214,6 @@ contract ServiceNodeRewards is Ownable {
     }
 
     function _removeBLSPublicKey(uint64 serviceNodeID) internal {
-        address serviceNodeRecipient = serviceNodes[serviceNodeID].recipient;
         uint64 previousServiceNode = serviceNodes[serviceNodeID].previous;
         uint64 nextServiceNode = serviceNodes[serviceNodeID].next;
         if (nextServiceNode == 0) revert ServiceNodeDoesntExist(serviceNodeID);
@@ -258,7 +258,7 @@ contract ServiceNodeRewards is Ownable {
         if (liquidatorRewardRatio > 0)
             SafeERC20.safeTransfer(designatedToken, msg.sender, deposit * liquidatorRewardRatio/ratioSum);
         if (poolShareOfLiquidationRatio > 0)
-            SafeERC20.safeTransfer(designatedToken, foundationPool, deposit * poolShareOfLiquidationRatio/ratioSum);
+            SafeERC20.safeTransfer(designatedToken, address(foundationPool), deposit * poolShareOfLiquidationRatio/ratioSum);
         emit ServiceNodeLiquidated(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
     }
 
@@ -274,7 +274,7 @@ contract ServiceNodeRewards is Ownable {
         uint64 lastServiceNode = serviceNodes[LIST_END].previous;
         uint256 sumAmounts;
 
-        for(uint256 i = 0; i < pkX.length(); i++) {
+        for(uint256 i = 0; i < pkX.length; i++) {
             BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX[i], pkY[i]);
             uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
             if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);

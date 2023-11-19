@@ -672,17 +672,17 @@ library BN256G2 {
         // Iterate until we find a valid G2 point
         while (!foundValidPoint) {
             // Try to get y^2
-            (uint256 yx, uint256 yy) = BN256G2.Get_yy_coordinate(x1, x2);
+            (uint256 yx, uint256 yy) = Get_yy_coordinate(x1, x2);
 
             // Calculate square root
-            (uint256 sqrt_x, uint256 sqrt_y) = BN256G2.FQ2Sqrt(yx, yy);
+            (uint256 sqrt_x, uint256 sqrt_y) = FQ2Sqrt(yx, yy);
 
 
             // Check if this is a point
             if (sqrt_x != 0 && sqrt_y != 0) {
                 y1 = sqrt_x;
                 y2 = sqrt_y;
-                if (BN256G2.IsOnCurve(x1, x2, y1, y2)) {
+                if (IsOnCurve(x1, x2, y1, y2)) {
                     foundValidPoint = true;
                 } else {
                     x1 += 1;
@@ -698,12 +698,12 @@ library BN256G2 {
 
     function hashToG2(uint256 h) public view returns (G2Point memory) {
         G2Point memory map = mapToG2(h);
-        (uint256 x1, uint256 x2, uint256 y1, uint256 y2) = BN256G2.ECTwistMulByCofactor(map.X[1], map.X[0], map.Y[1], map.Y[0]);
+        (uint256 x1, uint256 x2, uint256 y1, uint256 y2) = ECTwistMulByCofactor(map.X[1], map.X[0], map.Y[1], map.Y[0]);
         return (G2Point([x2,x1],[y2,y1]));
     }
 
     function getWeierstrass(uint256 x, uint256 y) public pure returns (uint256, uint256) {
-        return BN256G2.Get_yy_coordinate(x,y);
+        return Get_yy_coordinate(x,y);
     }
 
     function convertArrayAsLE(bytes32 src) public pure returns (bytes32) {
@@ -744,7 +744,7 @@ library BN256G2 {
     }
 
     /// @return the generator of G2
-    function P2() public view returns (G2Point memory) {
+    function P2() public pure returns (G2Point memory) {
         return G2Point(
             [11559732032986387107991004021392285783925812861821192530917403151452391805634,
             10857046999023057135944570762232829481370756359578518086990519993285655852781],

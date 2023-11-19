@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+
 import "./Pairing.sol";
 
 import "hardhat/console.sol";
@@ -18,17 +20,26 @@ contract ServiceNodeRewards is Ownable {
     uint64 public constant LIST_END = type(uint64).max;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
 
-    string immutable proofOfPossessionTag = "BLS_SIG_TRYANDINCREMENT_POP" + block.chainid + address(this);
-    string immutable rewardTag = "BLS_SIG_TRYANDINCREMENT_REWARD" + block.chainid + address(this);
-    string immutable removalTag = "BLS_SIG_TRYANDINCREMENT_REMOVE" + block.chainid + address(this);
-    string immutable liquidateTag = "BLS_SIG_TRYANDINCREMENT_LIQUIDATE" + block.chainid + address(this);
+    /*string immutable proofOfPossessionTag = "BLS_SIG_TRYANDINCREMENT_POP" + block.chainid + address(this);*/
+    string public proofOfPossessionTag;
+    /*string immutable rewardTag = "BLS_SIG_TRYANDINCREMENT_REWARD" + block.chainid + address(this);*/
+    string public rewardTag;
+    /*string immutable removalTag = "BLS_SIG_TRYANDINCREMENT_REMOVE" + block.chainid + address(this);*/
+    string public removalTag;
+    /*string immutable liquidateTag = "BLS_SIG_TRYANDINCREMENT_LIQUIDATE" + block.chainid + address(this);*/
+    string public liquidateTag;
 
     uint256 stakingRequirement;
     uint256 liquidatorRewardRatio;
     uint256 poolShareOfLiquidationRatio;
     uint256 recipientRatio;
 
-    constructor(address _token, uint256 _stakingRequirement, uint256 _liquidatorRewardRatio, uint256 _poolShareOfLiquidationRatio, uint256 _recipientRatio) {
+    constructor(address _token, uint256 _stakingRequirement, uint256 _liquidatorRewardRatio, uint256 _poolShareOfLiquidationRatio, uint256 _recipientRatio) Ownable(msg.sender) {
+        proofOfPossessionTag = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
+        rewardTag = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
+        removalTag = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
+        liquidateTag = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
+
         designatedToken = IERC20(_token);
         stakingRequirement = _stakingRequirement;
 
@@ -38,6 +49,10 @@ contract ServiceNodeRewards is Ownable {
 
         serviceNodes[LIST_END].previous = LIST_END;
         serviceNodes[LIST_END].next = LIST_END;
+    }
+
+    function buildTag(string memory baseTag) private view returns (string memory) {
+        return string(abi.encodePacked(baseTag, Strings.toString(block.chainid), address(this)));
     }
 
     struct ServiceNode {
@@ -90,7 +105,7 @@ contract ServiceNodeRewards is Ownable {
         }
         pubkey = BN256G1.add(_aggregate_pubkey, BN256G1.negate(pubkey));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(rewardTag.concat(string(abi.encodePacked(message)))));
+        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(rewardTag, message))));
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
 
 
@@ -158,7 +173,7 @@ contract ServiceNodeRewards is Ownable {
 
     // Proof of possession tag: "BLS_SIG_TRYANDINCREMENT_POP" || block.chainid ||  address(this) || PUBKEY
     function validateProofOfPossession(BN256G1.G1Point calldata pubkey, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) internal {
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(proofOfPossessionTag.concat(string(abi.encodePacked(pubkey)))));
+        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(proofOfPossessionTag, pubkey.X, pubkey.Y))));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSProofOfPossession();
 
@@ -179,7 +194,7 @@ contract ServiceNodeRewards is Ownable {
     // Validating Signature from network
     function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
         //Validating signature
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string.concat(removalTag, string(serviceNodeID))));
+        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(removalTag, serviceNodeID))));
         BN256G1.G1Point memory pubkey;
         for(uint256 i = 0; i < ids.length; i++) {
             pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
@@ -224,7 +239,7 @@ contract ServiceNodeRewards is Ownable {
     // Liquidate Public Key
     function liquidateBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
         //Validating signature
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string.concat(liquidateTag, string(serviceNodeID))));
+        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(liquidateTag, serviceNodeID))));
         BN256G1.G1Point memory pubkey;
         for(uint256 i = 0; i < ids.length; i++) {
             pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);

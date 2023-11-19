@@ -61,17 +61,24 @@ contract ServiceNodeRewards is Ownable {
     BN256G1.G1Point _aggregate_pubkey;
 
     // EVENTS
+    event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);
+    event NewServiceNode(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
     event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
-    event ServiceNodeRemovalRequest(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
-    event ServiceNodeRemoval(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
-    event NewServiceNode(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
-    event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);
+    event ServiceNodeRemoval(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
+    event ServiceNodeRemovalRequest(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
 
     // ERRORS
-
     error RecipientAddressDoesNotMatch(address expectedRecipient, address providedRecipient, uint256 serviceNodeID);
+    error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
+    error RecipientAddressNotProvided(uint64 serviceNodeID);
+    error EarlierLeaveRequestMade(uint64 serviceNodeID, address recipient);
+    error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp);
+    error ServiceNodeDoesntExist(uint64 serviceNodeID);
+    error InvalidBLSSignature();
+    error InvalidBLSProofOfPossession();
+    error ArrayLengthMismatch();
 
     // CLAIMING REWARDS
 
@@ -84,7 +91,8 @@ contract ServiceNodeRewards is Ownable {
         pubkey = BN256G1.add(_aggregate_pubkey, BN256G1.negate(pubkey));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(rewardTag.concat(string(abi.encodePacked(message)))));
-        require(Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm), "Invalid BLS Signature");
+        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
+
 
         // TODO parse these from message
         address recipientAddress = "something";
@@ -152,7 +160,8 @@ contract ServiceNodeRewards is Ownable {
     function validateProofOfPossession(BN256G1.G1Point pubkey, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) internal {
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(proofOfPossessionTag.concat(string(abi.encodePacked(pubkey)))));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
-        require(Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm), "Invalid Proof of Possession");
+        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSProofOfPossession();
+
     }
 
     // Initiate Remove Public Key
@@ -177,7 +186,8 @@ contract ServiceNodeRewards is Ownable {
         }
         pubkey = BN256G1.add(_aggregate_pubkey, BN256G1.negate(pubkey));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
-        require(Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm), "Invalid BLS Signature");
+        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
+
         _removeBLSPublicKey(serviceNodeID);
     }
 
@@ -221,7 +231,7 @@ contract ServiceNodeRewards is Ownable {
         }
         pubkey = BN256G1.add(_aggregate_pubkey, BN256G1.negate(pubkey));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
-        require(Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm), "Invalid BLS Signature");
+        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
 
 
         _removeBLSPublicKey(serviceNodeID);
@@ -245,7 +255,7 @@ contract ServiceNodeRewards is Ownable {
     /*hardfork.*/
 
     function seedPublicKeyList(uint256[] pkX, uint256[] pkY, uint256[] amounts) public onlyOwner {
-        require(pkX.length() == pkY.length() && pkX.length() == amounts.length());
+        if (pkX.length != pkY.length || pkX.length != amounts.length) revert ArrayLengthMismatch();
         uint64 lastServiceNode = serviceNodes[LIST_END].previous;
         uint256 sumAmounts;
 

@@ -56,7 +56,7 @@ contract ServiceNodeRewards is Ownable {
 
     mapping(uint64 => ServiceNode) public serviceNodes;
     mapping(address => Recipient) public recipients;
-    mapping(BN256G1.G1Point => uint64) public serviceNodeIDs;
+    mapping(bytes32 => uint64) public serviceNodeIDs;
 
     BN256G1.G1Point _aggregate_pubkey;
 
@@ -129,7 +129,7 @@ contract ServiceNodeRewards is Ownable {
 
     function _addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, address recipient) internal {
         BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX, pkY);
-        uint64 serviceNodeID = serviceNodeIDs[pubkey];
+        uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
         if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
         validateProofOfPossession(pubkey, sigs0, sigs1, sigs2, sigs3);
         uint64 previous = serviceNodes[LIST_END].previous;
@@ -143,7 +143,7 @@ contract ServiceNodeRewards is Ownable {
         serviceNodes[nextServiceNodeID].deposit = stakingRequirement;
         serviceNodes[LIST_END].previous = nextServiceNodeID;
 
-        serviceNodeIDs[pubkey] = nextServiceNodeID;
+        serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)] = nextServiceNodeID;
 
         if (serviceNodes[LIST_END].next != LIST_END) {
             _aggregate_pubkey = BN256G1.add(_aggregate_pubkey, pubkey);
@@ -157,7 +157,7 @@ contract ServiceNodeRewards is Ownable {
     }
 
     // Proof of possession tag: "BLS_SIG_TRYANDINCREMENT_POP" || block.chainid ||  address(this) || PUBKEY
-    function validateProofOfPossession(BN256G1.G1Point pubkey, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) internal {
+    function validateProofOfPossession(BN256G1.G1Point calldata pubkey, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) internal {
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(proofOfPossessionTag.concat(string(abi.encodePacked(pubkey)))));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSProofOfPossession();
@@ -216,7 +216,7 @@ contract ServiceNodeRewards is Ownable {
         delete serviceNodes[serviceNodeID].pubkey.X;
         delete serviceNodes[serviceNodeID].pubkey.Y;
 
-        delete serviceNodeIDs[pubkey];
+        delete serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
 
         emit ServiceNodeRemoval(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
     }
@@ -254,14 +254,14 @@ contract ServiceNodeRewards is Ownable {
     /*will take that list and initialise the list so that the network can immediately start on*/
     /*hardfork.*/
 
-    function seedPublicKeyList(uint256[] pkX, uint256[] pkY, uint256[] amounts) public onlyOwner {
+    function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) public onlyOwner {
         if (pkX.length != pkY.length || pkX.length != amounts.length) revert ArrayLengthMismatch();
         uint64 lastServiceNode = serviceNodes[LIST_END].previous;
         uint256 sumAmounts;
 
         for(uint256 i = 0; i < pkX.length(); i++) {
             BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX[i], pkY[i]);
-            uint64 serviceNodeID = serviceNodeIDs[pubkey];
+            uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
             if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
 
             uint64 previous = serviceNodes[LIST_END].previous;
@@ -273,7 +273,7 @@ contract ServiceNodeRewards is Ownable {
             serviceNodes[nextServiceNodeID].deposit = amounts[i];
             sumAmounts = sumAmounts + amounts[i];
 
-            serviceNodeIDs[pubkey] = nextServiceNodeID;
+            serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)] = nextServiceNodeID;
 
             if (serviceNodes[LIST_END].next != LIST_END) {
                 _aggregate_pubkey = BN256G1.add(_aggregate_pubkey, pubkey);

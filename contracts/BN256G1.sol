@@ -63,4 +63,8 @@ library BN256G1 {
     function hashToG1(uint256 h) public returns (G1Point memory) {
         return mul(P1(), h);
     }
+
+    function getKeyForG1Point(G1Point memory point) internal pure returns (bytes32) {
+        return keccak256(abi.encode(point));
+    }
 }

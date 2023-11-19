@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 /**
  * @title Elliptic curve operations on twist points for alt_bn128
@@ -19,6 +19,12 @@ library BN256G2 {
     uint internal constant PTYY = 3;
     uint internal constant PTZX = 4;
     uint internal constant PTZY = 5;
+
+    // Encoding of field elements is: X[0] * z + X[1]
+    struct G2Point {
+        uint[2] X;
+        uint[2] Y;
+    }
 
     /*
     These constants represent the coefficients used to adjust the x and y coordinates
@@ -653,6 +659,99 @@ library BN256G2 {
         return (x1, FIELD_MODULUS - x2);
     }
 
+    // hashes to G2 using the try and increment method
+    function mapToG2(uint256 h) public view returns (G2Point memory) {
+        // Define the G2Point coordinates
+        uint256 x1 = h;
+        uint256 x2 = 0;
+        uint256 y1;
+        uint256 y2;
 
+        bool foundValidPoint = false;
+
+        // Iterate until we find a valid G2 point
+        while (!foundValidPoint) {
+            // Try to get y^2
+            (uint256 yx, uint256 yy) = BN256G2.Get_yy_coordinate(x1, x2);
+
+            // Calculate square root
+            (uint256 sqrt_x, uint256 sqrt_y) = BN256G2.FQ2Sqrt(yx, yy);
+
+
+            // Check if this is a point
+            if (sqrt_x != 0 && sqrt_y != 0) {
+                y1 = sqrt_x;
+                y2 = sqrt_y;
+                if (BN256G2.IsOnCurve(x1, x2, y1, y2)) {
+                    foundValidPoint = true;
+                } else {
+                    x1 += 1;
+                }
+            } else {
+                // Increment x coordinate and try again.
+                x1 += 1;
+            }
+        }
+
+        return (G2Point([x2,x1],[y2,y1]));
+    }
+
+    function hashToG2(uint256 h) public view returns (G2Point memory) {
+        G2Point memory map = mapToG2(h);
+        (uint256 x1, uint256 x2, uint256 y1, uint256 y2) = BN256G2.ECTwistMulByCofactor(map.X[1], map.X[0], map.Y[1], map.Y[0]);
+        return (G2Point([x2,x1],[y2,y1]));
+    }
+
+    function getWeierstrass(uint256 x, uint256 y) public pure returns (uint256, uint256) {
+        return BN256G2.Get_yy_coordinate(x,y);
+    }
+
+    function convertArrayAsLE(bytes32 src) public pure returns (bytes32) {
+        bytes32 dst;
+        for (uint256 i = 0; i < 32; i++) {
+            // Considering each byte of bytes32
+            bytes1 s = src[i];
+            // Assuming the role of D is just to cast or store our byte in this context
+            dst |= bytes32(s) >> (i * 8);
+        }
+        return dst;
+    }
+
+    // This matches mcl maskN, this only takes the 254 bits for the field, if it is still greater than the field then take the 253 bits
+    function maskBits(uint256 input) public pure returns (uint256) {
+        uint256 mask = ~uint256(0) - 0xC0;
+        if (byteSwap(input & mask) >= FIELD_MODULUS) {
+            mask = ~uint256(0) - 0xE0;
+        }
+        return input & mask;
+    }
+
+    function byteSwap(uint256 value) public pure returns (uint256) {
+        uint256 swapped = 0;
+        for (uint256 i = 0; i < 32; i++) {
+            uint256 byteValue = (value >> (i * 8)) & 0xFF; 
+            swapped |= byteValue << (256 - 8 - (i * 8));
+        }
+        return swapped;
+    }
+
+    function calcField(uint256 pkX, uint256 pkY) public pure returns (uint256) {
+        return hashToField(string(abi.encodePacked(pkX, pkY)));
+    }
+
+    function hashToField(string memory message) public pure returns (uint256) {
+        return byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(bytes(message))))));
+    }
+
+    /// @return the generator of G2
+    function P2() public view returns (G2Point memory) {
+        return G2Point(
+            [11559732032986387107991004021392285783925812861821192530917403151452391805634,
+            10857046999023057135944570762232829481370756359578518086990519993285655852781],
+
+            [4082367875863433681332203403145435568316851327593401208105741076214120093531,
+            8495653923123431417604973247489272438418190587263600148770280649306958101930]
+        );
+    }
 
 }

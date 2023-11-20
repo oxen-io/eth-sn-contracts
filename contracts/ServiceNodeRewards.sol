@@ -3,16 +3,15 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-
 import "./Pairing.sol";
 
-import "hardhat/console.sol";
-
+/// @title Service Node Rewards Contract
+/// @notice This contract manages the rewards and public keys for service nodes.
 contract ServiceNodeRewards is Ownable {
     using SafeERC20 for IERC20;
+
     IERC20 public immutable designatedToken;
     IERC20 public immutable foundationPool;
 
@@ -20,13 +19,9 @@ contract ServiceNodeRewards is Ownable {
     uint64 public constant LIST_END = type(uint64).max;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
 
-    /*string immutable proofOfPossessionTag = "BLS_SIG_TRYANDINCREMENT_POP" + block.chainid + address(this);*/
     string public proofOfPossessionTag;
-    /*string immutable rewardTag = "BLS_SIG_TRYANDINCREMENT_REWARD" + block.chainid + address(this);*/
     string public rewardTag;
-    /*string immutable removalTag = "BLS_SIG_TRYANDINCREMENT_REMOVE" + block.chainid + address(this);*/
     string public removalTag;
-    /*string immutable liquidateTag = "BLS_SIG_TRYANDINCREMENT_LIQUIDATE" + block.chainid + address(this);*/
     string public liquidateTag;
 
     uint256 stakingRequirement;
@@ -34,6 +29,13 @@ contract ServiceNodeRewards is Ownable {
     uint256 poolShareOfLiquidationRatio;
     uint256 recipientRatio;
 
+    /// @notice Constructor for the Service Node Rewards Contract
+    /// @param _token The token used for rewards
+    /// @param _foundationPool The foundation pool for the token
+    /// @param _stakingRequirement The staking requirement for service nodes
+    /// @param _liquidatorRewardRatio The reward ratio for liquidators
+    /// @param _poolShareOfLiquidationRatio The pool share ratio during liquidation
+    /// @param _recipientRatio The recipient ratio for rewards
     constructor(address _token, address _foundationPool, uint256 _stakingRequirement, uint256 _liquidatorRewardRatio, uint256 _poolShareOfLiquidationRatio, uint256 _recipientRatio) Ownable(msg.sender) {
         proofOfPossessionTag = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
         rewardTag = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
@@ -43,19 +45,22 @@ contract ServiceNodeRewards is Ownable {
         designatedToken = IERC20(_token);
         foundationPool = IERC20(_foundationPool);
         stakingRequirement = _stakingRequirement;
-
-        poolShareOfLiquidationRatio = _poolShareOfLiquidationRatio;
         liquidatorRewardRatio = _liquidatorRewardRatio;
+        poolShareOfLiquidationRatio = _poolShareOfLiquidationRatio;
         recipientRatio = _recipientRatio;
 
         serviceNodes[LIST_END].previous = LIST_END;
         serviceNodes[LIST_END].next = LIST_END;
     }
 
+    /// @dev Builds a tag string using a base tag and contract-specific information. This is used when signing messages to prevent reuse of signatures across different domains (chains/functions/contracts)
+    /// @param baseTag The base string for the tag.
+    /// @return The constructed tag string.
     function buildTag(string memory baseTag) private view returns (string memory) {
         return string(abi.encodePacked(baseTag, Strings.toString(block.chainid), address(this)));
     }
 
+    /// @notice Represents a service node in the network.
     struct ServiceNode {
         uint64 next;
         uint64 previous;
@@ -65,6 +70,7 @@ contract ServiceNodeRewards is Ownable {
         uint256 deposit;
     }
 
+    /// @notice Represents a recipient of rewards, how much they can claim and how much previously claimed.
     struct Recipient {
         uint256 rewards;
         uint256 claimed;
@@ -96,11 +102,22 @@ contract ServiceNodeRewards is Ownable {
     error InvalidBLSProofOfPossession();
     error ArrayLengthMismatch();
 
-    // CLAIMING REWARDS
+    /// CLAIMING REWARDS
+    /// This section contains all the functions necessary for a user to receive the rewards from the service node network. Process looks like follows:
+    /// 1) User will go to service node network and request they sign an amount that they are allowed to claim. Each node will individually sign and user will aggregate the message
+    /// 2) User will call updateRewardsBalance with an encoded message of the amount they are allowed to claim. This signature is checked over this message and the recipient structure is updated fo the amount they are allowed to claim
+    /// 3) User will call claimRewards which will pay out their balance in the recipients struct
 
-    // TODO define encoding/decoding structure of message
+    /// @notice Updates the rewards balance for a given recipient.
+    /// @param sigs0 First part of the signature.
+    /// @param sigs1 Second part of the signature.
+    /// @param sigs2 Third part of the signature.
+    /// @param sigs3 Fourth part of the signature.
+    /// @param message The message associated with the rewards. This contains the recipient address and amount they are allowed to claim. This has to be signed by the network.
+    /// @param ids An array of service node IDs that did not sign the message.
     function updateRewardsBalance(uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint256 message, uint64[] memory ids) public {
         BN256G1.G1Point memory pubkey;
+        //TODO sean length of ids needs to be checked to make sure majority of network signed
         for(uint256 i = 0; i < ids.length; i++) {
             pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
         }
@@ -110,7 +127,7 @@ contract ServiceNodeRewards is Ownable {
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
 
 
-        // TODO parse these from message
+		// TODO sean define encoding/decoding structure of message and parse these from message
         address recipientAddress;
         uint256 recipientAmount;
 
@@ -119,10 +136,16 @@ contract ServiceNodeRewards is Ownable {
         emit RewardsBalanceUpdated(recipientAddress, recipientAmount, previousBalance);
     }
 
+    /// @notice Builds a message for recipient reward calculation.
+    /// @param recipientAddress The address of the recipient.
+    /// @param balance The balance to be encoded in the message.
+    /// @return The encoded message.
     function buildRecipientMessage(address recipientAddress, uint256 balance) public pure returns (bytes memory) {
         return abi.encode(recipientAddress, balance);
     }
 
+    /// @dev Internal function to handle reward claims. Will transfer the available rewards worth of our token to claimingAddress
+    /// @param claimingAddress The address claiming the rewards.
     function _claimRewards(address claimingAddress) internal {
         uint256 claimedRewards = recipients[claimingAddress].claimed;
         uint256 totalRewards = recipients[claimingAddress].rewards;
@@ -132,17 +155,34 @@ contract ServiceNodeRewards is Ownable {
         emit RewardsClaimed(claimingAddress, amountToRedeem);
     }
 
+    /// @notice Allows users to claim their rewards. Main entry point for users claiming. Should be called after first updating rewards
     function claimRewards() public {
         _claimRewards(msg.sender);
     }
 
-    // MANAGING BLS PUBLIC KEY LIST
+    /// MANAGING BLS PUBLIC KEY LIST
+    /// This section contains all the functions necessary to add and remove service nodes from the service nodes linked list.
+    /// The regular process for this will be for a new user to call
 
-    // Add Public Key Function
+    /// @notice Adds a BLS public key to the list of service nodes. Requires a proof of possession BLS signature to prove user controls the public key being added
+    /// @param pkX X-coordinate of the public key.
+    /// @param pkY Y-coordinate of the public key.
+    /// @param sigs0 First part of the proof of possession signature.
+    /// @param sigs1 Second part of the proof of possession signature.
+    /// @param sigs2 Third part of the proof of possession signature.
+    /// @param sigs3 Fourth part of the proof of possession signature.
     function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) public {
         _addBLSPublicKey(pkX, pkY, sigs0, sigs1, sigs2, sigs3, msg.sender);
     }
 
+    /// @dev Internal function to add a BLS public key.
+    /// @param pkX X-coordinate of the public key.
+    /// @param pkY Y-coordinate of the public key.
+    /// @param sigs0 First part of the signature.
+    /// @param sigs1 Second part of the signature.
+    /// @param sigs2 Third part of the signature.
+    /// @param sigs3 Fourth part of the signature.
+    /// @param recipient The address of the recipient associated with the public key.
     function _addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, address recipient) internal {
         BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX, pkY);
         uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
@@ -166,22 +206,33 @@ contract ServiceNodeRewards is Ownable {
         } else {
             _aggregate_pubkey = pubkey;
         }
-        // TODO we also need service node public key
+        // TODO we also need service node public key so that the network can see who added themselves to the list
         emit NewServiceNode(nextServiceNodeID, recipient, pubkey);
         nextServiceNodeID++;
         SafeERC20.safeTransferFrom(designatedToken, recipient, address(this), stakingRequirement);
     }
 
-    // Proof of possession tag: "BLS_SIG_TRYANDINCREMENT_POP" || block.chainid ||  address(this) || PUBKEY
+    /// @notice Validates the proof of possession for a given BLS public key.
+    /// @param pubkey The BLS public key.
+    /// @param sigs0 First part of the proof of possession signature.
+    /// @param sigs1 Second part of the proof of possession signature.
+    /// @param sigs2 Third part of the proof of possession signature.
+    /// @param sigs3 Fourth part of the proof of possession signature.
     function validateProofOfPossession(BN256G1.G1Point memory pubkey, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) internal {
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(proofOfPossessionTag, pubkey.X, pubkey.Y))));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSProofOfPossession();
-
     }
 
-    // Initiate Remove Public Key
-    // Checking proof of possession again
+    /// @notice Initiates the removal of a BLS public key. This simply notifies the network that the node wishes to leave the network. There will be a delay before the network allows this node to exit gracefully. Should be called first and later once the network is happy for node to exist the user should call `removeBLSPublicKeyWithSignature` with a valid BLS signature returned by the network
+    /// @param serviceNodeID The ID of the service node to be removed.
+    function initiateRemoveBLSPublicKey(uint64 serviceNodeID) public {
+        _initiateRemoveBLSPublicKey(serviceNodeID, msg.sender);
+    }
+        
+    /// @notice Initiates the removal of a BLS public key.
+    /// @param serviceNodeID The ID of the service node.
+    /// @param recipient The address of the recipient associated with the service node.
     function _initiateRemoveBLSPublicKey(uint64 serviceNodeID, address recipient) internal {
         address serviceNodeRecipient = serviceNodes[serviceNodeID].recipient;
         if(serviceNodeRecipient == address(0)) revert RecipientAddressNotProvided(serviceNodeID);
@@ -191,8 +242,13 @@ contract ServiceNodeRewards is Ownable {
         emit ServiceNodeRemovalRequest(serviceNodeID, recipient, serviceNodes[serviceNodeID].pubkey);
     }
 
-    // Remove Public Key
-    // Validating Signature from network
+    /// @notice Removes a BLS public key using a signature.
+    /// @param serviceNodeID The ID of the service node to be removed.
+    /// @param sigs0 First part of the signature.
+    /// @param sigs1 Second part of the signature.
+    /// @param sigs2 Third part of the signature.
+    /// @param sigs3 Fourth part of the signature.
+    /// @param ids An array of service node IDs.
     function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
         //Validating signature
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(removalTag, serviceNodeID))));
@@ -207,12 +263,16 @@ contract ServiceNodeRewards is Ownable {
         _removeBLSPublicKey(serviceNodeID);
     }
 
+    /// @notice Removes a BLS public key after a specified wait time, this can be called without the BLS signature because the node has waited extra long   .
+    /// @param serviceNodeID The ID of the service node to be removed.
     function removeBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external {
         uint256 timestamp = serviceNodes[serviceNodeID].leaveRequestTimestamp + MAX_SERVICE_NODE_REMOVAL_WAIT_TIME;
         if(block.timestamp < timestamp) revert LeaveRequestTooEarly(serviceNodeID, timestamp);
         _removeBLSPublicKey(serviceNodeID);
     }
 
+    /// @dev Internal function to remove a BLS public key. Updates the linked list to remove the node
+    /// @param serviceNodeID The ID of the service node to be removed.
     function _removeBLSPublicKey(uint64 serviceNodeID) internal {
         uint64 previousServiceNode = serviceNodes[serviceNodeID].previous;
         uint64 nextServiceNode = serviceNodes[serviceNodeID].next;
@@ -236,7 +296,13 @@ contract ServiceNodeRewards is Ownable {
         emit ServiceNodeRemoval(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
     }
 
-    // Liquidate Public Key
+    /// @notice Liquidates a BLS public key using a signature. This function can be called by anyone if the network wishes for the node to be removed (ie from a dereg) without relying on the user to remove themselves
+    /// @param serviceNodeID The ID of the service node to be liquidated.
+    /// @param sigs0 First part of the signature.
+    /// @param sigs1 Second part of the signature.
+    /// @param sigs2 Third part of the signature.
+    /// @param sigs3 Fourth part of the signature.
+    /// @param ids An array of service node IDs.
     function liquidateBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
         //Validating signature
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(liquidateTag, serviceNodeID))));
@@ -254,21 +320,19 @@ contract ServiceNodeRewards is Ownable {
         // Calculating how much liquidator is paid out
         uint256 ratioSum = poolShareOfLiquidationRatio + liquidatorRewardRatio + recipientRatio;
         uint256 deposit = serviceNodes[serviceNodeID].deposit;
+        emit ServiceNodeLiquidated(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
 
+        // Transfer funds to pool and liquidator
         if (liquidatorRewardRatio > 0)
             SafeERC20.safeTransfer(designatedToken, msg.sender, deposit * liquidatorRewardRatio/ratioSum);
         if (poolShareOfLiquidationRatio > 0)
             SafeERC20.safeTransfer(designatedToken, address(foundationPool), deposit * poolShareOfLiquidationRatio/ratioSum);
-        emit ServiceNodeLiquidated(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
     }
 
-
-    // seedPublicKeyList:
-    /*An owner guarded function to set up the initial public key list. Before the hardfork our*/
-    /*current service node operators will need to provide their own BLS keys, the foundation*/
-    /*will take that list and initialise the list so that the network can immediately start on*/
-    /*hardfork.*/
-
+    /// @notice Seeds the public key list with an initial set of keys. Only should be called before the hardfork by the foundation to ensure the public key list is ready to operate.
+    /// @param pkX Array of X-coordinates for the public keys.
+    /// @param pkY Array of Y-coordinates for the public keys.
+    /// @param amounts Array of amounts associated with each public key.
     function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) public onlyOwner {
         if (pkX.length != pkY.length || pkX.length != amounts.length) revert ArrayLengthMismatch();
         uint64 lastServiceNode = serviceNodes[LIST_END].previous;
@@ -306,5 +370,6 @@ contract ServiceNodeRewards is Ownable {
 
     }
 
-    // ECHIDNA - Fuss testing
 }
+
+

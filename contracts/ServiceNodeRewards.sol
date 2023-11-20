@@ -15,7 +15,7 @@ contract ServiceNodeRewards is Ownable {
     IERC20 public immutable designatedToken;
     IERC20 public immutable foundationPool;
 
-    uint64 public nextServiceNodeID;
+    uint64 public nextServiceNodeID = 1;
     uint64 public constant LIST_END = type(uint64).max;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
 
@@ -80,7 +80,7 @@ contract ServiceNodeRewards is Ownable {
     mapping(address => Recipient) public recipients;
     mapping(bytes32 => uint64) public serviceNodeIDs;
 
-    BN256G1.G1Point _aggregate_pubkey;
+    BN256G1.G1Point public aggregate_pubkey;
 
     // EVENTS
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);
@@ -121,7 +121,7 @@ contract ServiceNodeRewards is Ownable {
         for(uint256 i = 0; i < ids.length; i++) {
             pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
         }
-        pubkey = BN256G1.add(_aggregate_pubkey, BN256G1.negate(pubkey));
+        pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(rewardTag, message))));
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
@@ -202,9 +202,9 @@ contract ServiceNodeRewards is Ownable {
         serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)] = nextServiceNodeID;
 
         if (serviceNodes[LIST_END].next != LIST_END) {
-            _aggregate_pubkey = BN256G1.add(_aggregate_pubkey, pubkey);
+            aggregate_pubkey = BN256G1.add(aggregate_pubkey, pubkey);
         } else {
-            _aggregate_pubkey = pubkey;
+            aggregate_pubkey = pubkey;
         }
         // TODO we also need service node public key so that the network can see who added themselves to the list
         emit NewServiceNode(nextServiceNodeID, recipient, pubkey);
@@ -256,7 +256,7 @@ contract ServiceNodeRewards is Ownable {
         for(uint256 i = 0; i < ids.length; i++) {
             pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
         }
-        pubkey = BN256G1.add(_aggregate_pubkey, BN256G1.negate(pubkey));
+        pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
 
@@ -283,7 +283,7 @@ contract ServiceNodeRewards is Ownable {
 
         BN256G1.G1Point memory pubkey = BN256G1.G1Point(serviceNodes[serviceNodeID].pubkey.X, serviceNodes[serviceNodeID].pubkey.Y);
 
-        _aggregate_pubkey = BN256G1.add(_aggregate_pubkey, BN256G1.negate(pubkey));
+        aggregate_pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
 
         delete serviceNodes[serviceNodeID].previous;
         delete serviceNodes[serviceNodeID].recipient;
@@ -310,7 +310,7 @@ contract ServiceNodeRewards is Ownable {
         for(uint256 i = 0; i < ids.length; i++) {
             pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
         }
-        pubkey = BN256G1.add(_aggregate_pubkey, BN256G1.negate(pubkey));
+        pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
 
@@ -332,32 +332,34 @@ contract ServiceNodeRewards is Ownable {
     /// @notice Seeds the public key list with an initial set of keys. Only should be called before the hardfork by the foundation to ensure the public key list is ready to operate.
     /// @param pkX Array of X-coordinates for the public keys.
     /// @param pkY Array of Y-coordinates for the public keys.
-    /// @param amounts Array of amounts associated with each public key.
+    /// @param amounts Array of amounts that the service node has staked, associated with each public key.
     function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) public onlyOwner {
         if (pkX.length != pkY.length || pkX.length != amounts.length) revert ArrayLengthMismatch();
         uint64 lastServiceNode = serviceNodes[LIST_END].previous;
         uint256 sumAmounts;
 
+        bool firstServiceNode = serviceNodesLength() == 0;
+
         for(uint256 i = 0; i < pkX.length; i++) {
             BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX[i], pkY[i]);
-            uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
+            bytes32 pubkeyhash = BN256G1.getKeyForG1Point(pubkey);
+            uint64 serviceNodeID = serviceNodeIDs[pubkeyhash];
             if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
 
-            uint64 previous = serviceNodes[LIST_END].previous;
-
             /*serviceNodes[nextServiceNodeID] = ServiceNode(previous, recipient, pubkey, LIST_END);*/
-            serviceNodes[previous].next = nextServiceNodeID;
-            serviceNodes[nextServiceNodeID].previous = previous;
+            serviceNodes[lastServiceNode].next = nextServiceNodeID;
+            serviceNodes[nextServiceNodeID].previous = lastServiceNode;
             serviceNodes[nextServiceNodeID].pubkey = pubkey;
             serviceNodes[nextServiceNodeID].deposit = amounts[i];
             sumAmounts = sumAmounts + amounts[i];
 
-            serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)] = nextServiceNodeID;
+            serviceNodeIDs[pubkeyhash] = nextServiceNodeID;
 
-            if (serviceNodes[LIST_END].next != LIST_END) {
-                _aggregate_pubkey = BN256G1.add(_aggregate_pubkey, pubkey);
+            if (!firstServiceNode) {
+                aggregate_pubkey = BN256G1.add(aggregate_pubkey, pubkey);
             } else {
-                _aggregate_pubkey = pubkey;
+                aggregate_pubkey = pubkey;
+                firstServiceNode = false;
             }
 
             emit NewSeededServiceNode(nextServiceNodeID, pubkey);
@@ -367,7 +369,20 @@ contract ServiceNodeRewards is Ownable {
 
         serviceNodes[lastServiceNode].next = LIST_END;
         serviceNodes[LIST_END].previous = lastServiceNode;
+    }
 
+    /// @notice Counts the number of service nodes in the linked list.
+    /// @return count The total number of service nodes in the list.
+    function serviceNodesLength() public view returns (uint256 count) {
+        uint64 currentNode = serviceNodes[LIST_END].next;
+        count = 0;
+
+        while (currentNode != LIST_END) {
+            count++;
+            currentNode = serviceNodes[currentNode].next;
+        }
+
+        return count;
     }
 
 }

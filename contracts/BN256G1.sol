@@ -57,7 +57,7 @@ library BN256G1 {
         assembly {
             success := call(sub(gas(), 2000), 7, 0, input, 0x80, r, 0x60)
         }
-        require(success, "Call to precompiled contract for add failed");
+        require(success, "Call to precompiled contract for mul failed");
     }
 
     function hashToG1(uint256 h) public returns (G1Point memory) {

@@ -1,11 +1,11 @@
 .PHONY: build test clean deploy-sepolia deploy-local node
 
-build:
-	npx hardhat compile
-
 test:
 	#REPORT_GAS=true npx hardhat test
 	npx hardhat test
+
+build:
+	npx hardhat compile
 
 node:
 	npx hardhat node --vvvv

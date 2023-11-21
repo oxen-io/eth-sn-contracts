@@ -8,7 +8,7 @@ build:
 	npx hardhat compile
 
 node:
-	npx hardhat node --vvvv
+	npx hardhat node
 
 deploy-local:
 	npx hardhat run scripts/deploy.js --network localhost

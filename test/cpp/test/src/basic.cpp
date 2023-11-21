@@ -1,4 +1,4 @@
-#include "service-node-rewards/tmp.hpp"
+#include "service-node-rewards/basic.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_all.hpp>
@@ -15,5 +15,5 @@ TEST_CASE( "Factorials are computed", "[factorial]" ) {
 }
 
 TEST_CASE( "TempAddTest", "[tmp]" ) {
-    REQUIRE( tmp::add(1,2) == 3 );
+    REQUIRE( basic::add(1,2) == 3 );
 }

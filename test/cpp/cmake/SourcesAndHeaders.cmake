@@ -1,11 +1,12 @@
 set(sources
-    src/tmp.cpp
+    src/basic.cpp
 )
 
 set(headers
-    include/service-node-rewards/tmp.hpp
+    include/service-node-rewards/basic.hpp
 )
 
 set(test_sources
-  src/tmp_test.cpp
+  src/basic.cpp
+  src/basic_ethereum.cpp
 )

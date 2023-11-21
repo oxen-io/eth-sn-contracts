@@ -1,6 +1,6 @@
 #pragma once
 
-namespace tmp
+namespace basic
 {
     int add(int, int);
 

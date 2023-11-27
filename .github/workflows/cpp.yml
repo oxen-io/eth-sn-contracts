@@ -1,0 +1,58 @@
+name: C++ Tests
+on: [push]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '16'
+
+    - uses: actions/cache@v2
+      with:
+        path: "**/node_modules"
+        key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+
+    - name: Install Yarn dependencies and build
+      run: |
+        yarn
+        yarn build
+
+    - name: Install prerequisites for C++ build
+      run: sudo apt-get update && sudo apt-get install -y cmake build-essential libboost-all-dev libssl-dev libcurl4-openssl-dev libsodium-dev
+
+    - name: Start Hardhat node in background
+      run: |
+        yarn hardhat-node &
+        echo "NODE_PID=$!" >> $GITHUB_ENV
+
+    - name: Deploy contracts to local node
+      run: yarn deploy-local
+
+    - name: Create Build Directory
+      run: mkdir -p test/cpp/build
+
+    - name: CMake Generate
+      working-directory: ./test/cpp/build
+      run: cmake -B. -H..
+
+    - name: Compile
+      working-directory: ./test/cpp/build
+      run: cmake --build .
+
+    - name: Run C++ tests
+      working-directory: ./test/cpp/build
+      run: ctest -VV --repeat until-pass:2 --test-dir .
+
+    - name: Kill Yarn node
+      run: kill $NODE_PID
+      if: always()
+

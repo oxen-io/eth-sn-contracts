@@ -160,12 +160,6 @@ add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 verbose_message("Project is now aliased as ${PROJECT_NAME}::${PROJECT_NAME}.\n")
 
 #
-# Format the project using the `clang-format` target (i.e: cmake --build build --target clang-format)
-#
-
-add_clang_format_target()
-
-#
 # Add version header
 #
 

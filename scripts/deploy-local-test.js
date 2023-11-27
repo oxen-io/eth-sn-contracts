@@ -49,7 +49,6 @@ async function main() {
         0,                              // pool share of liquidation ratio
         1                               // recipient ratio
     );
-    console.log(serviceNodeRewards);
 
     await serviceNodeRewards.waitForDeployment();
     const leng = serviceNodeRewards.serviceNodesLength();

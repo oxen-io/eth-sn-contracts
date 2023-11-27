@@ -116,6 +116,8 @@ verbose_message("Applied compiler warnings. Using standard ${CMAKE_CXX_STANDARD}
 target_link_libraries(
   ${PROJECT_NAME}
   PUBLIC
+    bls::bls256
+    mcl::mclbn256
     ethyl
   PRIVATE
     nlohmann_json::nlohmann_json

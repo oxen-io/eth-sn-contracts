@@ -1,4 +1,4 @@
-#include "service-node-rewards/basic.hpp"
+#include "service_node_rewards/basic.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_all.hpp>

@@ -1,42 +1,35 @@
-#include "eth-bls/bls_validator_contract.hpp"
-#include "eth-bls/utils.hpp"
-#include "eth-bls/ec_utils.hpp"
+#include "service_node_rewards/service_node_rewards_contract.hpp"
 
 #include <iostream>
 
-BLSValidatorsContract::BLSValidatorsContract(const std::string& _contractAddress, std::shared_ptr<Provider> _provider)
+ServiceNodeRewardsContract::ServiceNodeRewardsContract(const std::string& _contractAddress, std::shared_ptr<Provider> _provider)
         : contractAddress(_contractAddress), provider(_provider) {}
 
-Transaction BLSValidatorsContract::addValidator(const std::string& publicKey) {
-    const uint64_t amount = 15000;
-    Transaction tx(contractAddress, 0, 300000);
-
-    std::string functionSelector = utils::getFunctionSignature("addValidator(uint256,uint256,uint256)");
-
-    // Convert amount to hex string and pad it to 32 bytes
-    std::string amount_padded = utils::padTo32Bytes(utils::decimalToHex(amount), utils::PaddingDirection::LEFT);
-
-    // Concatenate the function selector and the encoded arguments
-    tx.data = functionSelector + publicKey + amount_padded;
-
+Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string& publicKey, const std::string& sig) {
+    Transaction tx(contractAddress, 0, 3000000);
+    std::string functionSelector = utils::getFunctionSignature("addBLSPublicKey(uint256,uint256,uint256,uint256,uint256,uint256)");
+    tx.data = functionSelector + publicKey + sig;
     return tx;
 }
 
-Transaction BLSValidatorsContract::clear(uint64_t additional_gas) {
-    Transaction tx(contractAddress, 0, 30000000 + additional_gas);
-    tx.data = utils::getFunctionSignature("clearValidators()");
-    return tx;
-}
-
-uint64_t BLSValidatorsContract::getValidatorsLength() {
+uint64_t ServiceNodeRewardsContract::serviceNodesLength() {
     ReadCallData callData;
     callData.contractAddress = contractAddress;
-    callData.data = utils::getFunctionSignature("getValidatorsLength()");
+    callData.data = utils::getFunctionSignature("serviceNodesLength()");
     std::string result = provider->callReadFunction(callData);
     return utils::fromHexStringToUint64(result);
 }
 
-Transaction BLSValidatorsContract::checkSigAGG(const std::string& sig, const std::string& message) {
+std::string ServiceNodeRewardsContract::designatedToken() {
+    ReadCallData callData;
+    callData.contractAddress = contractAddress;
+    callData.data = utils::getFunctionSignature("designatedToken()");
+
+    return provider->callReadFunction(callData);
+}
+
+//TODO sean review this function
+Transaction ServiceNodeRewardsContract::checkSigAGG(const std::string& sig, const std::string& message) {
     Transaction tx(contractAddress, 0, 30000000);
     std::string functionSelector = utils::getFunctionSignature("checkSigAGG(uint256,uint256,uint256,uint256,uint256)");
     std::string message_padded = utils::padTo32Bytes(utils::toHexString(utils::HashModulus(message)), utils::PaddingDirection::LEFT);
@@ -44,14 +37,16 @@ Transaction BLSValidatorsContract::checkSigAGG(const std::string& sig, const std
     return tx;
 }
 
-Transaction BLSValidatorsContract::checkAggPubkey(const std::string& aggPubkey) {
+//TODO sean review this function
+Transaction ServiceNodeRewardsContract::checkAggPubkey(const std::string& aggPubkey) {
     Transaction tx(contractAddress, 0, 800000);
     std::string functionSelector = utils::getFunctionSignature("checkAggPubkey(uint256,uint256)");
     tx.data = functionSelector + aggPubkey;
     return tx;
 }
 
-Transaction BLSValidatorsContract::checkSigAGGIndices(const std::string& sig, const std::string& message, const std::vector<int64_t>& indices) {
+//TODO sean review this function
+Transaction ServiceNodeRewardsContract::checkSigAGGIndices(const std::string& sig, const std::string& message, const std::vector<int64_t>& indices) {
     Transaction tx(contractAddress, 0, 30000000);
     //std::string functionSelector = utils::getFunctionSignature("checkSigAGGIndices(uint256[4],uint256,uint256[])");
     std::string functionSelector = utils::getFunctionSignature("checkSigAGGIndices(uint256,uint256,uint256,uint256,uint256,uint256[])");
@@ -67,7 +62,8 @@ Transaction BLSValidatorsContract::checkSigAGGIndices(const std::string& sig, co
     return tx;
 }
 
-Transaction BLSValidatorsContract::checkSigAGGNegateIndices(const std::string& sig, const std::string& message, const std::vector<int64_t>& non_signer_indices) {
+//TODO sean review this function
+Transaction ServiceNodeRewardsContract::checkSigAGGNegateIndices(const std::string& sig, const std::string& message, const std::vector<int64_t>& non_signer_indices) {
     Transaction tx(contractAddress, 0, 30000000);
     std::string functionSelector = utils::getFunctionSignature("checkSigAGGNegateIndices(uint256,uint256,uint256,uint256,uint256,uint256[])");
     std::string message_padded = utils::padTo32Bytes(utils::toHexString(utils::HashModulus(message)), utils::PaddingDirection::LEFT);
@@ -80,19 +76,4 @@ Transaction BLSValidatorsContract::checkSigAGGNegateIndices(const std::string& s
     tx.data = functionSelector + sig + message_padded + indices_padded;
 
     return tx;
-}
-
-Transaction BLSValidatorsContract::validateProofOfPossession(const std::string& publicKey, const std::string& sig) {
-    Transaction tx(contractAddress, 0, 1500000);
-    std::string functionSelector = utils::getFunctionSignature("validateProofOfPossession(uint256,uint256,uint256,uint256,uint256,uint256)");
-    tx.data = functionSelector + publicKey + sig;
-    return tx;
-}
-
-std::string BLSValidatorsContract::calcField(const std::string& publicKey) {
-    ReadCallData callData;
-    callData.contractAddress = contractAddress;
-    std::string functionSelector = utils::getFunctionSignature("calcField(uint256,uint256)");
-    callData.data = functionSelector + publicKey;
-    return provider->callReadFunction(callData);
 }

@@ -1,27 +1,27 @@
+#pragma once
 #include <string>
 #include <vector>
 #include <memory>
 
-#include "transaction.hpp"
-#include "provider.hpp"
+#include "service_node_rewards/ec_utils.hpp"
+#include "ethyl/provider.hpp"
+#include "ethyl/transaction.hpp"
 
-class BLSValidatorsContract {
+class ServiceNodeRewardsContract {
 public:
     // Constructor
-    BLSValidatorsContract(const std::string& _contractAddress, std::shared_ptr<Provider> _provider);
+    ServiceNodeRewardsContract(const std::string& _contractAddress, std::shared_ptr<Provider> _provider);
 
     // Method for creating a transaction to add a public key
-    Transaction addValidator(const std::string& publicKey);
+    Transaction addBLSPublicKey(const std::string& publicKey, const std::string& sig);
 
-    Transaction clear(uint64_t additional_gas = 0);
-    uint64_t getValidatorsLength();
+    uint64_t serviceNodesLength();
+    std::string designatedToken();
 
     Transaction checkSigAGG(const std::string& sig, const std::string& message);
     Transaction checkAggPubkey(const std::string& aggPubkey);
     Transaction checkSigAGGIndices(const std::string& sig, const std::string& message, const std::vector<int64_t>& indices);
     Transaction checkSigAGGNegateIndices(const std::string& sig, const std::string& message, const std::vector<int64_t>& non_signer_indices);
-    Transaction validateProofOfPossession(const std::string& publicKey, const std::string& sig);
-    std::string calcField(const std::string& publicKey);
 
 private:
     std::string contractAddress;

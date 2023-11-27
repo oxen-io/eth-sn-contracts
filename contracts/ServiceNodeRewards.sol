@@ -57,7 +57,7 @@ contract ServiceNodeRewards is Ownable {
     /// @param baseTag The base string for the tag.
     /// @return The constructed tag string.
     function buildTag(string memory baseTag) private view returns (string memory) {
-        return string(abi.encodePacked(baseTag, Strings.toString(block.chainid), address(this)));
+        return string(abi.encodePacked(baseTag, block.chainid, address(this)));
     }
 
     /// @notice Represents a service node in the network.

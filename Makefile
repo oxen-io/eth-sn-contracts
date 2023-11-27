@@ -11,7 +11,7 @@ node:
 	npx hardhat node
 
 deploy-local:
-	npx hardhat run scripts/deploy.js --network localhost
+	npx hardhat run scripts/deploy-local-test.js --network localhost
    
 deploy-sepolia:
 	npx hardhat run scripts/deploy.js --network sepolia

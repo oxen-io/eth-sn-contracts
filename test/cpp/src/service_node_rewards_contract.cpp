@@ -24,7 +24,13 @@ std::string ServiceNodeRewardsContract::designatedToken() {
     ReadCallData callData;
     callData.contractAddress = contractAddress;
     callData.data = utils::getFunctionSignature("designatedToken()");
+    return provider->callReadFunction(callData);
+}
 
+std::string ServiceNodeRewardsContract::aggregatePubkey() {
+    ReadCallData callData;
+    callData.contractAddress = contractAddress;
+    callData.data = utils::getFunctionSignature("aggregate_pubkey()");
     return provider->callReadFunction(callData);
 }
 

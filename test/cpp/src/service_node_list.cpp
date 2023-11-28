@@ -78,7 +78,6 @@ std::string ServiceNodeList::getLatestNodePubkey() {
     return nodes.back().getPublicKeyHex();
 }
 
-
 std::string ServiceNodeList::aggregatePubkeyHex() {
     bls::PublicKey aggregate_pubkey; 
     aggregate_pubkey.clear();

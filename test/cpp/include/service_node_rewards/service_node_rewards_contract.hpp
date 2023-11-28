@@ -17,6 +17,7 @@ public:
 
     uint64_t serviceNodesLength();
     std::string designatedToken();
+    std::string aggregatePubkey();
 
     Transaction checkSigAGG(const std::string& sig, const std::string& message);
     Transaction checkAggPubkey(const std::string& aggPubkey);

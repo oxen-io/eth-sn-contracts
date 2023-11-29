@@ -3,13 +3,15 @@
 #include "ethyl/utils.hpp"
 
 #include <random>
+#include <algorithm>
 
 const std::string proofOfPossessionTag = "BLS_SIG_TRYANDINCREMENT_POP";
 const std::string rewardTag = "BLS_SIG_TRYANDINCREMENT_REWARD";
 const std::string removalTag = "BLS_SIG_TRYANDINCREMENT_REMOVE";
 const std::string liquidateTag = "BLS_SIG_TRYANDINCREMENT_LIQUIDATE";
 
-ServiceNode::ServiceNode() {
+ServiceNode::ServiceNode(uint64_t _service_node_id) {
+    service_node_id = _service_node_id;
     // This init function generates a secret key calling blsSecretKeySetByCSPRNG
     secretKey.init();
 }
@@ -64,7 +66,8 @@ ServiceNodeList::ServiceNodeList(size_t numNodes) {
     blsSetGeneratorOfPublicKey(&publicKey);
     nodes.reserve(numNodes);
     for(size_t i = 0; i < numNodes; ++i) {
-        nodes.emplace_back(); // construct new ServiceNode in-place
+        nodes.emplace_back(next_service_node_id); // construct new ServiceNode in-place
+        next_service_node_id++;
     }
 }
 
@@ -72,8 +75,22 @@ ServiceNodeList::~ServiceNodeList() {
 }
 
 void ServiceNodeList::addNode() {
-    nodes.emplace_back(); // construct new ServiceNode in-place
+    nodes.emplace_back(next_service_node_id); // construct new ServiceNode in-plac
+    next_service_node_id++;
 }
+
+void ServiceNodeList::deleteNode(uint64_t serviceNodeID) {
+    auto it = std::find_if(nodes.begin(), nodes.end(), 
+                           [serviceNodeID](const ServiceNode& node) {
+                               return node.service_node_id == serviceNodeID;
+                           });
+
+    if (it != nodes.end()) {
+        nodes.erase(it);
+    }
+    // Optionally, you can handle the case where the node is not found
+}
+
 std::string ServiceNodeList::getLatestNodePubkey() {
     return nodes.back().getPublicKeyHex();
 }
@@ -108,32 +125,67 @@ std::string ServiceNodeList::aggregateSignaturesFromIndices(const std::string& m
 }
 
 
-std::vector<int64_t> ServiceNodeList::findNonSigners(const std::vector<int64_t>& indices) {
-    std::vector<int64_t> nonSignerIndices = {};
-    for (int64_t i = 0; i < static_cast<int64_t>(nodes.size()); ++i) {
-        if (std::find(indices.begin(), indices.end(), i) == indices.end()) {
-            nonSignerIndices.push_back(i);
+std::vector<uint64_t> ServiceNodeList::findNonSigners(const std::vector<uint64_t>& serviceNodeIDs) {
+    std::vector<uint64_t> nonSignerIndices = {};
+    for (const auto& node: nodes) {
+        auto it = std::find(serviceNodeIDs.begin(), serviceNodeIDs.end(), node.service_node_id);
+        if (it == serviceNodeIDs.end()) {
+            nonSignerIndices.push_back(node.service_node_id);
         }
     }
     return nonSignerIndices;
 }
 
-std::vector<int64_t> ServiceNodeList::randomSigners(const size_t numOfRandomIndices) {
+std::vector<uint64_t> ServiceNodeList::randomSigners(const size_t numOfRandomIndices) {
     if (numOfRandomIndices > nodes.size()) {
         throw std::invalid_argument("The number of random indices to choose is greater than the total number of indices available.");
     }
 
-    std::vector<int64_t> indices(nodes.size());
-    for (int64_t i = 0; i < static_cast<int64_t>(nodes.size()); ++i) {
-        indices[static_cast<size_t>(i)] = i;
+    std::vector<uint64_t> serviceNodeIDs(nodes.size());
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        serviceNodeIDs[i] = nodes[i].service_node_id;
     }
 
     std::random_device rd;
     std::mt19937 g(rd());
-    std::shuffle(indices.begin(), indices.end(), g);
+    std::shuffle(serviceNodeIDs.begin(), serviceNodeIDs.end(), g);
 
-    indices.resize(numOfRandomIndices);  // Reduce the size of the vector to numOfRandomIndices
-    return indices;
+    serviceNodeIDs.resize(numOfRandomIndices);  // Reduce the size of the vector to numOfRandomIndices
+    return serviceNodeIDs;
+}
+
+uint64_t ServiceNodeList::randomServiceNodeID() {
+    std::vector<uint64_t> serviceNodeIDs(nodes.size());
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        serviceNodeIDs[i] = nodes[i].service_node_id;
+    }
+
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(serviceNodeIDs.begin(), serviceNodeIDs.end(), g);
+
+    return serviceNodeIDs[0];
+}
+
+std::string ServiceNodeList::liquidateNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
+    std::string fullTag = buildTag(liquidateTag, chainID, contractAddress);
+    std::string message = "0x" + fullTag + utils::padTo8Bytes(std::to_string(nodeID), utils::PaddingDirection::LEFT);
+    const std::array<unsigned char, 32> hash = utils::hash(message);
+    bls::Signature aggSig;
+    aggSig.clear();
+    for(auto& service_node_id: service_node_ids) {
+        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
+    }
+    return utils::SignatureToHex(aggSig);
+}
+
+int64_t ServiceNodeList::findNodeIndex(uint64_t service_node_id) {
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        if (nodes[i].service_node_id == service_node_id) {
+            return static_cast<int64_t>(i); // Cast size_t to int
+        }
+    }
+    return -1; // Indicate that no node was found with the given id
 }
 
 

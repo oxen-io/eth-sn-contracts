@@ -110,4 +110,35 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         snl.deleteNode(service_node_to_remove);
         REQUIRE(rewards_contract.aggregatePubkey() == "0x" + snl.aggregatePubkeyHex());
     }
+
+    SECTION( "Initiate remove public key with correct signer" ) {
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            signer.sendTransaction(tx, seckey);
+        }
+        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
+        hash = signer.sendTransaction(tx, seckey);
+        REQUIRE(hash != "");
+        REQUIRE(provider->transactionSuccessful(hash));
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+    }
+
+    SECTION( "Initiate remove public key with incorrect signer" ) {
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            signer.sendTransaction(tx, seckey);
+        }
+        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
+        std::vector<unsigned char> badseckey = utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
+        REQUIRE_THROWS(signer.sendTransaction(tx, badseckey));
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+    }
 }

@@ -22,6 +22,7 @@ public:
     Transaction liquidateBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
     Transaction initiateRemoveBLSPublicKey(const uint64_t service_node_id);
     Transaction removeBLSPublicKeyAfterWaitTime(const uint64_t service_node_id);
+    Transaction removeBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
 
     Transaction checkSigAGG(const std::string& sig, const std::string& message);
     Transaction checkAggPubkey(const std::string& aggPubkey);

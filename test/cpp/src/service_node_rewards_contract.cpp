@@ -48,6 +48,20 @@ Transaction ServiceNodeRewardsContract::liquidateBLSPublicKeyWithSignature(const
     return tx;
 }
 
+Transaction ServiceNodeRewardsContract::removeBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
+    Transaction tx(contractAddress, 0, 30000000);
+    std::string functionSelector = utils::getFunctionSignature("removeBLSPublicKeyWithSignature(uint64,uint256,uint256,uint256,uint256,uint64[])");
+    std::string node_id_padded = utils::padTo32Bytes(utils::decimalToHex(service_node_id), utils::PaddingDirection::LEFT);
+    std::string indices_padded = utils::padTo32Bytes("c0", utils::PaddingDirection::LEFT);
+    indices_padded += utils::padTo32Bytes(utils::decimalToHex(non_signer_indices.size()), utils::PaddingDirection::LEFT);
+    for (const auto index: non_signer_indices) {
+        indices_padded += utils::padTo32Bytes(utils::decimalToHex(index), utils::PaddingDirection::LEFT);
+    }
+    tx.data = functionSelector + node_id_padded + sig + indices_padded;
+
+    return tx;
+}
+
 Transaction ServiceNodeRewardsContract::initiateRemoveBLSPublicKey(const uint64_t service_node_id) {
     Transaction tx(contractAddress, 0, 3000000);
     std::string functionSelector = utils::getFunctionSignature("initiateRemoveBLSPublicKey(uint64)");

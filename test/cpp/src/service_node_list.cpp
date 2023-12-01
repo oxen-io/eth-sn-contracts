@@ -179,6 +179,18 @@ std::string ServiceNodeList::liquidateNodeFromIndices(uint64_t nodeID, uint32_t 
     return utils::SignatureToHex(aggSig);
 }
 
+std::string ServiceNodeList::removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
+    std::string fullTag = buildTag(removalTag, chainID, contractAddress);
+    std::string message = "0x" + fullTag + utils::padTo8Bytes(std::to_string(nodeID), utils::PaddingDirection::LEFT);
+    const std::array<unsigned char, 32> hash = utils::hash(message);
+    bls::Signature aggSig;
+    aggSig.clear();
+    for(auto& service_node_id: service_node_ids) {
+        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
+    }
+    return utils::SignatureToHex(aggSig);
+}
+
 int64_t ServiceNodeList::findNodeIndex(uint64_t service_node_id) {
     for (size_t i = 0; i < nodes.size(); ++i) {
         if (nodes[i].service_node_id == service_node_id) {

@@ -48,6 +48,7 @@ public:
     std::string aggregateSignaturesFromIndices(const std::string& message, const std::vector<int64_t>& indices);
 
     std::string liquidateNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& indices);
+    std::string removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& indices);
 
     std::vector<uint64_t> findNonSigners(const std::vector<uint64_t>& indices);
     std::vector<uint64_t> randomSigners(const size_t numOfRandomIndices);

@@ -242,7 +242,7 @@ contract ServiceNodeRewards is Ownable {
         emit ServiceNodeRemovalRequest(serviceNodeID, recipient, serviceNodes[serviceNodeID].pubkey);
     }
 
-    /// @notice Removes a BLS public key using a signature.
+    /// @notice Removes a BLS public key using an aggregated BLS signature from the network.
     /// @param serviceNodeID The ID of the service node to be removed.
     /// @param sigs0 First part of the signature.
     /// @param sigs1 Second part of the signature.

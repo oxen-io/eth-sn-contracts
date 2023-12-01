@@ -198,4 +198,26 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         snl.deleteNode(service_node_to_remove);
         REQUIRE(rewards_contract.aggregatePubkey() == "0x" + snl.aggregatePubkeyHex());
     }
+
+    SECTION( "Add several public keys to the smart contract and remove one of them with a single non signer" ) {
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            signer.sendTransaction(tx, seckey);
+        }
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        const auto signers = snl.randomSigners(snl.nodes.size() - 1);
+        const auto sig = snl.removeNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers);
+        const auto non_signers = snl.findNonSigners(signers);
+        tx = rewards_contract.removeBLSPublicKeyWithSignature(service_node_to_remove, sig, non_signers);
+        hash = signer.sendTransaction(tx, seckey);
+        REQUIRE(hash != "");
+        REQUIRE(provider->transactionSuccessful(hash));
+        REQUIRE(rewards_contract.serviceNodesLength() == 2);
+        snl.deleteNode(service_node_to_remove);
+        REQUIRE(rewards_contract.aggregatePubkey() == "0x" + snl.aggregatePubkeyHex());
+    }
 }

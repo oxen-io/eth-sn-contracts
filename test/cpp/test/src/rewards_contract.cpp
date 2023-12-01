@@ -1,5 +1,6 @@
 #include <iostream>
 #include <limits>
+#include <chrono>
 
 #include "ethyl/provider.hpp"
 #include "ethyl/signer.hpp"
@@ -140,5 +141,61 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         std::vector<unsigned char> badseckey = utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
         REQUIRE_THROWS(signer.sendTransaction(tx, badseckey));
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
+    }
+
+    SECTION( "Remove public key after wait time should fail if node hasn't initiated removal" ) {
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            signer.sendTransaction(tx, seckey);
+        }
+        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        tx = rewards_contract.removeBLSPublicKeyAfterWaitTime(service_node_to_remove);
+        REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+    }
+
+    SECTION( "Remove public key after wait time should fail if not enough time has passed since node initiated removal" ) {
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            signer.sendTransaction(tx, seckey);
+        }
+        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
+        hash = signer.sendTransaction(tx, seckey);
+        REQUIRE(hash != "");
+        REQUIRE(provider->transactionSuccessful(hash));
+        tx = rewards_contract.removeBLSPublicKeyAfterWaitTime(service_node_to_remove);
+        REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+    }
+
+    SECTION( "Remove public key after wait time should succeed if enough time has passed since node initiated removal" ) {
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            signer.sendTransaction(tx, seckey);
+        }
+        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
+        hash = signer.sendTransaction(tx, seckey);
+        REQUIRE(hash != "");
+        REQUIRE(provider->transactionSuccessful(hash));
+        // Fast forward 31 days
+        provider->evm_increaseTime(std::chrono::hours(31 * 24));
+        tx = rewards_contract.removeBLSPublicKeyAfterWaitTime(service_node_to_remove);
+        hash = signer.sendTransaction(tx, seckey);
+        REQUIRE(hash != "");
+        REQUIRE(provider->transactionSuccessful(hash));
+        REQUIRE(rewards_contract.serviceNodesLength() == 2);
+        snl.deleteNode(service_node_to_remove);
+        REQUIRE(rewards_contract.aggregatePubkey() == "0x" + snl.aggregatePubkeyHex());
     }
 }

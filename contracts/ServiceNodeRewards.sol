@@ -96,7 +96,7 @@ contract ServiceNodeRewards is Ownable {
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
     error RecipientAddressNotProvided(uint64 serviceNodeID);
     error EarlierLeaveRequestMade(uint64 serviceNodeID, address recipient);
-    error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp);
+    error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
     error ServiceNodeDoesntExist(uint64 serviceNodeID);
     error InvalidBLSSignature();
     error InvalidBLSProofOfPossession();
@@ -266,8 +266,10 @@ contract ServiceNodeRewards is Ownable {
     /// @notice Removes a BLS public key after a specified wait time, this can be called without the BLS signature because the node has waited extra long   .
     /// @param serviceNodeID The ID of the service node to be removed.
     function removeBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external {
-        uint256 timestamp = serviceNodes[serviceNodeID].leaveRequestTimestamp + MAX_SERVICE_NODE_REMOVAL_WAIT_TIME;
-        if(block.timestamp < timestamp) revert LeaveRequestTooEarly(serviceNodeID, timestamp);
+        uint256 leaveRequestTimestamp = serviceNodes[serviceNodeID].leaveRequestTimestamp;
+        if(leaveRequestTimestamp == 0) revert LeaveRequestTooEarly(serviceNodeID, leaveRequestTimestamp, block.timestamp);
+        uint256 timestamp = leaveRequestTimestamp + MAX_SERVICE_NODE_REMOVAL_WAIT_TIME;
+        if(block.timestamp < timestamp) revert LeaveRequestTooEarly(serviceNodeID, timestamp, block.timestamp);
         _removeBLSPublicKey(serviceNodeID);
     }
 

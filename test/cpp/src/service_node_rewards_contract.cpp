@@ -56,6 +56,14 @@ Transaction ServiceNodeRewardsContract::initiateRemoveBLSPublicKey(const uint64_
     return tx;
 }
 
+Transaction ServiceNodeRewardsContract::removeBLSPublicKeyAfterWaitTime(const uint64_t service_node_id) {
+    Transaction tx(contractAddress, 0, 3000000);
+    std::string functionSelector = utils::getFunctionSignature("removeBLSPublicKeyAfterWaitTime(uint64)");
+    std::string node_id_padded = utils::padTo32Bytes(utils::decimalToHex(service_node_id), utils::PaddingDirection::LEFT);
+    tx.data = functionSelector + node_id_padded;
+    return tx;
+}
+
 //TODO sean review this function
 Transaction ServiceNodeRewardsContract::checkSigAGG(const std::string& sig, const std::string& message) {
     Transaction tx(contractAddress, 0, 30000000);

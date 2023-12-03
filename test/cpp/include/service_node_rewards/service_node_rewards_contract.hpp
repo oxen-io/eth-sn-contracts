@@ -34,11 +34,6 @@ public:
     Transaction removeBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
     Transaction updateRewardsBalance(const std::string& address, const uint64_t amount, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
 
-    Transaction checkSigAGG(const std::string& sig, const std::string& message);
-    Transaction checkAggPubkey(const std::string& aggPubkey);
-    Transaction checkSigAGGIndices(const std::string& sig, const std::string& message, const std::vector<int64_t>& indices);
-    Transaction checkSigAGGNegateIndices(const std::string& sig, const std::string& message, const std::vector<int64_t>& non_signer_indices);
-
 private:
     std::string contractAddress;
     std::shared_ptr<Provider> provider;

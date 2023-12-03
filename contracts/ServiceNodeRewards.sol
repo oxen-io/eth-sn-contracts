@@ -101,6 +101,7 @@ contract ServiceNodeRewards is Ownable {
     error InvalidBLSSignature();
     error InvalidBLSProofOfPossession();
     error ArrayLengthMismatch();
+    error InvalidParameter();
 
     /// CLAIMING REWARDS
     /// This section contains all the functions necessary for a user to receive the rewards from the service node network. Process looks like follows:
@@ -108,33 +109,40 @@ contract ServiceNodeRewards is Ownable {
     /// 2) User will call updateRewardsBalance with an encoded message of the amount they are allowed to claim. This signature is checked over this message and the recipient structure is updated fo the amount they are allowed to claim
     /// 3) User will call claimRewards which will pay out their balance in the recipients struct
 
-    /// @notice Updates the rewards balance for a given recipient.
-    /// @param sigs0 First part of the signature.
-    /// @param sigs1 Second part of the signature.
-    /// @param sigs2 Third part of the signature.
-    /// @param sigs3 Fourth part of the signature.
-    /// @param message The message associated with the rewards. This contains the recipient address and amount they are allowed to claim. This has to be signed by the network.
-    /// @param ids An array of service node IDs that did not sign the message.
-    function updateRewardsBalance(uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint256 message, uint64[] memory ids) public {
-        BN256G1.G1Point memory pubkey;
-        //TODO sean length of ids needs to be checked to make sure majority of network signed
-        for(uint256 i = 0; i < ids.length; i++) {
-            pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
-        }
-        pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
-        BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(rewardTag, message))));
-        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
+	/// @notice Updates the rewards balance for a given recipient, requires a BLS signature from the network
+	/// @param recipientAddress The address of the recipient.
+	/// @param recipientAmount The amount of rewards the recipient is allowed to claim.
+	/// @param sigs0 First part of the signature.
+	/// @param sigs1 Second part of the signature.
+	/// @param sigs2 Third part of the signature.
+	/// @param sigs3 Fourth part of the signature.
+	/// @param ids An array of service node IDs that did not sign the message.
+	function updateRewardsBalance(
+		address recipientAddress, 
+		uint256 recipientAmount,
+		uint256 sigs0,
+		uint256 sigs1,
+		uint256 sigs2,
+		uint256 sigs3,
+		uint64[] memory ids
+	) public {
+        if (recipientAmount == 0 || recipientAddress == address(0)) revert InvalidParameter();
+		BN256G1.G1Point memory pubkey;
+		//TODO sean length of ids needs to be checked to make sure majority of network signed
+		for(uint256 i = 0; i < ids.length; i++) {
+			pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
+		}
+		pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
+		BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
+		bytes memory encodedMessage = abi.encodePacked(rewardTag, recipientAddress, recipientAmount);
+		BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+		if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
 
+		uint256 previousBalance = recipients[recipientAddress].rewards;
+		recipients[recipientAddress].rewards = recipientAmount;
+		emit RewardsBalanceUpdated(recipientAddress, recipientAmount, previousBalance);
+	}
 
-		// TODO sean define encoding/decoding structure of message and parse these from message
-        address recipientAddress;
-        uint256 recipientAmount;
-
-        uint256 previousBalance = recipients[recipientAddress].rewards;
-        recipients[recipientAddress].rewards = recipientAmount;
-        emit RewardsBalanceUpdated(recipientAddress, recipientAmount, previousBalance);
-    }
 
     /// @notice Builds a message for recipient reward calculation.
     /// @param recipientAddress The address of the recipient.

@@ -191,6 +191,21 @@ std::string ServiceNodeList::removeNodeFromIndices(uint64_t nodeID, uint32_t cha
     return utils::SignatureToHex(aggSig);
 }
 
+std::string ServiceNodeList::updateRewardsBalance(const std::string& address, const uint64_t amount, const uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
+    std::string rewardAddressOutput = address;
+    if (rewardAddressOutput.substr(0, 2) == "0x")
+        rewardAddressOutput = rewardAddressOutput.substr(2);  // remove "0x"
+    std::string fullTag = buildTag(rewardTag, chainID, contractAddress);
+    std::string message = "0x" + fullTag + utils::padToNBytes(rewardAddressOutput, 20, utils::PaddingDirection::LEFT) + utils::padTo32Bytes(std::to_string(amount), utils::PaddingDirection::LEFT);
+    const std::array<unsigned char, 32> hash = utils::hash(message);
+    bls::Signature aggSig;
+    aggSig.clear();
+    for(auto& service_node_id: service_node_ids) {
+        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
+    }
+    return utils::SignatureToHex(aggSig);
+}
+
 int64_t ServiceNodeList::findNodeIndex(uint64_t service_node_id) {
     for (size_t i = 0; i < nodes.size(); ++i) {
         if (nodes[i].service_node_id == service_node_id) {

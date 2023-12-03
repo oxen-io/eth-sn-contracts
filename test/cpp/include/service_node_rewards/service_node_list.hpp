@@ -49,6 +49,7 @@ public:
 
     std::string liquidateNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& indices);
     std::string removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& indices);
+    std::string updateRewardsBalance(const std::string& address, const uint64_t amount, const uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids);
 
     std::vector<uint64_t> findNonSigners(const std::vector<uint64_t>& indices);
     std::vector<uint64_t> randomSigners(const size_t numOfRandomIndices);

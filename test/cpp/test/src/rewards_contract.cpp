@@ -220,4 +220,30 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         snl.deleteNode(service_node_to_remove);
         REQUIRE(rewards_contract.aggregatePubkey() == "0x" + snl.aggregatePubkeyHex());
     }
+
+    SECTION( "Add several public keys to the smart contract and update the rewards of one of them" ) {
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            signer.sendTransaction(tx, seckey);
+        }
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+        const std::string recipientAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+        auto recipient = rewards_contract.viewRecipientData(recipientAddress);
+        REQUIRE(recipient.rewards == 0);
+        REQUIRE(recipient.claimed == 0);
+        const uint64_t recipientAmount = 1;
+        const auto signers = snl.randomSigners(snl.nodes.size() - 1);
+        const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
+        const auto non_signers = snl.findNonSigners(signers);
+        tx = rewards_contract.updateRewardsBalance(recipientAddress, recipientAmount, sig, non_signers);
+        hash = signer.sendTransaction(tx, seckey);
+        REQUIRE(hash != "");
+        REQUIRE(provider->transactionSuccessful(hash));
+        recipient = rewards_contract.viewRecipientData(recipientAddress);
+        REQUIRE(recipient.rewards == recipientAmount);
+        REQUIRE(recipient.claimed == 0);
+    }
 }

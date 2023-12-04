@@ -19,6 +19,8 @@ contract ServiceNodeRewards is Ownable {
     uint64 public constant LIST_END = type(uint64).max;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
 
+    uint256 public blsNonSignerThreshold = 0;
+
     string public proofOfPossessionTag;
     string public rewardTag;
     string public removalTag;
@@ -102,6 +104,7 @@ contract ServiceNodeRewards is Ownable {
     error InvalidBLSProofOfPossession();
     error ArrayLengthMismatch();
     error InvalidParameter();
+    error InsufficientBLSSignatures(uint256 numSigners, uint256 requiredSigners);
 
     /// CLAIMING REWARDS
     /// This section contains all the functions necessary for a user to receive the rewards from the service node network. Process looks like follows:
@@ -127,8 +130,8 @@ contract ServiceNodeRewards is Ownable {
 		uint64[] memory ids
 	) public {
         if (recipientAmount == 0 || recipientAddress == address(0)) revert InvalidParameter();
+        if (ids.length > blsNonSignerThreshold) revert InsufficientBLSSignatures(serviceNodesLength() - ids.length, serviceNodesLength() - blsNonSignerThreshold);
 		BN256G1.G1Point memory pubkey;
-		//TODO sean length of ids needs to be checked to make sure majority of network signed
 		for(uint256 i = 0; i < ids.length; i++) {
 			pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
 		}
@@ -214,6 +217,7 @@ contract ServiceNodeRewards is Ownable {
         } else {
             aggregate_pubkey = pubkey;
         }
+        updateBLSThreshold();
         // TODO we also need service node public key so that the network can see who added themselves to the list
         emit NewServiceNode(nextServiceNodeID, recipient, pubkey);
         nextServiceNodeID++;
@@ -258,6 +262,7 @@ contract ServiceNodeRewards is Ownable {
     /// @param sigs3 Fourth part of the signature.
     /// @param ids An array of service node IDs.
     function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
+        if (ids.length > blsNonSignerThreshold) revert InsufficientBLSSignatures(serviceNodesLength() - ids.length, serviceNodesLength() - blsNonSignerThreshold);
         //Validating signature
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(removalTag, serviceNodeID))));
         BN256G1.G1Point memory pubkey;
@@ -303,6 +308,8 @@ contract ServiceNodeRewards is Ownable {
 
         delete serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
 
+        updateBLSThreshold();
+
         emit ServiceNodeRemoval(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
     }
 
@@ -314,6 +321,7 @@ contract ServiceNodeRewards is Ownable {
     /// @param sigs3 Fourth part of the signature.
     /// @param ids An array of service node IDs.
     function liquidateBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
+        if (ids.length > blsNonSignerThreshold) revert InsufficientBLSSignatures(serviceNodesLength() - ids.length, serviceNodesLength() - blsNonSignerThreshold);
         //Validating signature
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(liquidateTag, serviceNodeID))));
         BN256G1.G1Point memory pubkey;
@@ -379,6 +387,8 @@ contract ServiceNodeRewards is Ownable {
 
         serviceNodes[lastServiceNode].next = LIST_END;
         serviceNodes[LIST_END].previous = lastServiceNode;
+
+        updateBLSThreshold();
     }
 
     /// @notice Counts the number of service nodes in the linked list.
@@ -393,6 +403,16 @@ contract ServiceNodeRewards is Ownable {
         }
 
         return count;
+    }
+
+    /// @notice Updates the internal threshold for how many non signers an aggregate signature can contain before being invalid
+    function updateBLSThreshold() internal {
+        uint256 totalNodes = serviceNodesLength();
+        if (totalNodes > 900) {
+            blsNonSignerThreshold = 300;
+        } else {
+            blsNonSignerThreshold = totalNodes / 3;
+        }
     }
 
 }

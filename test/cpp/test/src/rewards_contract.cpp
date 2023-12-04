@@ -112,6 +112,25 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(rewards_contract.aggregatePubkey() == "0x" + snl.aggregatePubkeyHex());
     }
 
+    SECTION( "Add several public keys to the smart contract and try liquidate one of them with a not enough signers" ) {
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            signer.sendTransaction(tx, seckey);
+        }
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        const auto signers = snl.randomSigners(snl.nodes.size() - 2);
+        const auto sig = snl.liquidateNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers);
+        const auto non_signers = snl.findNonSigners(signers);
+        tx = rewards_contract.liquidateBLSPublicKeyWithSignature(service_node_to_remove, sig, non_signers);
+        REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+        REQUIRE(rewards_contract.aggregatePubkey() == "0x" + snl.aggregatePubkeyHex());
+    }
+
     SECTION( "Initiate remove public key with correct signer" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -221,6 +240,25 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(rewards_contract.aggregatePubkey() == "0x" + snl.aggregatePubkeyHex());
     }
 
+    SECTION( "Add several public keys to the smart contract and try remove one of them not enough signers" ) {
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            signer.sendTransaction(tx, seckey);
+        }
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        const auto signers = snl.randomSigners(snl.nodes.size() - 2);
+        const auto sig = snl.removeNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers);
+        const auto non_signers = snl.findNonSigners(signers);
+        tx = rewards_contract.removeBLSPublicKeyWithSignature(service_node_to_remove, sig, non_signers);
+        REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+        REQUIRE(rewards_contract.aggregatePubkey() == "0x" + snl.aggregatePubkeyHex());
+    }
+
     SECTION( "Add several public keys to the smart contract and update the rewards of one of them" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -245,6 +283,27 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         recipient = rewards_contract.viewRecipientData(recipientAddress);
         REQUIRE(recipient.rewards == recipientAmount);
         REQUIRE(recipient.claimed == 0);
+    }
+
+    SECTION( "Add several public keys to the smart contract and update the rewards without enough signers and expect fail" ) {
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            signer.sendTransaction(tx, seckey);
+        }
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+        const std::string recipientAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+        auto recipient = rewards_contract.viewRecipientData(recipientAddress);
+        REQUIRE(recipient.rewards == 0);
+        REQUIRE(recipient.claimed == 0);
+        const uint64_t recipientAmount = 1;
+        const auto signers = snl.randomSigners(snl.nodes.size() - 2);
+        const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
+        const auto non_signers = snl.findNonSigners(signers);
+        tx = rewards_contract.updateRewardsBalance(recipientAddress, recipientAmount, sig, non_signers);
+        REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
     }
 
     SECTION( "Add several public keys to the smart contract and update the rewards of one of them and successfully claim the rewards" ) {

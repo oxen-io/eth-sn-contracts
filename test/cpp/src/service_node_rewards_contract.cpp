@@ -118,3 +118,10 @@ Transaction ServiceNodeRewardsContract::updateRewardsBalance(const std::string& 
 
     return tx;
 }
+
+Transaction ServiceNodeRewardsContract::claimRewards() {
+    Transaction tx(contractAddress, 0, 3000000);
+    std::string functionSelector = utils::getFunctionSignature("claimRewards()");
+    tx.data = functionSelector;
+    return tx;
+}

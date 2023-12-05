@@ -129,3 +129,10 @@ Transaction ServiceNodeRewardsContract::claimRewards() {
     tx.data = functionSelector;
     return tx;
 }
+
+Transaction ServiceNodeRewardsContract::start() {
+    Transaction tx(contractAddress, 0, 3000000);
+    std::string functionSelector = utils::getFunctionSignature("start()");
+    tx.data = functionSelector;
+    return tx;
+}

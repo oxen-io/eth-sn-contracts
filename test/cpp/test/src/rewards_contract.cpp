@@ -40,6 +40,12 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
     REQUIRE(hash != "");
     REQUIRE(provider->transactionSuccessful(hash));
 
+    // Start our contract
+    tx = rewards_contract.start();;
+    hash = signer.sendTransaction(tx, seckey);
+    REQUIRE(hash != "");
+    REQUIRE(provider->transactionSuccessful(hash));
+
     SECTION( "Add a public key to the smart contract" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 0);
         ServiceNodeList snl(1);

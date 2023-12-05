@@ -5,10 +5,14 @@
 ServiceNodeRewardsContract::ServiceNodeRewardsContract(const std::string& _contractAddress, std::shared_ptr<Provider> _provider)
         : contractAddress(_contractAddress), provider(_provider) {}
 
-Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string& publicKey, const std::string& sig) {
+Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string& publicKey, const std::string& sig, const std::string& serviceNodePubkey, const std::string& serviceNodeSignature) {
     Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = utils::getFunctionSignature("addBLSPublicKey(uint256,uint256,uint256,uint256,uint256,uint256)");
-    tx.data = functionSelector + publicKey + sig;
+    std::string functionSelector = utils::getFunctionSignature("addBLSPublicKey(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)");
+
+    const std::string serviceNodePubkeyPadded = utils::padTo32Bytes(serviceNodePubkey, utils::PaddingDirection::LEFT);
+    const std::string serviceNodeSignaturePadded = utils::padTo32Bytes(serviceNodeSignature, utils::PaddingDirection::LEFT);
+
+    tx.data = functionSelector + publicKey + sig + serviceNodePubkeyPadded + serviceNodeSignaturePadded;
     return tx;
 }
 

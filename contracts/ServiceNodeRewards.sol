@@ -86,7 +86,7 @@ contract ServiceNodeRewards is Ownable {
 
     // EVENTS
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);
-    event NewServiceNode(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
+    event NewServiceNode(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey, uint256 serviceNodePubkey, uint256 serviceNodeSignature);
     event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
@@ -182,8 +182,8 @@ contract ServiceNodeRewards is Ownable {
     /// @param sigs1 Second part of the proof of possession signature.
     /// @param sigs2 Third part of the proof of possession signature.
     /// @param sigs3 Fourth part of the proof of possession signature.
-    function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) public {
-        _addBLSPublicKey(pkX, pkY, sigs0, sigs1, sigs2, sigs3, msg.sender);
+    function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint256 serviceNodePubkey, uint256 serviceNodeSignature) public {
+        _addBLSPublicKey(pkX, pkY, sigs0, sigs1, sigs2, sigs3, msg.sender, serviceNodePubkey, serviceNodeSignature);
     }
 
     /// @dev Internal function to add a BLS public key.
@@ -194,7 +194,7 @@ contract ServiceNodeRewards is Ownable {
     /// @param sigs2 Third part of the signature.
     /// @param sigs3 Fourth part of the signature.
     /// @param recipient The address of the recipient associated with the public key.
-    function _addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, address recipient) internal {
+    function _addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, address recipient, uint256 serviceNodePubkey, uint256 serviceNodeSignature) internal {
         BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX, pkY);
         uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
         if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
@@ -219,7 +219,7 @@ contract ServiceNodeRewards is Ownable {
         }
         updateBLSThreshold();
         // TODO we also need service node public key so that the network can see who added themselves to the list
-        emit NewServiceNode(nextServiceNodeID, recipient, pubkey);
+        emit NewServiceNode(nextServiceNodeID, recipient, pubkey, serviceNodePubkey, serviceNodeSignature);
         nextServiceNodeID++;
         SafeERC20.safeTransferFrom(designatedToken, recipient, address(this), stakingRequirement);
     }

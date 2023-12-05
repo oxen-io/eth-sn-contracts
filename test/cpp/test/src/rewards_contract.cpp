@@ -46,7 +46,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             hash = signer.sendTransaction(tx, seckey);
             REQUIRE(hash != "");
             REQUIRE(provider->transactionSuccessful(hash));
@@ -59,7 +59,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             hash = signer.sendTransaction(tx, seckey);
             REQUIRE(hash != "");
             REQUIRE(provider->transactionSuccessful(hash));
@@ -73,7 +73,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
@@ -95,7 +95,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
@@ -117,7 +117,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
@@ -136,7 +136,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         const uint64_t service_node_to_remove = snl.randomServiceNodeID();
@@ -152,7 +152,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         const uint64_t service_node_to_remove = snl.randomServiceNodeID();
@@ -167,7 +167,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         const uint64_t service_node_to_remove = snl.randomServiceNodeID();
@@ -181,7 +181,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         const uint64_t service_node_to_remove = snl.randomServiceNodeID();
@@ -199,7 +199,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         const uint64_t service_node_to_remove = snl.randomServiceNodeID();
@@ -223,7 +223,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
@@ -245,7 +245,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
@@ -264,7 +264,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
@@ -290,7 +290,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
@@ -311,7 +311,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);

@@ -22,6 +22,7 @@ public:
 
     // Method for creating a transaction to add a public key
     Transaction addBLSPublicKey(const std::string& publicKey, const std::string& sig);
+    Transaction addBLSPublicKey(const std::string& publicKey, const std::string& sig, const std::string& serviceNodePubkey, const std::string& serviceNodeSignature);
 
     uint64_t serviceNodesLength();
     std::string designatedToken();

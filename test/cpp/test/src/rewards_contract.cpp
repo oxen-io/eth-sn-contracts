@@ -344,4 +344,41 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(recipient.rewards == recipientAmount);
         REQUIRE(recipient.claimed == amount);
     }
+
+    SECTION( "Add LOTS of public keys to the smart contract and update the rewards of one of them and successfully claim the rewards" ) {
+        ServiceNodeList snl(2000);
+        for(auto& node : snl.nodes) {
+            tx = erc20_contract.approve(contract_address, std::numeric_limits<std::uint64_t>::max());;
+            hash = signer.sendTransaction(tx, seckey);
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
+            signer.sendTransaction(tx, seckey);
+        }
+        REQUIRE(rewards_contract.serviceNodesLength() == 2000);
+        std::vector<unsigned char> secondseckey = utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
+        const std::string recipientAddress = signer.addressFromPrivateKey(secondseckey);
+        const uint64_t recipientAmount = 1;
+        const auto signers = snl.randomSigners(snl.nodes.size() - 299);
+        const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
+        const auto non_signers = snl.findNonSigners(signers);
+        tx = rewards_contract.updateRewardsBalance(recipientAddress, recipientAmount, sig, non_signers);
+        hash = signer.sendTransaction(tx, seckey);
+        REQUIRE(hash != "");
+        REQUIRE(provider->transactionSuccessful(hash));
+        uint64_t amount = erc20_contract.balanceOf(recipientAddress);
+        REQUIRE(amount == 0);
+
+        tx = rewards_contract.claimRewards();
+        hash = signer.sendTransaction(tx, secondseckey);
+        REQUIRE(hash != "");
+        REQUIRE(provider->transactionSuccessful(hash));
+
+        amount = erc20_contract.balanceOf(recipientAddress);
+        REQUIRE(amount == recipientAmount);
+
+        auto recipient = rewards_contract.viewRecipientData(recipientAddress);
+        REQUIRE(recipient.rewards == recipientAmount);
+        REQUIRE(recipient.claimed == amount);
+    }
 }

@@ -21,6 +21,7 @@ contract ServiceNodeRewards is Ownable {
     uint64 public constant LIST_END = type(uint64).max;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
 
+    uint256 public totalNodes = 0;
     uint256 public blsNonSignerThreshold = 0;
 
     string public proofOfPossessionTag;
@@ -223,6 +224,7 @@ contract ServiceNodeRewards is Ownable {
         } else {
             aggregate_pubkey = pubkey;
         }
+        totalNodes++;
         updateBLSThreshold();
         // TODO we also need service node public key so that the network can see who added themselves to the list
         emit NewServiceNode(nextServiceNodeID, recipient, pubkey, serviceNodePubkey, serviceNodeSignature);
@@ -317,6 +319,7 @@ contract ServiceNodeRewards is Ownable {
 
         delete serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
 
+        totalNodes--;
         updateBLSThreshold();
 
         emit ServiceNodeRemoval(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
@@ -398,6 +401,7 @@ contract ServiceNodeRewards is Ownable {
         serviceNodes[lastServiceNode].next = LIST_END;
         serviceNodes[LIST_END].previous = lastServiceNode;
 
+        totalNodes++;
         updateBLSThreshold();
     }
 
@@ -415,9 +419,13 @@ contract ServiceNodeRewards is Ownable {
         return count;
     }
 
+    /// @notice allows anyone to update the service nodes length variable
+    function updateServiceNodesLength() public {
+        totalNodes = serviceNodesLength();
+    }
+
     /// @notice Updates the internal threshold for how many non signers an aggregate signature can contain before being invalid
     function updateBLSThreshold() internal {
-        uint256 totalNodes = serviceNodesLength();
         if (totalNodes > 900) {
             blsNonSignerThreshold = 300;
         } else {

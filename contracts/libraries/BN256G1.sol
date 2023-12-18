@@ -10,7 +10,7 @@ library BN256G1 {
     }
 
     /// @return the generator of G1
-    function P1() public pure returns (G1Point memory) {
+    function P1() internal pure returns (G1Point memory) {
         return G1Point(1, 2);
     }
 
@@ -60,7 +60,7 @@ library BN256G1 {
         require(success, "Call to precompiled contract for mul failed");
     }
 
-    function hashToG1(uint256 h) public returns (G1Point memory) {
+    function hashToG1(uint256 h) internal returns (G1Point memory) {
         return mul(P1(), h);
     }
 

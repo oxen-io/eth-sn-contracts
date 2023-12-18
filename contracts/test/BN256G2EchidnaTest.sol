@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.18;
 
-import "../BN256G2.sol";
+import "../libraries/BN256G2.sol";
 
 contract BN256G2EchidnaTest {
     // Test the ECTwistAdd function

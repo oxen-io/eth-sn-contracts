@@ -67,7 +67,7 @@ library BN256G2 {
         uint256 pt1yx, uint256 pt1yy,
         uint256 pt2xx, uint256 pt2xy,
         uint256 pt2yx, uint256 pt2yy
-    ) public view returns (
+    ) internal view returns (
         uint256, uint256,
         uint256, uint256
     ) {
@@ -139,7 +139,7 @@ library BN256G2 {
         uint256 s,
         uint256 pt1xx, uint256 pt1xy,
         uint256 pt1yx, uint256 pt1yy
-    ) public view returns (
+    ) internal view returns (
         uint256, uint256,
         uint256, uint256
     ) {
@@ -176,7 +176,7 @@ library BN256G2 {
      * @notice Get the field modulus
      * @return The field modulus
      */
-    function GetFieldModulus() public pure returns (uint256) {
+    function GetFieldModulus() internal pure returns (uint256) {
         return FIELD_MODULUS;
     }
 
@@ -276,7 +276,7 @@ library BN256G2 {
     function IsOnCurve(
         uint256 xx, uint256 xy,
         uint256 yx, uint256 yy
-    ) public pure returns (bool) {
+    ) internal pure returns (bool) {
         return _isOnCurve(xx,xy,yx,yy);
     }
     
@@ -451,7 +451,7 @@ library BN256G2 {
 
     function Get_yy_coordinate(
         uint256 xx, uint256 xy
-    ) public pure returns (uint256 yx, uint256 yy) {
+    ) internal pure returns (uint256 yx, uint256 yy) {
         uint256 y_squared_x;
         uint256 y_squared_y;
         uint256 xxxx;
@@ -468,7 +468,7 @@ library BN256G2 {
         return (y_squared_x, y_squared_y);
     }
 
-    function divBy2(uint256 x) public pure returns (uint256 y) {
+    function divBy2(uint256 x) internal pure returns (uint256 y) {
         bool odd = (x & 1) != 0;
         y = x / 2;
         if (odd) {
@@ -477,7 +477,7 @@ library BN256G2 {
     }
 
 
-    function _sqrt(uint256 xx) public view returns (uint256 x, bool hasRoot) {
+    function _sqrt(uint256 xx) internal view returns (uint256 x, bool hasRoot) {
         bool callSuccess;
         // solium-disable-next-line security/no-inline-assembly
         assembly {
@@ -515,7 +515,7 @@ library BN256G2 {
 
     function FQ2Sqrt(
         uint256 x1, uint256 x2
-    ) public view returns (uint256, uint256) {
+    ) internal view returns (uint256, uint256) {
         // t1 and t2 for Fp types
         uint256 t1;
         uint256 t2;
@@ -581,7 +581,7 @@ library BN256G2 {
     function ECTwistMulByCofactor(
         uint256 Pxx, uint256 Pxy,
         uint256 Pyx, uint256 Pyy
-    ) public view returns (
+    ) internal view returns (
         uint256, uint256,
         uint256, uint256
     ) {
@@ -602,7 +602,7 @@ library BN256G2 {
 
     function _ECTwistMulByCofactorJacobian(
         uint256[6] memory P
-    ) public pure returns (
+    ) internal pure returns (
         uint256[6] memory Q
     ) {
         uint256[6] memory T0;
@@ -639,7 +639,7 @@ library BN256G2 {
         return _ECTwistAddJacobian(T0[PTXX], T0[PTXY], T0[PTYX], T0[PTYY], T0[PTZX], T0[PTZY], T2[PTXX], T2[PTXY], T2[PTYX], T2[PTYY], T2[PTZX], T2[PTZY]);
     }
 
-    function _ECTwistFrobeniusJacobian(uint256[6] memory pt1) public pure returns (uint256[6] memory pt2) {
+    function _ECTwistFrobeniusJacobian(uint256[6] memory pt1) internal pure returns (uint256[6] memory pt2) {
         // Apply Frobenius map to each component
         (pt2[PTXX], pt2[PTXY]) = _FQ2Frobenius(pt1[PTXX], pt1[PTXY]);
         (pt2[PTYX], pt2[PTYY]) = _FQ2Frobenius(pt1[PTYX], pt1[PTYY]);
@@ -655,12 +655,12 @@ library BN256G2 {
 
     function _FQ2Frobenius(
         uint256 x1, uint256 x2
-    ) public pure returns (uint256, uint256) {
+    ) internal pure returns (uint256, uint256) {
         return (x1, FIELD_MODULUS - x2);
     }
 
     // hashes to G2 using the try and increment method
-    function mapToG2(uint256 h) public view returns (G2Point memory) {
+    function mapToG2(uint256 h) internal view returns (G2Point memory) {
         // Define the G2Point coordinates
         uint256 x1 = h;
         uint256 x2 = 0;
@@ -696,17 +696,17 @@ library BN256G2 {
         return (G2Point([x2,x1],[y2,y1]));
     }
 
-    function hashToG2(uint256 h) public view returns (G2Point memory) {
+    function hashToG2(uint256 h) internal view returns (G2Point memory) {
         G2Point memory map = mapToG2(h);
         (uint256 x1, uint256 x2, uint256 y1, uint256 y2) = ECTwistMulByCofactor(map.X[1], map.X[0], map.Y[1], map.Y[0]);
         return (G2Point([x2,x1],[y2,y1]));
     }
 
-    function getWeierstrass(uint256 x, uint256 y) public pure returns (uint256, uint256) {
+    function getWeierstrass(uint256 x, uint256 y) internal pure returns (uint256, uint256) {
         return Get_yy_coordinate(x,y);
     }
 
-    function convertArrayAsLE(bytes32 src) public pure returns (bytes32) {
+    function convertArrayAsLE(bytes32 src) internal pure returns (bytes32) {
         bytes32 dst;
         for (uint256 i = 0; i < 32; i++) {
             // Considering each byte of bytes32
@@ -718,7 +718,7 @@ library BN256G2 {
     }
 
     // This matches mcl maskN, this only takes the 254 bits for the field, if it is still greater than the field then take the 253 bits
-    function maskBits(uint256 input) public pure returns (uint256) {
+    function maskBits(uint256 input) internal pure returns (uint256) {
         uint256 mask = ~uint256(0) - 0xC0;
         if (byteSwap(input & mask) >= FIELD_MODULUS) {
             mask = ~uint256(0) - 0xE0;
@@ -726,7 +726,7 @@ library BN256G2 {
         return input & mask;
     }
 
-    function byteSwap(uint256 value) public pure returns (uint256) {
+    function byteSwap(uint256 value) internal pure returns (uint256) {
         uint256 swapped = 0;
         for (uint256 i = 0; i < 32; i++) {
             uint256 byteValue = (value >> (i * 8)) & 0xFF; 
@@ -735,16 +735,16 @@ library BN256G2 {
         return swapped;
     }
 
-    function calcField(uint256 pkX, uint256 pkY) public pure returns (uint256) {
+    function calcField(uint256 pkX, uint256 pkY) internal pure returns (uint256) {
         return hashToField(string(abi.encodePacked(pkX, pkY)));
     }
 
-    function hashToField(string memory message) public pure returns (uint256) {
+    function hashToField(string memory message) internal pure returns (uint256) {
         return byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(bytes(message))))));
     }
 
     /// @return the generator of G2
-    function P2() public pure returns (G2Point memory) {
+    function P2() internal pure returns (G2Point memory) {
         return G2Point(
             [11559732032986387107991004021392285783925812861821192530917403151452391805634,
             10857046999023057135944570762232829481370756359578518086990519993285655852781],

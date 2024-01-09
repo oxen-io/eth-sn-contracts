@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "./Pairing.sol";
+import "./libraries/Pairing.sol";
 
 /// @title Service Node Rewards Contract
 /// @notice This contract manages the rewards and public keys for service nodes.
@@ -24,10 +24,10 @@ contract ServiceNodeRewards is Ownable {
     uint256 public totalNodes = 0;
     uint256 public blsNonSignerThreshold = 0;
 
-    string public proofOfPossessionTag;
-    string public rewardTag;
-    string public removalTag;
-    string public liquidateTag;
+    bytes32 immutable public proofOfPossessionTag;
+    bytes32 immutable public rewardTag;
+    bytes32 immutable public removalTag;
+    bytes32 immutable public liquidateTag;
 
     uint256 stakingRequirement;
     uint256 liquidatorRewardRatio;
@@ -61,8 +61,8 @@ contract ServiceNodeRewards is Ownable {
     /// @dev Builds a tag string using a base tag and contract-specific information. This is used when signing messages to prevent reuse of signatures across different domains (chains/functions/contracts)
     /// @param baseTag The base string for the tag.
     /// @return The constructed tag string.
-    function buildTag(string memory baseTag) private view returns (string memory) {
-        return string(abi.encodePacked(baseTag, block.chainid, address(this)));
+    function buildTag(string memory baseTag) private view returns (bytes32) {
+        return keccak256(bytes(abi.encodePacked(baseTag, block.chainid, address(this))));
     }
 
     /// @notice Represents a service node in the network.
@@ -83,7 +83,7 @@ contract ServiceNodeRewards is Ownable {
 
     mapping(uint64 => ServiceNode) public serviceNodes;
     mapping(address => Recipient) public recipients;
-    mapping(bytes32 => uint64) public serviceNodeIDs;
+    mapping(bytes => uint64) public serviceNodeIDs;
 
     BN256G1.G1Point public aggregate_pubkey;
 
@@ -300,6 +300,7 @@ contract ServiceNodeRewards is Ownable {
     /// @dev Internal function to remove a BLS public key. Updates the linked list to remove the node
     /// @param serviceNodeID The ID of the service node to be removed.
     function _removeBLSPublicKey(uint64 serviceNodeID) internal {
+        address serviceNodeRecipient = serviceNodes[serviceNodeID].recipient;
         uint64 previousServiceNode = serviceNodes[serviceNodeID].previous;
         uint64 nextServiceNode = serviceNodes[serviceNodeID].next;
         if (nextServiceNode == 0) revert ServiceNodeDoesntExist(serviceNodeID);
@@ -311,18 +312,14 @@ contract ServiceNodeRewards is Ownable {
 
         aggregate_pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
 
-        delete serviceNodes[serviceNodeID].previous;
-        delete serviceNodes[serviceNodeID].recipient;
-        delete serviceNodes[serviceNodeID].next;
-        delete serviceNodes[serviceNodeID].pubkey.X;
-        delete serviceNodes[serviceNodeID].pubkey.Y;
+        delete serviceNodes[serviceNodeID];
 
         delete serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
 
         totalNodes--;
         updateBLSThreshold();
 
-        emit ServiceNodeRemoval(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
+        emit ServiceNodeRemoval(serviceNodeID, serviceNodeRecipient, pubkey);
     }
 
     /// @notice Liquidates a BLS public key using a signature. This function can be called by anyone if the network wishes for the node to be removed (ie from a dereg) without relying on the user to remove themselves
@@ -366,25 +363,25 @@ contract ServiceNodeRewards is Ownable {
     /// @param amounts Array of amounts that the service node has staked, associated with each public key.
     function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) public onlyOwner {
         if (pkX.length != pkY.length || pkX.length != amounts.length) revert ArrayLengthMismatch();
-        uint64 lastServiceNode = serviceNodes[LIST_END].previous;
+        uint64 lastServiceNodeID = serviceNodes[LIST_END].previous;
         uint256 sumAmounts;
 
         bool firstServiceNode = serviceNodesLength() == 0;
 
         for(uint256 i = 0; i < pkX.length; i++) {
             BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX[i], pkY[i]);
-            bytes32 pubkeyhash = BN256G1.getKeyForG1Point(pubkey);
-            uint64 serviceNodeID = serviceNodeIDs[pubkeyhash];
+            bytes memory pubkeybytes = BN256G1.getKeyForG1Point(pubkey);
+            uint64 serviceNodeID = serviceNodeIDs[pubkeybytes];
             if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
 
             /*serviceNodes[nextServiceNodeID] = ServiceNode(previous, recipient, pubkey, LIST_END);*/
-            serviceNodes[lastServiceNode].next = nextServiceNodeID;
-            serviceNodes[nextServiceNodeID].previous = lastServiceNode;
+            serviceNodes[lastServiceNodeID].next = nextServiceNodeID;
+            serviceNodes[nextServiceNodeID].previous = lastServiceNodeID;
             serviceNodes[nextServiceNodeID].pubkey = pubkey;
             serviceNodes[nextServiceNodeID].deposit = amounts[i];
             sumAmounts = sumAmounts + amounts[i];
 
-            serviceNodeIDs[pubkeyhash] = nextServiceNodeID;
+            serviceNodeIDs[pubkeybytes] = nextServiceNodeID;
 
             if (!firstServiceNode) {
                 aggregate_pubkey = BN256G1.add(aggregate_pubkey, pubkey);
@@ -394,12 +391,12 @@ contract ServiceNodeRewards is Ownable {
             }
 
             emit NewSeededServiceNode(nextServiceNodeID, pubkey);
-            lastServiceNode = nextServiceNodeID;
+            lastServiceNodeID = nextServiceNodeID;
             nextServiceNodeID++;
         }
 
-        serviceNodes[lastServiceNode].next = LIST_END;
-        serviceNodes[LIST_END].previous = lastServiceNode;
+        serviceNodes[lastServiceNodeID].next = LIST_END;
+        serviceNodes[LIST_END].previous = lastServiceNodeID;
 
         totalNodes++;
         updateBLSThreshold();

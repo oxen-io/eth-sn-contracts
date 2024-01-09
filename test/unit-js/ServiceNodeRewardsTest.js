@@ -22,27 +22,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
         // Get signers
         [owner, foundationPool] = await ethers.getSigners();
 
-		// Library deployment
-		const libg1 = await ethers.getContractFactory("BN256G1", { signer: owner });
-		const libg1Instance = await libg1.deploy();
-		const libg2 = await ethers.getContractFactory("BN256G2", { signer: owner });
-		const libg2Instance = await libg2.deploy();
-		const libpairing = await ethers.getContractFactory("Pairing", { signer: owner,
-			//libraries: {
-				//BN256G1: libg1Instance,
-				//BN256G2: libg2Instance
-			//},
-		});
-		const libpairingInstance = await libpairing.deploy();
-
-        // Deploy the ServiceNodeRewards contract
-        ServiceNodeRewards = await ethers.getContractFactory("ServiceNodeRewards", {
-			libraries: {
-				BN256G1: libg1Instance,
-				BN256G2: libg2Instance,
-				//Pairing: libpairingInstance
-			}
-        });
+        ServiceNodeRewards = await ethers.getContractFactory("ServiceNodeRewards");
         serviceNodeRewards = await ServiceNodeRewards.deploy(
             mockERC20,              // token address
             foundationPool,         // foundation pool address

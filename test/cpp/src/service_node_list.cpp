@@ -24,7 +24,8 @@ std::string buildTag(const std::string& baseTag, uint32_t chainID, const std::st
     std::string contractAddressOutput = contractAddress;
     if (contractAddressOutput.substr(0, 2) == "0x")
         contractAddressOutput = contractAddressOutput.substr(2);  // remove "0x"
-    return utils::toHexString(baseTag) + utils::padTo32Bytes(utils::decimalToHex(chainID), utils::PaddingDirection::LEFT) + contractAddressOutput;
+    std::string concatenatedTag = "0x" + utils::toHexString(baseTag) + utils::padTo32Bytes(utils::decimalToHex(chainID), utils::PaddingDirection::LEFT) + contractAddressOutput;
+    return utils::toHexString(utils::hash(concatenatedTag));
 }
 
 bls::Signature ServiceNode::signHash(const std::array<unsigned char, 32>& hash) {

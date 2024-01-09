@@ -311,11 +311,7 @@ contract ServiceNodeRewards is Ownable {
 
         aggregate_pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
 
-        delete serviceNodes[serviceNodeID].previous;
-        delete serviceNodes[serviceNodeID].recipient;
-        delete serviceNodes[serviceNodeID].next;
-        delete serviceNodes[serviceNodeID].pubkey.X;
-        delete serviceNodes[serviceNodeID].pubkey.Y;
+        delete serviceNodes[serviceNodeID];
 
         delete serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
 

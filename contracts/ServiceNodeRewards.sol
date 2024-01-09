@@ -12,12 +12,17 @@ import "./Pairing.sol";
 contract ServiceNodeRewards is Ownable {
     using SafeERC20 for IERC20;
 
+    bool public IsActive = false;
+
     IERC20 public immutable designatedToken;
     IERC20 public immutable foundationPool;
 
     uint64 public nextServiceNodeID = 1;
     uint64 public constant LIST_END = type(uint64).max;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
+
+    uint256 public totalNodes = 0;
+    uint256 public blsNonSignerThreshold = 0;
 
     string public proofOfPossessionTag;
     string public rewardTag;
@@ -57,7 +62,7 @@ contract ServiceNodeRewards is Ownable {
     /// @param baseTag The base string for the tag.
     /// @return The constructed tag string.
     function buildTag(string memory baseTag) private view returns (string memory) {
-        return string(abi.encodePacked(baseTag, Strings.toString(block.chainid), address(this)));
+        return string(abi.encodePacked(baseTag, block.chainid, address(this)));
     }
 
     /// @notice Represents a service node in the network.
@@ -84,7 +89,7 @@ contract ServiceNodeRewards is Ownable {
 
     // EVENTS
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);
-    event NewServiceNode(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
+    event NewServiceNode(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey, uint256 serviceNodePubkey, uint256 serviceNodeSignature);
     event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
@@ -96,11 +101,15 @@ contract ServiceNodeRewards is Ownable {
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
     error RecipientAddressNotProvided(uint64 serviceNodeID);
     error EarlierLeaveRequestMade(uint64 serviceNodeID, address recipient);
-    error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp);
+    error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
     error ServiceNodeDoesntExist(uint64 serviceNodeID);
     error InvalidBLSSignature();
     error InvalidBLSProofOfPossession();
     error ArrayLengthMismatch();
+    error InvalidParameter();
+    error InsufficientBLSSignatures(uint256 numSigners, uint256 requiredSigners);
+    error ContractNotActive();
+
 
     /// CLAIMING REWARDS
     /// This section contains all the functions necessary for a user to receive the rewards from the service node network. Process looks like follows:
@@ -108,33 +117,41 @@ contract ServiceNodeRewards is Ownable {
     /// 2) User will call updateRewardsBalance with an encoded message of the amount they are allowed to claim. This signature is checked over this message and the recipient structure is updated fo the amount they are allowed to claim
     /// 3) User will call claimRewards which will pay out their balance in the recipients struct
 
-    /// @notice Updates the rewards balance for a given recipient.
-    /// @param sigs0 First part of the signature.
-    /// @param sigs1 Second part of the signature.
-    /// @param sigs2 Third part of the signature.
-    /// @param sigs3 Fourth part of the signature.
-    /// @param message The message associated with the rewards. This contains the recipient address and amount they are allowed to claim. This has to be signed by the network.
-    /// @param ids An array of service node IDs that did not sign the message.
-    function updateRewardsBalance(uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint256 message, uint64[] memory ids) public {
-        BN256G1.G1Point memory pubkey;
-        //TODO sean length of ids needs to be checked to make sure majority of network signed
-        for(uint256 i = 0; i < ids.length; i++) {
-            pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
-        }
-        pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
-        BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(rewardTag, message))));
-        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
+	/// @notice Updates the rewards balance for a given recipient, requires a BLS signature from the network
+	/// @param recipientAddress The address of the recipient.
+	/// @param recipientAmount The amount of rewards the recipient is allowed to claim.
+	/// @param sigs0 First part of the signature.
+	/// @param sigs1 Second part of the signature.
+	/// @param sigs2 Third part of the signature.
+	/// @param sigs3 Fourth part of the signature.
+	/// @param ids An array of service node IDs that did not sign the message.
+	function updateRewardsBalance(
+		address recipientAddress, 
+		uint256 recipientAmount,
+		uint256 sigs0,
+		uint256 sigs1,
+		uint256 sigs2,
+		uint256 sigs3,
+		uint64[] memory ids
+	) public {
+        if (!IsActive) revert ContractNotActive();
+        if (recipientAmount == 0 || recipientAddress == address(0)) revert InvalidParameter();
+        if (ids.length > blsNonSignerThreshold) revert InsufficientBLSSignatures(serviceNodesLength() - ids.length, serviceNodesLength() - blsNonSignerThreshold);
+		BN256G1.G1Point memory pubkey;
+		for(uint256 i = 0; i < ids.length; i++) {
+			pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
+		}
+		pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
+		BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
+		bytes memory encodedMessage = abi.encodePacked(rewardTag, recipientAddress, recipientAmount);
+		BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+		if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
 
+		uint256 previousBalance = recipients[recipientAddress].rewards;
+		recipients[recipientAddress].rewards = recipientAmount;
+		emit RewardsBalanceUpdated(recipientAddress, recipientAmount, previousBalance);
+	}
 
-		// TODO sean define encoding/decoding structure of message and parse these from message
-        address recipientAddress;
-        uint256 recipientAmount;
-
-        uint256 previousBalance = recipients[recipientAddress].rewards;
-        recipients[recipientAddress].rewards = recipientAmount;
-        emit RewardsBalanceUpdated(recipientAddress, recipientAmount, previousBalance);
-    }
 
     /// @notice Builds a message for recipient reward calculation.
     /// @param recipientAddress The address of the recipient.
@@ -171,8 +188,8 @@ contract ServiceNodeRewards is Ownable {
     /// @param sigs1 Second part of the proof of possession signature.
     /// @param sigs2 Third part of the proof of possession signature.
     /// @param sigs3 Fourth part of the proof of possession signature.
-    function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3) public {
-        _addBLSPublicKey(pkX, pkY, sigs0, sigs1, sigs2, sigs3, msg.sender);
+    function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint256 serviceNodePubkey, uint256 serviceNodeSignature) public {
+        _addBLSPublicKey(pkX, pkY, sigs0, sigs1, sigs2, sigs3, msg.sender, serviceNodePubkey, serviceNodeSignature);
     }
 
     /// @dev Internal function to add a BLS public key.
@@ -183,7 +200,8 @@ contract ServiceNodeRewards is Ownable {
     /// @param sigs2 Third part of the signature.
     /// @param sigs3 Fourth part of the signature.
     /// @param recipient The address of the recipient associated with the public key.
-    function _addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, address recipient) internal {
+    function _addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, address recipient, uint256 serviceNodePubkey, uint256 serviceNodeSignature) internal {
+        if (!IsActive) revert ContractNotActive();
         BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX, pkY);
         uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
         if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
@@ -206,8 +224,10 @@ contract ServiceNodeRewards is Ownable {
         } else {
             aggregate_pubkey = pubkey;
         }
+        totalNodes++;
+        updateBLSThreshold();
         // TODO we also need service node public key so that the network can see who added themselves to the list
-        emit NewServiceNode(nextServiceNodeID, recipient, pubkey);
+        emit NewServiceNode(nextServiceNodeID, recipient, pubkey, serviceNodePubkey, serviceNodeSignature);
         nextServiceNodeID++;
         SafeERC20.safeTransferFrom(designatedToken, recipient, address(this), stakingRequirement);
     }
@@ -234,6 +254,7 @@ contract ServiceNodeRewards is Ownable {
     /// @param serviceNodeID The ID of the service node.
     /// @param recipient The address of the recipient associated with the service node.
     function _initiateRemoveBLSPublicKey(uint64 serviceNodeID, address recipient) internal {
+        if (!IsActive) revert ContractNotActive();
         address serviceNodeRecipient = serviceNodes[serviceNodeID].recipient;
         if(serviceNodeRecipient == address(0)) revert RecipientAddressNotProvided(serviceNodeID);
         if(serviceNodeRecipient != recipient) revert RecipientAddressDoesNotMatch(serviceNodeRecipient, recipient, serviceNodeID);
@@ -242,7 +263,7 @@ contract ServiceNodeRewards is Ownable {
         emit ServiceNodeRemovalRequest(serviceNodeID, recipient, serviceNodes[serviceNodeID].pubkey);
     }
 
-    /// @notice Removes a BLS public key using a signature.
+    /// @notice Removes a BLS public key using an aggregated BLS signature from the network.
     /// @param serviceNodeID The ID of the service node to be removed.
     /// @param sigs0 First part of the signature.
     /// @param sigs1 Second part of the signature.
@@ -250,6 +271,8 @@ contract ServiceNodeRewards is Ownable {
     /// @param sigs3 Fourth part of the signature.
     /// @param ids An array of service node IDs.
     function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
+        if (!IsActive) revert ContractNotActive();
+        if (ids.length > blsNonSignerThreshold) revert InsufficientBLSSignatures(serviceNodesLength() - ids.length, serviceNodesLength() - blsNonSignerThreshold);
         //Validating signature
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(removalTag, serviceNodeID))));
         BN256G1.G1Point memory pubkey;
@@ -266,8 +289,11 @@ contract ServiceNodeRewards is Ownable {
     /// @notice Removes a BLS public key after a specified wait time, this can be called without the BLS signature because the node has waited extra long   .
     /// @param serviceNodeID The ID of the service node to be removed.
     function removeBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external {
-        uint256 timestamp = serviceNodes[serviceNodeID].leaveRequestTimestamp + MAX_SERVICE_NODE_REMOVAL_WAIT_TIME;
-        if(block.timestamp < timestamp) revert LeaveRequestTooEarly(serviceNodeID, timestamp);
+        if (!IsActive) revert ContractNotActive();
+        uint256 leaveRequestTimestamp = serviceNodes[serviceNodeID].leaveRequestTimestamp;
+        if(leaveRequestTimestamp == 0) revert LeaveRequestTooEarly(serviceNodeID, leaveRequestTimestamp, block.timestamp);
+        uint256 timestamp = leaveRequestTimestamp + MAX_SERVICE_NODE_REMOVAL_WAIT_TIME;
+        if(block.timestamp < timestamp) revert LeaveRequestTooEarly(serviceNodeID, timestamp, block.timestamp);
         _removeBLSPublicKey(serviceNodeID);
     }
 
@@ -293,6 +319,9 @@ contract ServiceNodeRewards is Ownable {
 
         delete serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
 
+        totalNodes--;
+        updateBLSThreshold();
+
         emit ServiceNodeRemoval(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
     }
 
@@ -304,6 +333,8 @@ contract ServiceNodeRewards is Ownable {
     /// @param sigs3 Fourth part of the signature.
     /// @param ids An array of service node IDs.
     function liquidateBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
+        if (!IsActive) revert ContractNotActive();
+        if (ids.length > blsNonSignerThreshold) revert InsufficientBLSSignatures(serviceNodesLength() - ids.length, serviceNodesLength() - blsNonSignerThreshold);
         //Validating signature
         BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(liquidateTag, serviceNodeID))));
         BN256G1.G1Point memory pubkey;
@@ -369,6 +400,9 @@ contract ServiceNodeRewards is Ownable {
 
         serviceNodes[lastServiceNode].next = LIST_END;
         serviceNodes[LIST_END].previous = lastServiceNode;
+
+        totalNodes++;
+        updateBLSThreshold();
     }
 
     /// @notice Counts the number of service nodes in the linked list.
@@ -383,6 +417,25 @@ contract ServiceNodeRewards is Ownable {
         }
 
         return count;
+    }
+
+    /// @notice allows anyone to update the service nodes length variable
+    function updateServiceNodesLength() public {
+        totalNodes = serviceNodesLength();
+    }
+
+    /// @notice Updates the internal threshold for how many non signers an aggregate signature can contain before being invalid
+    function updateBLSThreshold() internal {
+        if (totalNodes > 900) {
+            blsNonSignerThreshold = 300;
+        } else {
+            blsNonSignerThreshold = totalNodes / 3;
+        }
+    }
+
+    /// @notice Contract begins paused and owner can start after nodes have been populated and hardfork has begun
+    function start() public onlyOwner {
+        IsActive = true;
     }
 
 }

@@ -1,8 +1,38 @@
 {
-  "name": "hardhat-project",
+  "name": "service-node-rewards-contracts",
+  "version": "1.0.0",
+  "description": "A smart contract that manages BLS public keys and pays rewards for the Oxen Service Node Network",
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat deploy --network",
+    "deploy-local": "hardhat run scripts/deploy-local-test.js --network localhost",
+    "hardhat-node": "hardhat node",
+    "coverage": "hardhat coverage",
+    "lint": "yarn lint:sol && yarn lint:ts",
+    "lint:sol": "solhint 'contracts/**/*.sol'",
+    "lint:ts": "eslint --max-warnings 0 .",
+    "fmt:sol": "prettier 'contracts/**/*.sol' -w",
+    "prepack": "yarn build"
+  },
   "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.2",
+    "@nomicfoundation/hardhat-ethers": "^3.0.5",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.9",
     "@nomicfoundation/hardhat-toolbox": "^3.0.0",
-    "hardhat": "^2.18.1"
+    "@nomicfoundation/hardhat-verify": "^1.1.1",
+    "@typechain/ethers-v6": "^0.4.3",
+    "@typechain/hardhat": "^8.0.3",
+    "@types/chai": "^4.3.11",
+    "@types/mocha": "^10.0.6",
+    "chai": "^4.3.10",
+    "ethers": "^6.4.0",
+    "hardhat": "^2.18.1",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solidity-coverage": "^0.8.5",
+    "ts-node": "^10.9.1",
+    "typechain": "^8.3.2",
+    "typescript": "^5.3.2"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.0"

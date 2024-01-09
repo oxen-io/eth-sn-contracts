@@ -64,7 +64,7 @@ library BN256G1 {
         return mul(P1(), h);
     }
 
-    function getKeyForG1Point(G1Point memory point) internal pure returns (bytes32) {
-        return keccak256(abi.encode(point));
+    function getKeyForG1Point(G1Point memory point) internal pure returns (bytes memory) {
+        return abi.encode(point);
     }
 }

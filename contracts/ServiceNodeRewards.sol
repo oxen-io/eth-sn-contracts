@@ -83,7 +83,7 @@ contract ServiceNodeRewards is Ownable {
 
     mapping(uint64 => ServiceNode) public serviceNodes;
     mapping(address => Recipient) public recipients;
-    mapping(bytes32 => uint64) public serviceNodeIDs;
+    mapping(bytes => uint64) public serviceNodeIDs;
 
     BN256G1.G1Point public aggregate_pubkey;
 
@@ -369,8 +369,8 @@ contract ServiceNodeRewards is Ownable {
 
         for(uint256 i = 0; i < pkX.length; i++) {
             BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX[i], pkY[i]);
-            bytes32 pubkeyhash = BN256G1.getKeyForG1Point(pubkey);
-            uint64 serviceNodeID = serviceNodeIDs[pubkeyhash];
+            bytes memory pubkeybytes = BN256G1.getKeyForG1Point(pubkey);
+            uint64 serviceNodeID = serviceNodeIDs[pubkeybytes];
             if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
 
             /*serviceNodes[nextServiceNodeID] = ServiceNode(previous, recipient, pubkey, LIST_END);*/
@@ -380,7 +380,7 @@ contract ServiceNodeRewards is Ownable {
             serviceNodes[nextServiceNodeID].deposit = amounts[i];
             sumAmounts = sumAmounts + amounts[i];
 
-            serviceNodeIDs[pubkeyhash] = nextServiceNodeID;
+            serviceNodeIDs[pubkeybytes] = nextServiceNodeID;
 
             if (!firstServiceNode) {
                 aggregate_pubkey = BN256G1.add(aggregate_pubkey, pubkey);

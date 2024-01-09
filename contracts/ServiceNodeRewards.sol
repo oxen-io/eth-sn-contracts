@@ -300,6 +300,7 @@ contract ServiceNodeRewards is Ownable {
     /// @dev Internal function to remove a BLS public key. Updates the linked list to remove the node
     /// @param serviceNodeID The ID of the service node to be removed.
     function _removeBLSPublicKey(uint64 serviceNodeID) internal {
+        address serviceNodeRecipient = serviceNodes[serviceNodeID].recipient;
         uint64 previousServiceNode = serviceNodes[serviceNodeID].previous;
         uint64 nextServiceNode = serviceNodes[serviceNodeID].next;
         if (nextServiceNode == 0) revert ServiceNodeDoesntExist(serviceNodeID);
@@ -318,7 +319,7 @@ contract ServiceNodeRewards is Ownable {
         totalNodes--;
         updateBLSThreshold();
 
-        emit ServiceNodeRemoval(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
+        emit ServiceNodeRemoval(serviceNodeID, serviceNodeRecipient, pubkey);
     }
 
     /// @notice Liquidates a BLS public key using a signature. This function can be called by anyone if the network wishes for the node to be removed (ie from a dereg) without relying on the user to remove themselves
@@ -362,7 +363,7 @@ contract ServiceNodeRewards is Ownable {
     /// @param amounts Array of amounts that the service node has staked, associated with each public key.
     function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) public onlyOwner {
         if (pkX.length != pkY.length || pkX.length != amounts.length) revert ArrayLengthMismatch();
-        uint64 lastServiceNode = serviceNodes[LIST_END].previous;
+        uint64 lastServiceNodeID = serviceNodes[LIST_END].previous;
         uint256 sumAmounts;
 
         bool firstServiceNode = serviceNodesLength() == 0;
@@ -374,8 +375,8 @@ contract ServiceNodeRewards is Ownable {
             if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
 
             /*serviceNodes[nextServiceNodeID] = ServiceNode(previous, recipient, pubkey, LIST_END);*/
-            serviceNodes[lastServiceNode].next = nextServiceNodeID;
-            serviceNodes[nextServiceNodeID].previous = lastServiceNode;
+            serviceNodes[lastServiceNodeID].next = nextServiceNodeID;
+            serviceNodes[nextServiceNodeID].previous = lastServiceNodeID;
             serviceNodes[nextServiceNodeID].pubkey = pubkey;
             serviceNodes[nextServiceNodeID].deposit = amounts[i];
             sumAmounts = sumAmounts + amounts[i];
@@ -390,12 +391,12 @@ contract ServiceNodeRewards is Ownable {
             }
 
             emit NewSeededServiceNode(nextServiceNodeID, pubkey);
-            lastServiceNode = nextServiceNodeID;
+            lastServiceNodeID = nextServiceNodeID;
             nextServiceNodeID++;
         }
 
-        serviceNodes[lastServiceNode].next = LIST_END;
-        serviceNodes[LIST_END].previous = lastServiceNode;
+        serviceNodes[lastServiceNodeID].next = LIST_END;
+        serviceNodes[LIST_END].previous = lastServiceNodeID;
 
         totalNodes++;
         updateBLSThreshold();

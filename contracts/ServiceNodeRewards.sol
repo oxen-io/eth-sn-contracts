@@ -24,10 +24,10 @@ contract ServiceNodeRewards is Ownable {
     uint256 public totalNodes = 0;
     uint256 public blsNonSignerThreshold = 0;
 
-    string public proofOfPossessionTag;
-    string public rewardTag;
-    string public removalTag;
-    string public liquidateTag;
+    bytes32 immutable public proofOfPossessionTag;
+    bytes32 immutable public rewardTag;
+    bytes32 immutable public removalTag;
+    bytes32 immutable public liquidateTag;
 
     uint256 stakingRequirement;
     uint256 liquidatorRewardRatio;
@@ -61,8 +61,8 @@ contract ServiceNodeRewards is Ownable {
     /// @dev Builds a tag string using a base tag and contract-specific information. This is used when signing messages to prevent reuse of signatures across different domains (chains/functions/contracts)
     /// @param baseTag The base string for the tag.
     /// @return The constructed tag string.
-    function buildTag(string memory baseTag) private view returns (string memory) {
-        return string(abi.encodePacked(baseTag, block.chainid, address(this)));
+    function buildTag(string memory baseTag) private view returns (bytes32) {
+        return keccak256(bytes(abi.encodePacked(baseTag, block.chainid, address(this))));
     }
 
     /// @notice Represents a service node in the network.

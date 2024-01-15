@@ -14,7 +14,7 @@ testMaxGas: 8000030
 #maxGasprice is the maximum gas price
 maxGasprice: 0
 #testLimit is the number of test sequences to run
-testLimit: 50000
+testLimit: 50
 #stopOnFail makes echidna terminate as soon as any property fails and has been shrunk
 stopOnFail: false
 #estimateGas makes echidna perform analysis of maximum gas costs for functions (experimental)

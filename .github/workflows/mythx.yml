@@ -1,0 +1,58 @@
+name: Mythx
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mythx:
+    name: Submit to Mythx
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 16
+      - uses: actions/cache@v2
+        with:
+          path: "**/node_modules"
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+
+      - name: Install node dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install pip3
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Install mythx CLI
+        run: |
+          pip3 install mythx-cli
+
+      - name: Install solc-select
+        run: |
+          pip3 install solc-select
+
+      - name: Install solc 0.8.20
+        run: |
+          solc-select install 0.8.20
+          solc-select use 0.8.20
+
+      - name: Submit code to Mythx
+        run: |
+          mythx --api-key ${{ secrets.MYTHX_API_KEY }} \
+            --yes \
+            analyze \
+            --mode deep \
+            --async \
+            --create-group \
+            --group-name "@oxen-io/eth-sn-contracts@${{ github.sha }}" \
+            --solc-version 0.8.20 \
+            --check-properties \
+            contracts/test/EchidnaTest.sol --include EchidnaTest \
+            contracts/test/BN256G2EchidnaTest.sol --include BN256G2EchidnaTest

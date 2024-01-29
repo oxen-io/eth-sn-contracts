@@ -1,3 +1,5 @@
+dummy change
+
 # Session Token Rewards Contract
 
 This contract is designed to facilitate the integration and functioning of the Session Token within the oxen network. The core of the codebase is now split into two components: the existing C++ codebase, which handles various service node responsibilities like uptime tracking, reward calculations, and other duties; and the new smart contract system, which includes the Session Token contract and this rewards contract.

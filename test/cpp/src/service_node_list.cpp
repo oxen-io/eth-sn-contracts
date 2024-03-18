@@ -168,28 +168,30 @@ uint64_t ServiceNodeList::randomServiceNodeID() {
     return serviceNodeIDs[0];
 }
 
-std::string ServiceNodeList::liquidateNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
+std::pair<std::string, std::string> ServiceNodeList::liquidateNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
+    std::string pubkey = nodes[static_cast<size_t>(findNodeIndex(nodeID))].getPublicKeyHex();
     std::string fullTag = buildTag(liquidateTag, chainID, contractAddress);
-    std::string message = "0x" + fullTag + utils::padTo8Bytes(std::to_string(nodeID), utils::PaddingDirection::LEFT);
+    std::string message = "0x" + fullTag + pubkey;
     const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& service_node_id: service_node_ids) {
         aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
     }
-    return utils::SignatureToHex(aggSig);
+    return std::make_pair(pubkey, utils::SignatureToHex(aggSig));
 }
 
-std::string ServiceNodeList::removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
+std::pair<std::string, std::string> ServiceNodeList::removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
+    std::string pubkey = nodes[static_cast<size_t>(findNodeIndex(nodeID))].getPublicKeyHex();
     std::string fullTag = buildTag(removalTag, chainID, contractAddress);
-    std::string message = "0x" + fullTag + utils::padTo8Bytes(std::to_string(nodeID), utils::PaddingDirection::LEFT);
+    std::string message = "0x" + fullTag + pubkey;
     const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& service_node_id: service_node_ids) {
         aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
     }
-    return utils::SignatureToHex(aggSig);
+    return std::make_pair(pubkey, utils::SignatureToHex(aggSig));
 }
 
 std::string ServiceNodeList::updateRewardsBalance(const std::string& address, const uint64_t amount, const uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {

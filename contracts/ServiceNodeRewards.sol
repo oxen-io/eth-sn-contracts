@@ -93,12 +93,13 @@ contract ServiceNodeRewards is Ownable {
     event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
-    event ServiceNodeRemoval(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
+    event ServiceNodeRemoval(uint64 indexed serviceNodeID, address recipient, uint256 returnedAmount, BN256G1.G1Point pubkey);
     event ServiceNodeRemovalRequest(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
 
     // ERRORS
     error RecipientAddressDoesNotMatch(address expectedRecipient, address providedRecipient, uint256 serviceNodeID);
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
+    error BLSPubkeyDoesNotMatch(uint64 serviceNodeID, uint256 pkX, uint256 pkY);
     error RecipientAddressNotProvided(uint64 serviceNodeID);
     error EarlierLeaveRequestMade(uint64 serviceNodeID, address recipient);
     error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
@@ -124,7 +125,7 @@ contract ServiceNodeRewards is Ownable {
 	/// @param sigs1 Second part of the signature.
 	/// @param sigs2 Third part of the signature.
 	/// @param sigs3 Fourth part of the signature.
-	/// @param ids An array of service node IDs that did not sign the message.
+    /// @param ids An array of service node IDs that did not sign and to be excluded from aggregation.
 	function updateRewardsBalance(
 		address recipientAddress, 
 		uint256 recipientAmount,
@@ -269,12 +270,13 @@ contract ServiceNodeRewards is Ownable {
     /// @param sigs1 Second part of the signature.
     /// @param sigs2 Third part of the signature.
     /// @param sigs3 Fourth part of the signature.
-    /// @param ids An array of service node IDs.
-    function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
+    /// @param ids An array of service node IDs that did not sign and to be excluded from aggregation.
+    function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
         if (!IsActive) revert ContractNotActive();
         if (ids.length > blsNonSignerThreshold) revert InsufficientBLSSignatures(serviceNodesLength() - ids.length, serviceNodesLength() - blsNonSignerThreshold);
+        if (pkX != serviceNodes[serviceNodeID].pubkey.X || pkY != serviceNodes[serviceNodeID].pubkey.Y) revert BLSPubkeyDoesNotMatch(serviceNodeID, pkX, pkY);
         //Validating signature
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(removalTag, serviceNodeID))));
+        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(removalTag, pkX, pkY))));
         BN256G1.G1Point memory pubkey;
         for(uint256 i = 0; i < ids.length; i++) {
             pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
@@ -283,7 +285,7 @@ contract ServiceNodeRewards is Ownable {
         BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
 
-        _removeBLSPublicKey(serviceNodeID);
+        _removeBLSPublicKey(serviceNodeID, serviceNodes[serviceNodeID].deposit);
     }
 
     /// @notice Removes a BLS public key after a specified wait time, this can be called without the BLS signature because the node has waited extra long   .
@@ -294,12 +296,12 @@ contract ServiceNodeRewards is Ownable {
         if(leaveRequestTimestamp == 0) revert LeaveRequestTooEarly(serviceNodeID, leaveRequestTimestamp, block.timestamp);
         uint256 timestamp = leaveRequestTimestamp + MAX_SERVICE_NODE_REMOVAL_WAIT_TIME;
         if(block.timestamp < timestamp) revert LeaveRequestTooEarly(serviceNodeID, timestamp, block.timestamp);
-        _removeBLSPublicKey(serviceNodeID);
+        _removeBLSPublicKey(serviceNodeID, serviceNodes[serviceNodeID].deposit);
     }
 
     /// @dev Internal function to remove a BLS public key. Updates the linked list to remove the node
     /// @param serviceNodeID The ID of the service node to be removed.
-    function _removeBLSPublicKey(uint64 serviceNodeID) internal {
+    function _removeBLSPublicKey(uint64 serviceNodeID, uint256 returnedAmount) internal {
         address serviceNodeRecipient = serviceNodes[serviceNodeID].recipient;
         uint64 previousServiceNode = serviceNodes[serviceNodeID].previous;
         uint64 nextServiceNode = serviceNodes[serviceNodeID].next;
@@ -319,7 +321,7 @@ contract ServiceNodeRewards is Ownable {
         totalNodes--;
         updateBLSThreshold();
 
-        emit ServiceNodeRemoval(serviceNodeID, serviceNodeRecipient, pubkey);
+        emit ServiceNodeRemoval(serviceNodeID, serviceNodeRecipient, returnedAmount, pubkey);
     }
 
     /// @notice Liquidates a BLS public key using a signature. This function can be called by anyone if the network wishes for the node to be removed (ie from a dereg) without relying on the user to remove themselves
@@ -328,33 +330,39 @@ contract ServiceNodeRewards is Ownable {
     /// @param sigs1 Second part of the signature.
     /// @param sigs2 Third part of the signature.
     /// @param sigs3 Fourth part of the signature.
-    /// @param ids An array of service node IDs.
-    function liquidateBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
+    function liquidateBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
         if (!IsActive) revert ContractNotActive();
         if (ids.length > blsNonSignerThreshold) revert InsufficientBLSSignatures(serviceNodesLength() - ids.length, serviceNodesLength() - blsNonSignerThreshold);
+        ServiceNode memory node = serviceNodes[serviceNodeID];
+        if (pkX != node.pubkey.X || pkY != node.pubkey.Y) revert BLSPubkeyDoesNotMatch(serviceNodeID, pkX, pkY);
         //Validating signature
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(liquidateTag, serviceNodeID))));
-        BN256G1.G1Point memory pubkey;
-        for(uint256 i = 0; i < ids.length; i++) {
-            pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
+        {
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(liquidateTag, pkX, pkY))));
+            BN256G1.G1Point memory pubkey;
+            for(uint256 i = 0; i < ids.length; i++) {
+                pubkey = BN256G1.add(pubkey, serviceNodes[ids[i]].pubkey);
+            }
+            pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
+            BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
+            if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
         }
-        pubkey = BN256G1.add(aggregate_pubkey, BN256G1.negate(pubkey));
-        BN256G2.G2Point memory signature = BN256G2.G2Point([sigs1,sigs0],[sigs3,sigs2]);
-        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
 
-
-        _removeBLSPublicKey(serviceNodeID);
 
         // Calculating how much liquidator is paid out
         uint256 ratioSum = poolShareOfLiquidationRatio + liquidatorRewardRatio + recipientRatio;
-        uint256 deposit = serviceNodes[serviceNodeID].deposit;
-        emit ServiceNodeLiquidated(serviceNodeID, serviceNodes[serviceNodeID].recipient, serviceNodes[serviceNodeID].pubkey);
+        emit ServiceNodeLiquidated(serviceNodeID, node.recipient, node.pubkey);
+        uint256 deposit = node.deposit;
+        uint256 liquidatorAmount = deposit * liquidatorRewardRatio/ratioSum;
+        uint256 poolAmount = deposit * poolShareOfLiquidationRatio/ratioSum;
+
+        _removeBLSPublicKey(serviceNodeID, deposit - liquidatorAmount - poolAmount);
+
 
         // Transfer funds to pool and liquidator
         if (liquidatorRewardRatio > 0)
-            SafeERC20.safeTransfer(designatedToken, msg.sender, deposit * liquidatorRewardRatio/ratioSum);
+            SafeERC20.safeTransfer(designatedToken, msg.sender, liquidatorAmount);
         if (poolShareOfLiquidationRatio > 0)
-            SafeERC20.safeTransfer(designatedToken, address(foundationPool), deposit * poolShareOfLiquidationRatio/ratioSum);
+            SafeERC20.safeTransfer(designatedToken, address(foundationPool), poolAmount);
     }
 
     /// @notice Seeds the public key list with an initial set of keys. Only should be called before the hardfork by the foundation to ensure the public key list is ready to operate.

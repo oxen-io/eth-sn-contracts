@@ -16,3 +16,6 @@ deploy-local:
 deploy-sepolia:
 	npx hardhat run scripts/deploy.js --network sepolia
 
+otterscan:
+	docker run --rm -p 5100:80 --name otterscan --env ERIGON_URL="http://127.0.0.1:8545" otterscan/otterscan:latest
+

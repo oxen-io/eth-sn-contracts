@@ -401,12 +401,12 @@ contract ServiceNodeRewards is Ownable {
             emit NewSeededServiceNode(nextServiceNodeID, pubkey);
             lastServiceNodeID = nextServiceNodeID;
             nextServiceNodeID++;
+            totalNodes++;
         }
 
         serviceNodes[lastServiceNodeID].next = LIST_END;
         serviceNodes[LIST_END].previous = lastServiceNodeID;
 
-        totalNodes++;
         updateBLSThreshold();
     }
 

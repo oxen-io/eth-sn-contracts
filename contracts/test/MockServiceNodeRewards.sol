@@ -40,14 +40,14 @@ contract MockServiceNodeRewards is Ownable {
         stakingRequirement = _stakingRequirement;
     }
 
-    function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint256 serviceNodePubkey, uint256 serviceNodeSignature) public {
+    function addBLSPublicKey(uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256) public {
         serviceNodes[nextServiceNodeID] = ServiceNode(0,0, msg.sender, BN256G1.G1Point(0,0), 0, stakingRequirement);
         nextServiceNodeID++;
         totalNodes++;
         SafeERC20.safeTransferFrom(designatedToken, msg.sender, address(this), stakingRequirement);
     }
 
-    function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] memory ids) external {
+    function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256, uint256, uint256, uint256, uint256, uint256, uint64[] memory) external {
         recipients[serviceNodes[serviceNodeID].recipient].rewards += serviceNodes[serviceNodeID].deposit;
         delete serviceNodes[serviceNodeID];
         totalNodes--;

@@ -44,7 +44,7 @@ contract MockServiceNodeRewards is Ownable {
         serviceNodes[nextServiceNodeID] = ServiceNode(0,0, msg.sender, BN256G1.G1Point(0,0), 0, stakingRequirement);
         nextServiceNodeID++;
         totalNodes++;
-        SafeERC20.safeTransferFrom(designatedToken, msg.sender, address(this), stakingRequirement);
+        designatedToken.safeTransferFrom(msg.sender, address(this), stakingRequirement);
     }
 
     function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256, uint256, uint256, uint256, uint256, uint256, uint64[] memory) external {

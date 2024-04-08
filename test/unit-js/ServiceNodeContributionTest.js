@@ -3,6 +3,7 @@ const { ethers } = require("hardhat");
 
 const STAKING_TEST_AMNT = 15000000000000
 const TEST_AMNT = 50000000000000
+const MAX_CONTRIBUTORS = 10;
 
 describe("ServiceNodeContributionFactory Contract Tests", function () {
   it("Should deploy and set the staking rewards contract address correctly", async function () {
@@ -21,7 +22,7 @@ describe("ServiceNodeContributionFactory Contract Tests", function () {
     const serviceNodeRewards = await ServiceNodeRewards.deploy(mockERC20, STAKING_TEST_AMNT);
 
     const ServiceNodeContributorFactory = await ethers.getContractFactory("ServiceNodeContributorFactory");
-    const serviceNodeContributorFactory = await ServiceNodeContributorFactory.deploy(serviceNodeRewards);
+    const serviceNodeContributorFactory = await ServiceNodeContributorFactory.deploy(serviceNodeRewards, MAX_CONTRIBUTORS);
 
     expect(await serviceNodeContributorFactory.stakingRewardsContract()).to.equal(await serviceNodeRewards.getAddress());
   });
@@ -50,7 +51,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         serviceNodeRewards = await ServiceNodeRewards.deploy(mockERC20, STAKING_TEST_AMNT);
 
         ServiceNodeContributorFactory = await ethers.getContractFactory("ServiceNodeContributorFactory");
-        serviceNodeContributorFactory = await ServiceNodeContributorFactory.deploy(serviceNodeRewards);
+        serviceNodeContributorFactory = await ServiceNodeContributorFactory.deploy(serviceNodeRewards, MAX_CONTRIBUTORS);
     });
 
 

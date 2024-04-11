@@ -20,6 +20,8 @@ std::string contract_address = provider->getContractDeployedInLatestBlock();
 ServiceNodeRewardsContract rewards_contract(contract_address, provider);
 Signer signer(provider);    
 std::vector<unsigned char> seckey = utils::fromHexString(std::string(config.PRIVATE_KEY));
+//const std::string senderAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+const std::string senderAddress = signer.addressFromPrivateKey(seckey);
 
 std::string erc20_address = utils::trimAddress(rewards_contract.designatedToken());
 ERC20Contract erc20_contract(erc20_address, provider);
@@ -51,7 +53,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(1);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             hash = signer.sendTransaction(tx, seckey);
             REQUIRE(hash != "");
@@ -64,7 +66,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(2);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             hash = signer.sendTransaction(tx, seckey);
             REQUIRE(hash != "");
@@ -78,7 +80,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -100,7 +102,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -122,7 +124,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -141,7 +143,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -157,7 +159,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -172,7 +174,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -186,7 +188,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -204,7 +206,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -228,7 +230,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -250,7 +252,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -269,24 +271,23 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
-        const std::string recipientAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-        auto recipient = rewards_contract.viewRecipientData(recipientAddress);
+        auto recipient = rewards_contract.viewRecipientData(senderAddress);
         REQUIRE(recipient.rewards == 0);
         REQUIRE(recipient.claimed == 0);
         const uint64_t recipientAmount = 1;
         const auto signers = snl.randomSigners(snl.nodes.size() - 1);
-        const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
+        const auto sig = snl.updateRewardsBalance(senderAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
         const auto non_signers = snl.findNonSigners(signers);
-        tx = rewards_contract.updateRewardsBalance(recipientAddress, recipientAmount, sig, non_signers);
+        tx = rewards_contract.updateRewardsBalance(senderAddress, recipientAmount, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
         REQUIRE(provider->transactionSuccessful(hash));
-        recipient = rewards_contract.viewRecipientData(recipientAddress);
+        recipient = rewards_contract.viewRecipientData(senderAddress);
         REQUIRE(recipient.rewards == recipientAmount);
         REQUIRE(recipient.claimed == 0);
     }
@@ -295,20 +296,19 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
-        const std::string recipientAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-        auto recipient = rewards_contract.viewRecipientData(recipientAddress);
+        auto recipient = rewards_contract.viewRecipientData(senderAddress);
         REQUIRE(recipient.rewards == 0);
         REQUIRE(recipient.claimed == 0);
         const uint64_t recipientAmount = 1;
         const auto signers = snl.randomSigners(snl.nodes.size() - 2);
-        const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
+        const auto sig = snl.updateRewardsBalance(senderAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
         const auto non_signers = snl.findNonSigners(signers);
-        tx = rewards_contract.updateRewardsBalance(recipientAddress, recipientAmount, sig, non_signers);
+        tx = rewards_contract.updateRewardsBalance(senderAddress, recipientAmount, sig, non_signers);
         REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
     }
 
@@ -316,7 +316,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }
@@ -353,7 +353,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             tx = erc20_contract.approve(contract_address, std::numeric_limits<std::uint64_t>::max());;
             hash = signer.sendTransaction(tx, seckey);
             const auto pubkey = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address);
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
             signer.sendTransaction(tx, seckey);
         }

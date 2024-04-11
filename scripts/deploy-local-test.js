@@ -25,7 +25,7 @@ async function main() {
     serviceNodeRewards = await ServiceNodeRewards.deploy(
         mockERC20,              // token address
         foundationPool,         // foundation pool address
-        15000000000000,                 // staking requirement
+        100000000000,                 // staking requirement
         0,                              // liquidator reward ratio
         0,                              // pool share of liquidation ratio
         1                               // recipient ratio

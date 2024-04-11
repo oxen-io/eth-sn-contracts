@@ -25,7 +25,7 @@ public:
     ServiceNode(uint64_t _service_node_id);
     ~ServiceNode();
     bls::Signature signHash(const std::array<unsigned char, 32>& hash);
-    std::string proofOfPossession(uint32_t chainID, const std::string& contractAddress);
+    std::string proofOfPossession(uint32_t chainID, const std::string& contractAddress, const std::string& senderEthAddress, const std::string& serviceNodePubkey);
     std::string getPublicKeyHex();
     bls::PublicKey getPublicKey();
 // End Service Node

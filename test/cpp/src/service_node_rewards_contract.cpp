@@ -9,7 +9,7 @@ Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string& publi
     Transaction tx(contractAddress, 0, 3000000);
     std::string functionSelector = utils::getFunctionSignature("addBLSPublicKey(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)");
 
-    const std::string serviceNodePubkeyPadded = utils::padTo32Bytes(serviceNodePubkey, utils::PaddingDirection::LEFT);
+    const std::string serviceNodePubkeyPadded = utils::padTo32Bytes(utils::toHexString(serviceNodePubkey), utils::PaddingDirection::LEFT);
     const std::string serviceNodeSignaturePadded = utils::padTo32Bytes(serviceNodeSignature, utils::PaddingDirection::LEFT);
 
     tx.data = functionSelector + publicKey + sig + serviceNodePubkeyPadded + serviceNodeSignaturePadded;

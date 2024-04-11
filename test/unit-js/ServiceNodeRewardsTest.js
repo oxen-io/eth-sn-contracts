@@ -31,7 +31,6 @@ describe("ServiceNodeRewards Contract Tests", function () {
             0,                              // pool share of liquidation ratio
             1                               // recipient ratio
         );
-
     });
 
     it("Should deploy and set the correct owner", async function () {

@@ -34,9 +34,12 @@ bls::Signature ServiceNode::signHash(const std::array<unsigned char, 32>& hash) 
     return sig;
 }
 
-std::string ServiceNode::proofOfPossession(uint32_t chainID, const std::string& contractAddress) {
+std::string ServiceNode::proofOfPossession(uint32_t chainID, const std::string& contractAddress, const std::string& senderEthAddress, const std::string& serviceNodePubkey) {
+    std::string senderAddressOutput = senderEthAddress;
+    if (senderAddressOutput.substr(0, 2) == "0x")
+        senderAddressOutput = senderAddressOutput.substr(2);  // remove "0x"
     std::string fullTag = buildTag(proofOfPossessionTag, chainID, contractAddress);
-    std::string message = "0x" + fullTag + getPublicKeyHex();
+    std::string message = "0x" + fullTag + getPublicKeyHex() + senderAddressOutput + utils::padTo32Bytes(utils::toHexString(serviceNodePubkey), utils::PaddingDirection::LEFT);
     const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature sig;
     secretKey.signHash(sig, hash.data(), hash.size());

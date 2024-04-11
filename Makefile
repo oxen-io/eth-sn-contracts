@@ -8,8 +8,8 @@ build:
 	npx hardhat compile
 
 node:
-	npx hardhat node
-	#anvil
+	#npx hardhat node
+	anvil
 
 deploy-local:
 	npx hardhat run scripts/deploy-local-test.js --network localhost

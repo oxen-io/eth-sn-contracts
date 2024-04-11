@@ -87,9 +87,14 @@ contract ServiceNodeRewards is Ownable {
 
     BN256G1.G1Point public aggregate_pubkey;
 
+    struct Contributor {
+        address addr; // The address of the contributor
+        uint256 stakedAmount; // The amount staked by the contributor
+    }
+
     // EVENTS
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);
-    event NewServiceNode(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey, uint256 serviceNodePubkey, uint256 serviceNodeSignature);
+    event NewServiceNode( uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey, uint256 serviceNodePubkey, uint256 serviceNodeSignature, uint256 serviceNodeSignature2, uint16 fee,Contributor[] contributors);
     event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
@@ -227,8 +232,9 @@ contract ServiceNodeRewards is Ownable {
         }
         totalNodes++;
         updateBLSThreshold();
-        // TODO we also need service node public key so that the network can see who added themselves to the list
-        emit NewServiceNode(nextServiceNodeID, recipient, pubkey, serviceNodePubkey, serviceNodeSignature);
+        Contributor[] memory contributors = new Contributor[](1);
+        contributors[0] = Contributor(msg.sender, stakingRequirement);
+        emit NewServiceNode( nextServiceNodeID, recipient, pubkey, serviceNodePubkey, serviceNodeSignature, serviceNodeSignature, 0, contributors);
         nextServiceNodeID++;
         SafeERC20.safeTransferFrom(designatedToken, recipient, address(this), stakingRequirement);
     }

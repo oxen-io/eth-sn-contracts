@@ -131,7 +131,10 @@ contract ServiceNodeContribution {
         stakingRewardsContract.addBLSPublicKey(pkX, pkY, sigs0, sigs1, sigs2, sigs3, serviceNodePubkey, serviceNodeSignature);
         emit Finalized(serviceNodePubkey);
     }
-    
+
+    // TODO rescue funds remaining after finalising
+
+
     /**
      * @notice Allows contributors to withdraw their stake before the node is finalized.
      * @dev Withdrawals are only allowed if the node has not been finalized or cancelled. The operator cannot withdraw their contribution through this method. Operator should call cancelNode() instead.

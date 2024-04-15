@@ -2,17 +2,42 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../libraries/Pairing.sol";
+import "../libraries/BN256G1.sol";
 
 interface IServiceNodeRewards {
     /// @notice Represents a service node in the network.
     struct ServiceNode {
         uint64 next;
         uint64 previous;
-        address recipient;
+        address operator;
         BN256G1.G1Point pubkey;
         uint256 leaveRequestTimestamp;
         uint256 deposit;
+    }
+
+    /// @notice Represents a recipient of rewards, how much they can claim and how much previously claimed.
+    struct Recipient {
+        uint256 rewards;
+        uint256 claimed;
+    }
+
+    struct Contributor {
+        address addr; // The address of the contributor
+        uint256 stakedAmount; // The amount staked by the contributor
+    }
+
+    struct BLSSignatureParams {
+        uint256 sigs0;
+        uint256 sigs1;
+        uint256 sigs2;
+        uint256 sigs3;
+    }
+
+    struct ServiceNodeParams {
+        uint256 serviceNodePubkey;
+        uint256 serviceNodeSignature1;
+        uint256 serviceNodeSignature2;
+        uint16  fee;
     }
     // Public Variables
     function IsActive() external view returns (bool);
@@ -32,16 +57,7 @@ interface IServiceNodeRewards {
     function serviceNodes(uint64) external view returns (ServiceNode memory);
     function recipients(address) external view returns (uint256 rewards, uint256 claimed);
     function serviceNodeIDs(bytes memory) external view returns (uint64);
-    function aggregate_pubkey() external view returns (BN256G1.G1Point memory);
-
-    // Events
-    event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);
-    event NewServiceNode(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey, uint256 serviceNodePubkey, uint256 serviceNodeSignature);
-    event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
-    event RewardsClaimed(address indexed recipientAddress, uint256 amount);
-    event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
-    event ServiceNodeRemoval(uint64 indexed serviceNodeID, address recipient, uint256 returnedAmount, BN256G1.G1Point pubkey);
-    event ServiceNodeRemovalRequest(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
+    function aggregatePubkey() external view returns (BN256G1.G1Point memory);
 
     // Function Signatures
     function updateRewardsBalance(
@@ -55,7 +71,7 @@ interface IServiceNodeRewards {
     ) external;
     function buildRecipientMessage(address recipientAddress, uint256 balance) external pure returns (bytes memory);
     function claimRewards() external;
-    function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint256 serviceNodePubkey, uint256 serviceNodeSignature) external;
+    function addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, ServiceNodeParams calldata serviceNodeParams, Contributor[] calldata contributors) external;
     function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external;
     function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint64[] calldata ids) external;
     function removeBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external;

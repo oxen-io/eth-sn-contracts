@@ -51,13 +51,13 @@ describe("TokenVestingStaking Contract Tests", function () {
 
     it("Should be able to stake to a node", async function () {
         const balanceBefore = await mockERC20.balanceOf(tokenVestingStaking);
-        await tokenVestingStaking.connect(beneficiary).addBLSPublicKey(0,0,0,0,0,0,0,0);
+        await tokenVestingStaking.connect(beneficiary).addBLSPublicKey([0,0],[0,0,0,0],[0,0,0,0]);
         const balanceAfter = await mockERC20.balanceOf(tokenVestingStaking);
         expect(balanceBefore - balanceAfter).to.equal(STAKING_TEST_AMNT);
     });
 
     it("Should be able to claim rewards", async function () {
-        await tokenVestingStaking.connect(beneficiary).addBLSPublicKey(0,0,0,0,0,0,0,0);
+        await tokenVestingStaking.connect(beneficiary).addBLSPublicKey([0,0],[0,0,0,0],[0,0,0,0]);
         const balanceBefore = await mockERC20.balanceOf(beneficiary);
         await tokenVestingStaking.connect(beneficiary).claimRewards();
         const balanceAfter = await mockERC20.balanceOf(beneficiary);
@@ -65,7 +65,7 @@ describe("TokenVestingStaking Contract Tests", function () {
     });
 
     it("Should be able to unstake and claim rewards", async function () {
-        await tokenVestingStaking.connect(beneficiary).addBLSPublicKey(0,0,0,0,0,0,0,0);
+        await tokenVestingStaking.connect(beneficiary).addBLSPublicKey([0,0],[0,0,0,0],[0,0,0,0]);
         const serviceNode = await tokenVestingStaking.serviceNodes(0)
         const balancebeneficiaryBefore = await mockERC20.balanceOf(beneficiary);
         const balanceBefore = await mockERC20.balanceOf(tokenVestingStaking);

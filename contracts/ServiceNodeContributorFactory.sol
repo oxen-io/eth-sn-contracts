@@ -19,9 +19,9 @@ contract ServiceNodeContributorFactory {
         maxContributors = _maxContributors;
     }
 
-    function deployContributorContract(uint256 pkX, uint256 pkY, uint256 serviceNodePubkey, uint256 feePercentage) public {
-        ServiceNodeContribution newContract = new ServiceNodeContribution(address(stakingRewardsContract), maxContributors, pkX, pkY, serviceNodePubkey, feePercentage);
-        emit NewServiceNodeContributionContract(address(newContract), serviceNodePubkey);
+    function deployContributorContract(BN256G1.G1Point memory blsPubkey, IServiceNodeRewards.ServiceNodeParams memory serviceNodeParams) public {
+        ServiceNodeContribution newContract = new ServiceNodeContribution(address(stakingRewardsContract), maxContributors, blsPubkey, serviceNodeParams);
+        emit NewServiceNodeContributionContract(address(newContract), serviceNodeParams.serviceNodePubkey);
     }
 }
 

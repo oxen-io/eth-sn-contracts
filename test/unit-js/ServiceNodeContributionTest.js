@@ -57,13 +57,13 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
     it("Allows deployment of contributor contract and logs correctly", async function () {
         const [owner, operator] = await ethers.getSigners();
-        await expect(serviceNodeContributorFactory.connect(operator).deployContributorContract(0,0,0,0))
+        await expect(serviceNodeContributorFactory.connect(operator).deployContributorContract([0,0],[0,0,0,0]))
             .to.emit(serviceNodeContributorFactory, 'NewServiceNodeContributionContract');
     });
 
     it("Does not allow contributions if operator hasn't contributed", async function () {
         const [owner, operator, contributor] = await ethers.getSigners();
-        const tx = await serviceNodeContributorFactory.connect(operator).deployContributorContract(0,0,0,0);
+        const tx = await serviceNodeContributorFactory.connect(operator).deployContributorContract([0,0],[0,0,0,0]);
         const receipt = await tx.wait();
         const event = receipt.logs[0];
         expect(event.eventName).to.equal("NewServiceNodeContributionContract");
@@ -77,9 +77,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
             .to.be.revertedWith("Operator has not contributed funds"); // checking for a revert due to the operator not having contributed
     });
 
-    it("allows operator to contribute and records correct balance", async function () {
-        const [owner, operator] = await ethers.getSigners();
-        const tx = await serviceNodeContributorFactory.connect(operator).deployContributorContract(0,0,0,0);
+    it("allows operator to contribute and records correct balance", async function () { const [owner, operator] = await ethers.getSigners();
+        const tx = await serviceNodeContributorFactory.connect(operator).deployContributorContract([0,0],[0,0,0,0]);
         const receipt = await tx.wait();
         const event = receipt.logs[0];
         expect(event.eventName).to.equal("NewServiceNodeContributionContract");
@@ -89,7 +88,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         const minContribution = await serviceNodeContribution.minimumContribution();
         await mockERC20.transfer(operator, TEST_AMNT);
         await mockERC20.connect(operator).approve(serviceNodeContributionAddress, minContribution);
-        await expect(serviceNodeContribution.connect(operator).contributeOperatorFunds())
+        await expect(serviceNodeContribution.connect(operator).contributeOperatorFunds([0,0,0,0]))
               .to.emit(serviceNodeContribution, "NewContribution")
               .withArgs(await operator.getAddress(), minContribution);
 
@@ -104,7 +103,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
     describe("After operator has set up funds", function () {
         beforeEach(async function () {
             const [owner, operator] = await ethers.getSigners();
-            const tx = await serviceNodeContributorFactory.connect(operator).deployContributorContract(0,0,0,0);
+            const tx = await serviceNodeContributorFactory.connect(operator).deployContributorContract([0,0],[0,0,0,0]);
             const receipt = await tx.wait();
             const event = receipt.logs[0];
             expect(event.eventName).to.equal("NewServiceNodeContributionContract");
@@ -114,7 +113,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const minContribution = await serviceNodeContribution.minimumContribution();
             await mockERC20.transfer(operator, TEST_AMNT);
             await mockERC20.connect(operator).approve(serviceNodeContributionAddress, minContribution);
-            await expect(serviceNodeContribution.connect(operator).contributeOperatorFunds())
+            await expect(serviceNodeContribution.connect(operator).contributeOperatorFunds([0,0,0,0]))
                   .to.emit(serviceNodeContribution, "NewContribution")
                   .withArgs(await operator.getAddress(), minContribution);
         });
@@ -168,7 +167,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             await expect(await serviceNodeContribution.connect(contributor).contributeFunds(minContribution))
                 .to.emit(serviceNodeContribution, "NewContribution")
                 .withArgs(await contributor.getAddress(), minContribution);
-            await expect(serviceNodeContribution.connect(operator).finalizeNode(0,0,0,0,0))
+            await expect(serviceNodeContribution.connect(operator).finalizeNode())
                 .to.be.revertedWith("Funding goal has not been met.");
         });
 
@@ -190,7 +189,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             await mockERC20.connect(contributor).approve(serviceNodeContribution, stakingRequirement - previousContribution);
             await expect(await serviceNodeContribution.connect(contributor).contributeFunds(stakingRequirement - previousContribution))
                   .to.emit(serviceNodeContribution, "NewContribution");
-            await expect(await serviceNodeContribution.connect(operator).finalizeNode(0,0,0,0,0))
+            await expect(await serviceNodeContribution.connect(operator).finalizeNode())
                 .to.emit(serviceNodeContribution, "Finalized");
             expect(await mockERC20.balanceOf(serviceNodeRewards)).to.equal(stakingRequirement);
             expect(await serviceNodeRewards.totalNodes()).to.equal(1);

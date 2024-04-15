@@ -24,13 +24,12 @@ contract ServiceNodeContribution {
     uint256 public immutable maxContributors;
 
     // Service Node Details
-    uint256 public immutable serviceNodePubkey;
-    address public immutable operator;
-    uint256 public immutable feePercentage;
-    uint256 public immutable pkX;
-    uint256 public immutable pkY;
+    BN256G1.G1Point public blsPubkey;
+    IServiceNodeRewards.BLSSignatureParams public blsSignature;
+    IServiceNodeRewards.ServiceNodeParams public serviceNodeParams;
 
     // Contributors
+    address public immutable operator;
     mapping(address => uint256) public contributions;
     uint256 public operatorContribution;
     uint256 public totalContribution;
@@ -52,25 +51,19 @@ contract ServiceNodeContribution {
     event NewContribution(address indexed contributor, uint256 amount);
     event StakeWithdrawn(address indexed contributor, uint256 amount);
 
-    /**
-     * @notice Constructs the ServiceNodeContribution contract. This is usually done by the parent factory contract
-     * @param _stakingRewardsContract Address of the staking rewards contract.
-     * @param _maxContributors Maximum number of contributors allowed.
-     * @param _pkX BLS Public key of the service node.
-     * @param _pkY BLS Public key of the service node.
-     * @param _serviceNodePubkey Public key of the service node.
-     * @param _feePercentage Fee percentage for the service node operator. This determines how much of the contributors rewards will go to the operator for running the node.
-     */
-    constructor(address _stakingRewardsContract, uint256 _maxContributors, uint256 _pkX, uint256 _pkY, uint256 _serviceNodePubkey, uint256 _feePercentage) {
+    /// @notice Constructs the ServiceNodeContribution contract. This is usually done by the parent factory contract
+    /// @param _stakingRewardsContract Address of the staking rewards contract.
+    /// @param _maxContributors Maximum number of contributors allowed.
+    /// @param _blsPubkey - X and Y coordinates of the public key
+    /// @param _serviceNodeParams - Service node public key, signature proving ownership of public key and fee that operator is charging
+    constructor(address _stakingRewardsContract, uint256 _maxContributors, BN256G1.G1Point memory _blsPubkey, IServiceNodeRewards.ServiceNodeParams memory _serviceNodeParams) {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
         SENT = IERC20(stakingRewardsContract.designatedToken());
         stakingRequirement = stakingRewardsContract.stakingRequirement();
         maxContributors = _maxContributors;
-        feePercentage = _feePercentage;
         operator = tx.origin;
-        pkX = _pkX;
-        pkY = _pkY;
-        serviceNodePubkey = _serviceNodePubkey;
+        blsPubkey = _blsPubkey;
+        serviceNodeParams = _serviceNodeParams;
     }
 
 
@@ -86,10 +79,11 @@ contract ServiceNodeContribution {
      * @dev This function sets the operator's contribution and emits a NewContribution event.
      * It can only be called once by the operator and must be done before any other contributions are made.
      */
-    function contributeOperatorFunds() public onlyOperator {
+    function contributeOperatorFunds(IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
         require (operatorContribution == 0, "Operator already contributed funds");
         require(!cancelled, "Node has been cancelled.");
         operatorContribution = minimumContribution();
+        blsSignature = _blsSignature;
         contributeFunds(operatorContribution);
     }
 
@@ -111,25 +105,19 @@ contract ServiceNodeContribution {
         emit NewContribution(msg.sender, amount);
     }
 
-    /**
-     * @notice Finalizes the service node setup. This is called by the operator once the node has been fully staked by other contributors. Will begin
-     * the process of adding the service node to the network
-     * @dev This can only be done by the operator once the staking requirement is met
-     * @param sigs0 proof of possession signature for BLS public key.
-     * @param sigs1 proof of possession signature for BLS public key.
-     * @param sigs2 proof of possession signature for BLS public key.
-     * @param sigs3 proof of possession signature for BLS public key.
-     * @param serviceNodeSignature Service node signature.
-     */
-    function finalizeNode(uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint256 serviceNodeSignature) public onlyOperator {
+    //TODO sean move this into contribute funds
+    function finalizeNode() public onlyOperator {
         require(totalContribution == stakingRequirement, "Funding goal has not been met.");
         require(!finalized, "Node has already been finalized.");
         require(!cancelled, "Node has been cancelled.");
         finalized = true;
         SENT.approve(address(stakingRewardsContract), stakingRequirement);
         // TODO sean change the params to pass in all the contributor details also
-        stakingRewardsContract.addBLSPublicKey(pkX, pkY, sigs0, sigs1, sigs2, sigs3, serviceNodePubkey, serviceNodeSignature);
-        emit Finalized(serviceNodePubkey);
+        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](1);
+        contributors[0] = IServiceNodeRewards.Contributor(operator, stakingRequirement);
+        stakingRewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
+
+        emit Finalized(serviceNodeParams.serviceNodePubkey);
     }
 
     // TODO rescue funds remaining after finalising
@@ -164,7 +152,7 @@ contract ServiceNodeContribution {
         numberContributors -= 1;
         totalContribution -= refundAmount;
         SENT.safeTransfer(msg.sender, refundAmount);
-        emit Cancelled(serviceNodePubkey);
+        emit Cancelled(serviceNodeParams.serviceNodePubkey);
     }
 
     //////////////////////////////////////////////////////////////

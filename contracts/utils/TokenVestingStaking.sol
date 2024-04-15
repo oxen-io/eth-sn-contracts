@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 
 import "../libraries/Shared.sol";
 import "../interfaces/ITokenVestingStaking.sol";
-import "../interfaces/IServiceNodeRewards.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -86,21 +85,18 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
 
     /**
      * @notice Adds a BLS public key to the list of service nodes. Requires a proof of possession BLS signature to prove user controls the public key being added
-     * @param pkX X-coordinate of the service nodes BLS public key.
-     * @param pkY Y-coordinate of the service nodes BLS public key.
-     * @param sigs0 First part of the proof of possession signature.
-     * @param sigs1 Second part of the proof of possession signature.
-     * @param sigs2 Third part of the proof of possession signature.
-     * @param sigs3 Fourth part of the proof of possession signature.
-     * @param serviceNodePubkey Pubkey provided by the service node.
-     * @param serviceNodeSignature Signature for the registration.
+     * @param blsPubkey - 64 bytes of the bls public key
+     * @param blsSignature - 128 byte signature
+     * @param serviceNodeParams - Service node public key, signature proving ownership of public key and fee that operator is charging
      */
-    function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint256 serviceNodePubkey, uint256 serviceNodeSignature) external onlyBeneficiary notRevoked afterStart {
+    function addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, IServiceNodeRewards.BLSSignatureParams calldata blsSignature, IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams) external onlyBeneficiary notRevoked afterStart {
         uint256 stakingRequirement = stakingRewardsContract.stakingRequirement();
         uint64 serviceNodeID = stakingRewardsContract.nextServiceNodeID();
         SENT.approve(address(stakingRewardsContract), stakingRequirement);
         serviceNodes.push(ServiceNode(serviceNodeID, stakingRequirement));
-        stakingRewardsContract.addBLSPublicKey(pkX, pkY, sigs0, sigs1, sigs2, sigs3, serviceNodePubkey, serviceNodeSignature);
+        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](1);
+        contributors[0] = IServiceNodeRewards.Contributor(address(this), stakingRequirement);
+        stakingRewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
     }
 
     /**

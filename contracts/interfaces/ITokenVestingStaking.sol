@@ -3,6 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../interfaces/IServiceNodeRewards.sol";
 
 interface ITokenVestingStaking {
     event TokensReleased(IERC20 indexed token, uint256 amount);
@@ -17,7 +18,7 @@ interface ITokenVestingStaking {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    function addBLSPublicKey(uint256 pkX, uint256 pkY, uint256 sigs0, uint256 sigs1, uint256 sigs2, uint256 sigs3, uint256 serviceNodePubkey, uint256 serviceNodeSignature) external;
+    function addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, IServiceNodeRewards.BLSSignatureParams calldata blsSignature, IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams) external;
 
     function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external;
 

@@ -58,7 +58,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
             await serviceNodeRewards.connect(owner).seedPublicKeyList(pkX, pkY, amounts);
 
             expect(await serviceNodeRewards.serviceNodesLength()).to.equal(1);
-            let aggregate_pubkey = await serviceNodeRewards.aggregate_pubkey();
+            let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
             expect(aggregate_pubkey[0] == P[0])
             expect(aggregate_pubkey[1] == P[1])
         });
@@ -81,7 +81,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                 BigInt("0x040a638a13320ea807115f1e7865c89c70d2d3df83e2e8c3eaea519e18b6e6b0"),
                 BigInt("0x019081a4475388be53e1088f6ec0dd79f99fc794709b9cf8b1ad401a9c4d3413"),
             ];
-            let aggregate_pubkey = await serviceNodeRewards.aggregate_pubkey();
+            let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
             expect(aggregate_pubkey[0] == expected_aggregate_pubkey[0])
             expect(aggregate_pubkey[1] == expected_aggregate_pubkey[1])
 

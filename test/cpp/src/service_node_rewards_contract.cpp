@@ -5,14 +5,21 @@
 ServiceNodeRewardsContract::ServiceNodeRewardsContract(const std::string& _contractAddress, std::shared_ptr<Provider> _provider)
         : contractAddress(_contractAddress), provider(_provider) {}
 
-Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string& publicKey, const std::string& sig, const std::string& serviceNodePubkey, const std::string& serviceNodeSignature) {
+Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string& publicKey, const std::string& sig, const std::string& serviceNodePubkey, const std::string& serviceNodeSignature, const uint64_t fee) {
     Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = utils::getFunctionSignature("addBLSPublicKey(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)");
+    std::string functionSelector = utils::getFunctionSignature("addBLSPublicKey((uint256,uint256),(uint256,uint256,uint256,uint256),(uint256,uint256,uint256,uint16),(address,uint256)[])");
 
     const std::string serviceNodePubkeyPadded = utils::padTo32Bytes(utils::toHexString(serviceNodePubkey), utils::PaddingDirection::LEFT);
-    const std::string serviceNodeSignaturePadded = utils::padTo32Bytes(serviceNodeSignature, utils::PaddingDirection::LEFT);
+    const std::string serviceNodeSignaturePadded = utils::padToNBytes(utils::toHexString(serviceNodeSignature), 64, utils::PaddingDirection::LEFT);
+    const std::string fee_padded = utils::padTo32Bytes(utils::decimalToHex(fee), utils::PaddingDirection::LEFT);
 
-    tx.data = functionSelector + publicKey + sig + serviceNodePubkeyPadded + serviceNodeSignaturePadded;
+    // 11 parameters before the contributors array
+    const std::string contributors_offset = utils::padTo32Bytes(utils::decimalToHex(11 * 32), utils::PaddingDirection::LEFT);
+    // empty for now
+    const std::string contributors = utils::padTo32Bytes(utils::decimalToHex(0), utils::PaddingDirection::LEFT);
+
+    tx.data = functionSelector + publicKey + sig + serviceNodePubkeyPadded + serviceNodeSignaturePadded + fee_padded + contributors_offset + contributors;
+
     return tx;
 }
 
@@ -34,7 +41,7 @@ std::string ServiceNodeRewardsContract::designatedToken() {
 std::string ServiceNodeRewardsContract::aggregatePubkey() {
     ReadCallData callData;
     callData.contractAddress = contractAddress;
-    callData.data = utils::getFunctionSignature("aggregate_pubkey()");
+    callData.data = utils::getFunctionSignature("aggregatePubkey()");
     return provider->callReadFunction(callData);
 }
 

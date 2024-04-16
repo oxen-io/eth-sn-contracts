@@ -57,8 +57,6 @@ include(cmake/SourcesAndHeaders.cmake)
 FetchContent_Declare(nlohmann URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
 FetchContent_MakeAvailable(nlohmann)
 
-find_package(Boost 1.62 QUIET REQUIRED COMPONENTS system thread serialization program_options)
-
 add_subdirectory(external)
 
 add_library(

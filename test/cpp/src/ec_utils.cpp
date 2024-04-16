@@ -22,19 +22,32 @@ std::string utils::SignatureToHex(bls::Signature sig) {
     return utils::toHexString(serialized_signature);
 }
 
-std::string utils::BLSPublicKeyToHex(bls::PublicKey publicKey) {
-    mclSize                    serializedPublicKeySize = 32;
-    std::vector<unsigned char> serialized_pubkey(serializedPublicKeySize * 2);
-    uint8_t*                   dst      = serialized_pubkey.data();
-    const blsPublicKey*        pub      = publicKey.getPtr();
-    const mcl::bn::G1*         g1Point  = reinterpret_cast<const mcl::bn::G1*>(&pub->v);
-    mcl::bn::G1                g1Point2 = *g1Point;
-    g1Point2.normalize();
-    if (g1Point2.x.serialize(dst, serializedPublicKeySize, mcl::IoSerialize | mcl::IoBigEndian) == 0)
+std::string utils::BLSPublicKeyToHex(const bls::PublicKey& publicKey) {
+    const mclSize                                     KEY_SIZE         = 32;
+    std::array<char, KEY_SIZE * 2 /*X, Y component*/> serializedKeyHex = {};
+
+    char*               dst     = serializedKeyHex.data();
+    const blsPublicKey* rawKey  = publicKey.getPtr();
+
+    mcl::bn::G1 g1Point = {};
+    g1Point.clear();
+
+    // NOTE: const_cast is legal because the original g1Point was not declared
+    // const
+    static_assert(sizeof(*g1Point.x.getUnit()) * g1Point.x.maxSize == sizeof(rawKey->v.x.d),
+                  "We memcpy the key X,Y,Z component into G1 point's X,Y,Z component, hence, the sizes must match");
+    std::memcpy(const_cast<uint64_t*>(g1Point.x.getUnit()), rawKey->v.x.d, sizeof(rawKey->v.x.d));
+    std::memcpy(const_cast<uint64_t*>(g1Point.y.getUnit()), rawKey->v.y.d, sizeof(rawKey->v.y.d));
+    std::memcpy(const_cast<uint64_t*>(g1Point.z.getUnit()), rawKey->v.z.d, sizeof(rawKey->v.z.d));
+    g1Point.normalize();
+
+    if (g1Point.x.serialize(dst, KEY_SIZE, mcl::IoSerialize | mcl::IoBigEndian) == 0)
         throw std::runtime_error("size of x is zero");
-    if (g1Point2.y.serialize(dst + serializedPublicKeySize, serializedPublicKeySize, mcl::IoSerialize | mcl::IoBigEndian) == 0)
+    if (g1Point.y.serialize(dst + KEY_SIZE, KEY_SIZE, mcl::IoSerialize | mcl::IoBigEndian) == 0)
         throw std::runtime_error("size of y is zero");
-    return utils::toHexString(serialized_pubkey);
+
+    std::string result = utils::toHexString(serializedKeyHex);
+    return result;
 }
 
 bls::PublicKey utils::HexToBLSPublicKey(std::string_view hex) {

@@ -23,6 +23,75 @@ Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string& publi
     return tx;
 }
 
+ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
+{
+    ReadCallData callData            = {};
+    std::string  indexABI            = utils::padTo32Bytes(utils::decimalToHex(index), utils::PaddingDirection::LEFT);
+    callData.contractAddress         = contractAddress;
+    callData.data                    = utils::getFunctionSignature("serviceNodes(uint64)") + indexABI;
+    nlohmann::json     callResult    = provider->callReadFunctionJSON(callData);
+    const std::string& callResultHex = callResult.get_ref<nlohmann::json::string_t&>();
+    std::string_view   callResultIt  = utils::trimPrefix(callResultHex, "0x");
+
+    const size_t        U256_HEX_SIZE                  = (256 / 8) * 2;
+    const size_t        BLS_PKEY_XY_COMPONENT_HEX_SIZE = 32 * 2;
+    const size_t        BLS_PKEY_HEX_SIZE              = BLS_PKEY_XY_COMPONENT_HEX_SIZE + BLS_PKEY_XY_COMPONENT_HEX_SIZE;
+    const size_t        ADDRESS_HEX_SIZE               = 32 * 2;
+
+    ContractServiceNode result                   = {};
+    size_t              walkIt                   = 0;
+    std::string_view    nextHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += nextHex.size();
+    std::string_view    prevHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += prevHex.size();
+    std::string_view    recipientHex             = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);  walkIt += recipientHex.size();
+    std::string_view    pubkeyHex                = callResultIt.substr(walkIt, BLS_PKEY_HEX_SIZE); walkIt += pubkeyHex.size();
+    std::string_view    leaveRequestTimestampHex = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += leaveRequestTimestampHex.size();
+    std::string_view    depositHex               = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += depositHex.size();
+    assert(walkIt == callResultIt.size());
+
+    // NOTE: Deserialize linked list
+    result.next                = utils::fromHexStringToUint64(nextHex);
+    result.prev                = utils::fromHexStringToUint64(prevHex);
+
+    // NOTE: Deserialise recipient
+    std::vector<unsigned char> recipientBytes = utils::fromHexString(utils::trimLeadingZeros(recipientHex));
+    assert(recipientBytes.size() == result.recipient.max_size());
+    std::memcpy(result.recipient.data(), recipientBytes.data(), recipientBytes.size());
+
+    // NOTE: Deserialise key hex into BLS key
+    result.pubkey = utils::HexToBLSPublicKey(pubkeyHex);
+
+    // NOTE: Deserialise metadata
+    result.leaveRequestTimestamp = utils::fromHexStringToUint64(leaveRequestTimestampHex);
+    result.deposit               = depositHex;
+    return result;
+}
+
+uint64_t ServiceNodeRewardsContract::serviceNodeIDs(const bls::PublicKey& pKey)
+{
+    // NOTE: Generate the ABI caller data
+    std::string pKeyABI             = utils::BLSPublicKeyToHex(pKey);
+    std::string methodABI           = utils::getFunctionSignature("serviceNodeIDs(bytes)");
+    std::string offsetToPKeyDataABI = utils::padTo32Bytes(utils::decimalToHex(32) /*offset includes the 32 byte offset itself*/, utils::PaddingDirection::LEFT);
+    std::string bytesSizeABI        = utils::padTo32Bytes(utils::decimalToHex(pKeyABI.size() / 2), utils::PaddingDirection::LEFT);
+
+    // NOTE: Setup call data
+    ReadCallData callData    = {};
+    callData.contractAddress = contractAddress;
+
+    // NOTE: Fill in ABI
+    callData.data.reserve(methodABI.size() + offsetToPKeyDataABI.size() + bytesSizeABI.size() + pKeyABI.size());
+    callData.data += methodABI;
+    callData.data += offsetToPKeyDataABI;
+    callData.data += bytesSizeABI;
+    callData.data += pKeyABI;
+
+    // NOTE: Call function
+    nlohmann::json     callResult = provider->callReadFunctionJSON(callData);
+    const std::string& resultHex  = callResult.get_ref<nlohmann::json::string_t&>();
+    uint64_t           result     = utils::fromHexStringToUint64(resultHex);
+    return result;
+}
+
 uint64_t ServiceNodeRewardsContract::serviceNodesLength() {
     ReadCallData callData;
     callData.contractAddress = contractAddress;

@@ -52,14 +52,36 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 0);
         ServiceNodeList snl(1);
         for(auto& node : snl.nodes) {
-            const auto pubkey = node.getPublicKeyHex();
+            const auto pubkey              = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
-            hash = signer.sendTransaction(tx, seckey);
+            tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
+            hash                           = signer.sendTransaction(tx, seckey);
             REQUIRE(hash != "");
             REQUIRE(provider->transactionSuccessful(hash));
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 1);
+
+        // NOTE: Verify the service node stored on the EVM
+        const ServiceNode& sn01    = snl.nodes[0];
+        uint64_t           snIndex = rewards_contract.serviceNodeIDs(sn01.getPublicKey());
+        REQUIRE(snIndex == 1); // First service node should be allocated index 1
+
+        ContractServiceNode sn01InContract = rewards_contract.serviceNodes(snIndex);
+        REQUIRE(sn01InContract.next == std::numeric_limits<uint64_t>::max());
+        REQUIRE(sn01InContract.prev == std::numeric_limits<uint64_t>::max());
+
+        // NOTE: Verify the ethereum address is correct
+        std::array<unsigned char, 20> walletPKeyHex = signer.secretKeyToAddress(seckey);
+        REQUIRE(sn01InContract.recipient             == walletPKeyHex);
+
+        // NOTE: Verify the BLS key
+        REQUIRE(sn01InContract.pubkey                == sn01.getPublicKey());
+
+        // NOTE: Verify metadata
+        REQUIRE(sn01InContract.leaveRequestTimestamp == 0);
+
+        std::string stakingRequirementHex = utils::padTo32Bytes(utils::decimalToHex(ServiceNodeRewardsContract::STAKING_REQUIREMENT));
+        REQUIRE(sn01InContract.deposit == stakingRequirementHex);
     }
 
     SECTION( "Add several public keys to the smart contract and check aggregate pubkey" ) {
@@ -322,7 +344,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
         std::vector<unsigned char> secondseckey = utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
-        const std::string recipientAddress = signer.addressFromPrivateKey(secondseckey);
+        const std::string recipientAddress = signer.secretKeyToAddressString(secondseckey);
         const uint64_t recipientAmount = 1;
         const auto signers = snl.randomSigners(snl.nodes.size() - 1);
         const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
@@ -359,7 +381,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 2000);
         std::vector<unsigned char> secondseckey = utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
-        const std::string recipientAddress = signer.addressFromPrivateKey(secondseckey);
+        const std::string recipientAddress = signer.secretKeyToAddressString(secondseckey);
         const uint64_t recipientAmount = 1;
         const auto signers = snl.randomSigners(snl.nodes.size() - 299);
         const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);

@@ -16,10 +16,8 @@
 
 namespace utils
 {
-
-    std::string PublicKeyToHex(bls::PublicKey publicKey);
-    std::string SignatureToHex(bls::Signature sig);
+    std::string                   BLSPublicKeyToHex(bls::PublicKey publicKey);
+    bls::PublicKey                HexToBLSPublicKey(std::string_view hex);
+    std::string                   SignatureToHex(bls::Signature sig);
     std::array<unsigned char, 32> HashModulus(std::string message);
-
-// END
 }

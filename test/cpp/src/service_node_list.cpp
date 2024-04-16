@@ -28,7 +28,7 @@ std::string buildTag(const std::string& baseTag, uint32_t chainID, const std::st
     return utils::toHexString(utils::hash(concatenatedTag));
 }
 
-bls::Signature ServiceNode::signHash(const std::array<unsigned char, 32>& hash) {
+bls::Signature ServiceNode::signHash(const std::array<unsigned char, 32>& hash) const {
     bls::Signature sig;
     secretKey.signHash(sig, hash.data(), hash.size());
     return sig;
@@ -46,13 +46,13 @@ std::string ServiceNode::proofOfPossession(uint32_t chainID, const std::string& 
     return utils::SignatureToHex(sig);
 }
 
-std::string ServiceNode::getPublicKeyHex() {
+std::string ServiceNode::getPublicKeyHex() const {
     bls::PublicKey publicKey;
     secretKey.getPublicKey(publicKey);
-    return utils::PublicKeyToHex(publicKey);
+    return utils::BLSPublicKeyToHex(publicKey);
 }
 
-bls::PublicKey ServiceNode::getPublicKey() {
+bls::PublicKey ServiceNode::getPublicKey() const {
     bls::PublicKey publicKey;
     secretKey.getPublicKey(publicKey);
     return publicKey;
@@ -105,7 +105,7 @@ std::string ServiceNodeList::aggregatePubkeyHex() {
     for(auto& node : nodes) {
         aggregate_pubkey.add(node.getPublicKey());
     }
-    return utils::PublicKeyToHex(aggregate_pubkey);
+    return utils::BLSPublicKeyToHex(aggregate_pubkey);
 }
 
 std::string ServiceNodeList::aggregateSignatures(const std::string& message) {

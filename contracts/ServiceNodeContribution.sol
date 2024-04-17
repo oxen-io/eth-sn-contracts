@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.20;
 
+import "./libraries/Shared.sol";
 import "./interfaces/IServiceNodeRewards.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title Service Node Contribution Contract
@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  * finalize the node setup, which will send the necessary node information and funds to the ServiceNodeRewards contract. This contract also allows for the
  * withdrawal of contributions before finalization, and cancel the node setup with refunds to contributors.
  **/
-contract ServiceNodeContribution {
+contract ServiceNodeContribution is Shared{
     using SafeERC20 for IERC20;
     
     // Immutable state variables
@@ -54,9 +54,12 @@ contract ServiceNodeContribution {
     /// @notice Constructs the ServiceNodeContribution contract. This is usually done by the parent factory contract
     /// @param _stakingRewardsContract Address of the staking rewards contract.
     /// @param _maxContributors Maximum number of contributors allowed.
-    /// @param _blsPubkey - X and Y coordinates of the public key
+    /// @param _blsPubkey - 64 bytes bls public key
     /// @param _serviceNodeParams - Service node public key, signature proving ownership of public key and fee that operator is charging
-    constructor(address _stakingRewardsContract, uint256 _maxContributors, BN256G1.G1Point memory _blsPubkey, IServiceNodeRewards.ServiceNodeParams memory _serviceNodeParams) {
+    constructor(address _stakingRewardsContract, uint256 _maxContributors, BN256G1.G1Point memory _blsPubkey, IServiceNodeRewards.ServiceNodeParams memory _serviceNodeParams) 
+        nzAddr(_stakingRewardsContract)
+        nzUint(_maxContributors)
+    {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
         SENT = IERC20(stakingRewardsContract.designatedToken());
         stakingRequirement = stakingRewardsContract.stakingRequirement();
@@ -77,6 +80,7 @@ contract ServiceNodeContribution {
     /**
      * @notice Allows the operator to contribute funds towards their own node.
      * @dev This function sets the operator's contribution and emits a NewContribution event.
+     * @param _blsSignature - 128 byte bls proof of possession signature
      * It can only be called once by the operator and must be done before any other contributions are made.
      */
     function contributeOperatorFunds(IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
@@ -163,14 +167,18 @@ contract ServiceNodeContribution {
 
     /**
      * @notice Calculates the minimum contribution amount.
-     * @dev The minimum contribution is dynamically calculated based on the number of contributors and the staking requirement.
+     * @dev The minimum contribution is dynamically calculated based on the number of contributors and the staking requirement. It returns math.ceilDiv of the calculation
      * @return The minimum contribution amount.
      */
     function minimumContribution() public view returns (uint256) {
         if (operatorContribution == 0)
-            return Math.ceilDiv(stakingRequirement, 4);
-        uint256 numContributionsRemainingAvail = maxContributors - numberContributors;
-        return Math.ceilDiv(stakingRequirement, numContributionsRemainingAvail);
+            return (stakingRequirement - 1) / 4 + 1;
+        return _minimumContribution(stakingRequirement - totalContribution, numberContributors, maxContributors);
+    }
+
+    function _minimumContribution(uint256 _contributionRemaining, uint256 _numberContributors, uint256 _maxContributors) public pure returns (uint256) {
+        uint256 numContributionsRemainingAvail = _maxContributors - _numberContributors;
+        return (_contributionRemaining - 1) / numContributionsRemainingAvail + 1;
     }
 }
 

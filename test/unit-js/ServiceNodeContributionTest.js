@@ -21,10 +21,10 @@ describe("ServiceNodeContributionFactory Contract Tests", function () {
     const ServiceNodeRewards = await ethers.getContractFactory("MockServiceNodeRewards");
     const serviceNodeRewards = await ServiceNodeRewards.deploy(mockERC20, STAKING_TEST_AMNT);
 
-    const ServiceNodeContributorFactory = await ethers.getContractFactory("ServiceNodeContributorFactory");
-    const serviceNodeContributorFactory = await ServiceNodeContributorFactory.deploy(serviceNodeRewards, MAX_CONTRIBUTORS);
+    const ServiceNodeContributionFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
+    const serviceNodeContributionFactory = await ServiceNodeContributionFactory.deploy(serviceNodeRewards, MAX_CONTRIBUTORS);
 
-    expect(await serviceNodeContributorFactory.stakingRewardsContract()).to.equal(await serviceNodeRewards.getAddress());
+    expect(await serviceNodeContributionFactory.stakingRewardsContract()).to.equal(await serviceNodeRewards.getAddress());
   });
 });
 
@@ -33,8 +33,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
     let mockERC20;
     let ServiceNodeRewards;
     let serviceNodeRewards;
-    let ServiceNodeContributorFactory;
-    let serviceNodeContributorFactory;
+    let ServiceNodeContributionFactory;
+    let serviceNodeContributionFactory;
     let serviceNodeContribution;
 
     beforeEach(async function () {
@@ -50,20 +50,20 @@ describe("ServiceNodeContribution Contract Tests", function () {
         ServiceNodeRewards = await ethers.getContractFactory("MockServiceNodeRewards");
         serviceNodeRewards = await ServiceNodeRewards.deploy(mockERC20, STAKING_TEST_AMNT);
 
-        ServiceNodeContributorFactory = await ethers.getContractFactory("ServiceNodeContributorFactory");
-        serviceNodeContributorFactory = await ServiceNodeContributorFactory.deploy(serviceNodeRewards, MAX_CONTRIBUTORS);
+        ServiceNodeContributionFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
+        serviceNodeContributionFactory = await ServiceNodeContributionFactory.deploy(serviceNodeRewards, MAX_CONTRIBUTORS);
     });
 
 
     it("Allows deployment of contributor contract and logs correctly", async function () {
         const [owner, operator] = await ethers.getSigners();
-        await expect(serviceNodeContributorFactory.connect(operator).deployContributorContract([0,0],[0,0,0,0]))
-            .to.emit(serviceNodeContributorFactory, 'NewServiceNodeContributionContract');
+        await expect(serviceNodeContributionFactory.connect(operator).deployContributionContract([0,0],[0,0,0,0]))
+            .to.emit(serviceNodeContributionFactory, 'NewServiceNodeContributionContract');
     });
 
     it("Does not allow contributions if operator hasn't contributed", async function () {
         const [owner, operator, contributor] = await ethers.getSigners();
-        const tx = await serviceNodeContributorFactory.connect(operator).deployContributorContract([0,0],[0,0,0,0]);
+        const tx = await serviceNodeContributionFactory.connect(operator).deployContributionContract([0,0],[0,0,0,0]);
         const receipt = await tx.wait();
         const event = receipt.logs[0];
         expect(event.eventName).to.equal("NewServiceNodeContributionContract");
@@ -78,7 +78,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
     });
 
     it("allows operator to contribute and records correct balance", async function () { const [owner, operator] = await ethers.getSigners();
-        const tx = await serviceNodeContributorFactory.connect(operator).deployContributorContract([0,0],[0,0,0,0]);
+        const tx = await serviceNodeContributionFactory.connect(operator).deployContributionContract([0,0],[0,0,0,0]);
         const receipt = await tx.wait();
         const event = receipt.logs[0];
         expect(event.eventName).to.equal("NewServiceNodeContributionContract");
@@ -103,7 +103,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
     describe("After operator has set up funds", function () {
         beforeEach(async function () {
             const [owner, operator] = await ethers.getSigners();
-            const tx = await serviceNodeContributorFactory.connect(operator).deployContributorContract([0,0],[0,0,0,0]);
+            const tx = await serviceNodeContributionFactory.connect(operator).deployContributionContract([0,0],[0,0,0,0]);
             const receipt = await tx.wait();
             const event = receipt.logs[0];
             expect(event.eventName).to.equal("NewServiceNodeContributionContract");
@@ -197,5 +197,96 @@ describe("ServiceNodeContribution Contract Tests", function () {
             expect(await mockERC20.balanceOf(serviceNodeContribution)).to.equal(0);
         });
     });
+});
+
+describe("ServiceNodeContribution minimum contribution tests", function () {
+    let MockERC20;
+    let mockERC20;
+    let ServiceNodeRewards;
+    let serviceNodeRewards;
+    let ServiceNodeContributionFactory;
+    let serviceNodeContributionFactory;
+    let serviceNodeContribution;
+
+    beforeEach(async function () {
+        // Deploy a mock ERC20 token
+        try {
+            // Deploy a mock ERC20 token
+            MockERC20 = await ethers.getContractFactory("MockERC20");
+            mockERC20 = await MockERC20.deploy("SENT Token", "SENT", 9);
+        } catch (error) {
+            console.error("Error deploying MockERC20:", error);
+        }
+
+        ServiceNodeRewards = await ethers.getContractFactory("MockServiceNodeRewards");
+        serviceNodeRewards = await ServiceNodeRewards.deploy(mockERC20, STAKING_TEST_AMNT);
+
+        ServiceNodeContributionFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
+        serviceNodeContributionFactory = await ServiceNodeContributionFactory.deploy(serviceNodeRewards, MAX_CONTRIBUTORS);
+        const [owner, operator, contributor] = await ethers.getSigners();
+        const tx = await serviceNodeContributionFactory.connect(operator).deployContributionContract([0,0],[0,0,0,0]);
+        const receipt = await tx.wait();
+        const event = receipt.logs[0];
+        expect(event.eventName).to.equal("NewServiceNodeContributionContract");
+        const serviceNodeContributionAddress = event.args[0]; // This should be the address of the newly deployed contract
+        serviceNodeContribution = await ethers.getContractAt("ServiceNodeContribution", serviceNodeContributionAddress);
+    });
+
+
+    it('should return the correct minimum contribution when there is one last contributor', async function () {
+        const contributionRemaining = 100;
+        const numberContributors = 9;
+        const maxContributors = 10;
+
+        const minimumContribution = await serviceNodeContribution._minimumContribution(
+            contributionRemaining,
+            numberContributors,
+            maxContributors
+        );
+
+        expect(minimumContribution).to.equal(100);
+    });
+
+    it('should return the correct minimum contribution when there are no contributors', async function () {
+        const contributionRemaining = 15000;
+        const numberContributors = 0;
+        const maxContributors = 4;
+
+        const minimumContribution = await serviceNodeContribution._minimumContribution(
+            contributionRemaining,
+            numberContributors,
+            maxContributors
+        );
+
+        expect(minimumContribution).to.equal(3750);
+    });
+
+    it('should equally split minimum contribution', async function () {
+        let contributionRemaining = BigInt(15000)
+        let numberContributors = 0;
+        const maxContributors = 4;
+        for (let numberContributors = 0; numberContributors < maxContributors; numberContributors++) {
+            const minimumContribution = await serviceNodeContribution._minimumContribution( contributionRemaining, numberContributors, maxContributors);
+            contributionRemaining -= minimumContribution;
+            expect(minimumContribution).to.equal(3750);
+        }
+        expect(contributionRemaining).to.equal(0)
+    });
+
+    it('should return the correct minimum contribution after a single contributor', async function () {
+        const contributionRemaining = 15000 - 3750;
+        const numberContributors = 1;
+        const maxContributors = 10;
+
+        const minimumContribution = await serviceNodeContribution._minimumContribution(
+            contributionRemaining,
+            numberContributors,
+            maxContributors
+        );
+
+        expect(minimumContribution).to.equal(1250);
+    });
+
+
 });
 

@@ -70,7 +70,7 @@ Recipient ServiceNodeRewardsContract::viewRecipientData(const std::string& addre
 
 Transaction ServiceNodeRewardsContract::liquidateBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& pubkey, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
     Transaction tx(contractAddress, 0, 30000000);
-    std::string functionSelector = utils::getFunctionSignature("liquidateBLSPublicKeyWithSignature(uint64,uint256,uint256,uint256,uint256,uint256,uint256,uint64[])");
+    std::string functionSelector = utils::getFunctionSignature("liquidateBLSPublicKeyWithSignature(uint64,(uint256,uint256),(uint256,uint256,uint256,uint256),uint64[])");
     std::string node_id_padded = utils::padTo32Bytes(utils::decimalToHex(service_node_id), utils::PaddingDirection::LEFT);
     // 8 Params: id, 2x pubkey, 4x sig, pointer to array
     std::string indices_padded = utils::padTo32Bytes(utils::decimalToHex(8*32), utils::PaddingDirection::LEFT);
@@ -85,7 +85,7 @@ Transaction ServiceNodeRewardsContract::liquidateBLSPublicKeyWithSignature(const
 
 Transaction ServiceNodeRewardsContract::removeBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& pubkey, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
     Transaction tx(contractAddress, 0, 30000000);
-    std::string functionSelector = utils::getFunctionSignature("removeBLSPublicKeyWithSignature(uint64,uint256,uint256,uint256,uint256,uint256,uint256,uint64[])");
+    std::string functionSelector = utils::getFunctionSignature("removeBLSPublicKeyWithSignature(uint64,(uint256,uint256),(uint256,uint256,uint256,uint256),uint64[])");
     std::string node_id_padded = utils::padTo32Bytes(utils::decimalToHex(service_node_id), utils::PaddingDirection::LEFT);
     // 8 Params: id, 2x pubkey, 4x sig, pointer to array
     std::string indices_padded = utils::padTo32Bytes(utils::decimalToHex(8*32), utils::PaddingDirection::LEFT);
@@ -116,7 +116,7 @@ Transaction ServiceNodeRewardsContract::removeBLSPublicKeyAfterWaitTime(const ui
 
 Transaction ServiceNodeRewardsContract::updateRewardsBalance(const std::string& address, const uint64_t amount, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
     Transaction tx(contractAddress, 0, 30000000);
-    std::string functionSelector = utils::getFunctionSignature("updateRewardsBalance(address,uint256,uint256,uint256,uint256,uint256,uint64[])");
+    std::string functionSelector = utils::getFunctionSignature("updateRewardsBalance(address,uint256,(uint256,uint256,uint256,uint256),uint64[])");
     std::string rewardAddressOutput = address;
     if (rewardAddressOutput.substr(0, 2) == "0x")
         rewardAddressOutput = rewardAddressOutput.substr(2);  // remove "0x"

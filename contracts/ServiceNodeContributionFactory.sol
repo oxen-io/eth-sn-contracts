@@ -5,7 +5,7 @@ import "./ServiceNodeContribution.sol";
 import "./interfaces/IServiceNodeRewards.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract ServiceNodeContributorFactory {
+contract ServiceNodeContributionFactory {
     IERC20 public immutable SENT;
     IServiceNodeRewards public immutable stakingRewardsContract;
     uint256 public immutable maxContributors;
@@ -19,7 +19,7 @@ contract ServiceNodeContributorFactory {
         maxContributors = _maxContributors;
     }
 
-    function deployContributorContract(BN256G1.G1Point memory blsPubkey, IServiceNodeRewards.ServiceNodeParams memory serviceNodeParams) public {
+    function deployContributionContract(BN256G1.G1Point memory blsPubkey, IServiceNodeRewards.ServiceNodeParams memory serviceNodeParams) public {
         ServiceNodeContribution newContract = new ServiceNodeContribution(address(stakingRewardsContract), maxContributors, blsPubkey, serviceNodeParams);
         emit NewServiceNodeContributionContract(address(newContract), serviceNodeParams.serviceNodePubkey);
     }

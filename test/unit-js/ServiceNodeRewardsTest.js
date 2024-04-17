@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 
 describe("ServiceNodeRewards Contract Tests", function () {
     let MockERC20;
@@ -22,15 +22,15 @@ describe("ServiceNodeRewards Contract Tests", function () {
         // Get signers
         [owner, foundationPool] = await ethers.getSigners();
 
-        ServiceNodeRewards = await ethers.getContractFactory("ServiceNodeRewards");
-        serviceNodeRewards = await ServiceNodeRewards.deploy(
-            mockERC20,              // token address
-            foundationPool,         // foundation pool address
+        ServiceNodeRewardsMaster = await ethers.getContractFactory("ServiceNodeRewards");
+        serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster, 
+            [ await mockERC20.getAddress(),              // token address
+            await foundationPool.getAddress(),         // foundation pool address
             15000,                          // staking requirement
             0,                              // liquidator reward ratio
             0,                              // pool share of liquidation ratio
             1                               // recipient ratio
-        );
+            ]);
     });
 
     it("Should deploy and set the correct owner", async function () {

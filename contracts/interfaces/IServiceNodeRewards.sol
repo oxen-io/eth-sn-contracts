@@ -8,7 +8,7 @@ interface IServiceNodeRewards {
     /// @notice Represents a service node in the network.
     struct ServiceNode {
         uint64 next;
-        uint64 previous;
+        uint64 prev;
         address operator;
         BN256G1.G1Point pubkey;
         uint256 leaveRequestTimestamp;

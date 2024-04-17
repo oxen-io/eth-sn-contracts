@@ -40,7 +40,8 @@ public:
     uint64_t            serviceNodeIDs(const bls::PublicKey& pKey);
     uint64_t            serviceNodesLength();
     std::string         designatedToken();
-    std::string         aggregatePubkey();
+    std::string         aggregatePubkeyString();
+    bls::PublicKey      aggregatePubkey();
     Recipient           viewRecipientData(const std::string& address);
 
     Transaction liquidateBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& pubkey, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);

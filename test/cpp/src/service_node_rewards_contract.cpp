@@ -53,7 +53,8 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
     result.prev                = utils::fromHexStringToUint64(prevHex);
 
     // NOTE: Deserialise recipient
-    std::vector<unsigned char> recipientBytes = utils::fromHexString(utils::trimLeadingZeros(recipientHex));
+    const size_t ETH_ADDRESS_HEX_SIZE = 20 * 2;
+    std::vector<unsigned char> recipientBytes = utils::fromHexString(recipientHex.substr(recipientHex.size() - ETH_ADDRESS_HEX_SIZE, ETH_ADDRESS_HEX_SIZE));
     assert(recipientBytes.size() == result.recipient.max_size());
     std::memcpy(result.recipient.data(), recipientBytes.data(), recipientBytes.size());
 
@@ -107,11 +108,17 @@ std::string ServiceNodeRewardsContract::designatedToken() {
     return provider->callReadFunction(callData);
 }
 
-std::string ServiceNodeRewardsContract::aggregatePubkey() {
-    ReadCallData callData;
+std::string ServiceNodeRewardsContract::aggregatePubkeyString() {
+    ReadCallData callData    = {};
     callData.contractAddress = contractAddress;
-    callData.data = utils::getFunctionSignature("aggregatePubkey()");
+    callData.data            = utils::getFunctionSignature("aggregatePubkey()");
     return provider->callReadFunction(callData);
+}
+
+bls::PublicKey ServiceNodeRewardsContract::aggregatePubkey() {
+    std::string    hex    = ServiceNodeRewardsContract::aggregatePubkeyString();
+    bls::PublicKey result = utils::HexToBLSPublicKey(hex);
+    return result;
 }
 
 Recipient ServiceNodeRewardsContract::viewRecipientData(const std::string& address) {

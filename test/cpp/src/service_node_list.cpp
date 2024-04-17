@@ -16,9 +16,6 @@ ServiceNode::ServiceNode(uint64_t _service_node_id) {
     secretKey.init();
 }
 
-ServiceNode::~ServiceNode() {
-}
-
 std::string buildTag(const std::string& baseTag, uint32_t chainID, const std::string& contractAddress) {
     // Check if contractAddress starts with "0x" prefix
     std::string contractAddressOutput = contractAddress;

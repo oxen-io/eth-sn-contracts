@@ -28,7 +28,7 @@ struct ContractServiceNode {
 class ServiceNodeRewardsContract {
 public:
     // TODO: Taken from scripts/deploy-local-test.js and hardcoded
-    static constexpr inline uint64_t STAKING_REQUIREMENT = 15'000'000'000'000;
+    static constexpr inline uint64_t STAKING_REQUIREMENT = 100'000'000'000;
 
     // Constructor
     ServiceNodeRewardsContract(const std::string& _contractAddress, std::shared_ptr<Provider> _provider);

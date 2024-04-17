@@ -21,7 +21,7 @@ ServiceNodeRewardsContract rewards_contract(contract_address, provider);
 Signer signer(provider);    
 std::vector<unsigned char> seckey = utils::fromHexString(std::string(config.PRIVATE_KEY));
 //const std::string senderAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-const std::string senderAddress = signer.addressFromPrivateKey(seckey);
+const std::string senderAddress = signer.secretKeyToAddressString(seckey);
 
 std::string erc20_address = utils::trimAddress(rewards_contract.designatedToken());
 ERC20Contract erc20_contract(erc20_address, provider);
@@ -54,7 +54,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         for(auto& node : snl.nodes) {
             const auto pubkey              = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
-            tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig");
+            tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
             hash                           = signer.sendTransaction(tx, seckey);
             REQUIRE(hash != "");
             REQUIRE(provider->transactionSuccessful(hash));
@@ -81,6 +81,9 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(sn01InContract.leaveRequestTimestamp == 0);
 
         std::string stakingRequirementHex = utils::padTo32Bytes(utils::decimalToHex(ServiceNodeRewardsContract::STAKING_REQUIREMENT));
+        INFO("Staking requirement did not match, ours was '" << stakingRequirementHex
+             << "'. The contract reported '" << sn01InContract.deposit
+             << "': Check if scripts/deploy-local-testnet.js requirement matches the hardcoded staking amount at ServiceNodeRewardsContract::STAKING_REQUIREMENT.");
         REQUIRE(sn01InContract.deposit == stakingRequirementHex);
     }
 

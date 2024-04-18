@@ -98,6 +98,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     // ERRORS
     error ArrayLengthMismatch();
+    error DeleteSentinelNodeNotAllowed();
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
     error BLSPubkeyDoesNotMatch(uint64 serviceNodeID, BN256G1.G1Point pubkey);
     error ContractAlreadyActive();
@@ -401,6 +402,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @notice Delete the service node with `nodeID`
     /// @param nodeID The ID of the service node to delete
     function serviceNodeDelete(uint64 nodeID) internal {
+        require(totalNodes > 0);
+        if (nodeID == LIST_SENTINEL)
+            revert DeleteSentinelNodeNotAllowed();
+
         ServiceNode memory node = _serviceNodes[nodeID];
 
         // The following is the deletion pattern in a doubly-linked list

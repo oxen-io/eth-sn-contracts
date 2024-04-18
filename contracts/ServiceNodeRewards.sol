@@ -23,9 +23,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     IERC20 public foundationPool;
 
     uint64 public constant LIST_SENTINEL                       = 0;
-    uint64 public nextServiceNodeID                            = LIST_SENTINEL + 1;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
 
+    uint64  public nextServiceNodeID;
     uint256 public totalNodes;
     uint256 public blsNonSignerThreshold;
     uint256 public upperLimitNonSigners;
@@ -49,22 +49,23 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param recipientRatio_ The recipient ratio for rewards
     function initialize(address token_, address foundationPool_, uint256 stakingRequirement_, uint256 liquidatorRewardRatio_, uint256 poolShareOfLiquidationRatio_, uint256 recipientRatio_) initializer()  public {
         if (recipientRatio_ < 1) revert RecipientRewardsTooLow();
-        IsActive = false;
-        nextServiceNodeID = 1;
-        totalNodes = 0;
-        blsNonSignerThreshold = 0;
-        upperLimitNonSigners = 300;
-        proofOfPossessionTag = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
-        rewardTag = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
-        removalTag = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
-        liquidateTag = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
+        IsActive                     = false;
+        nextServiceNodeID            = 1;
+        totalNodes                   = 0;
+        blsNonSignerThreshold        = 0;
+        upperLimitNonSigners         = 300;
+        proofOfPossessionTag         = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
+        rewardTag                    = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
+        removalTag                   = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
+        liquidateTag                 = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
 
-        designatedToken = IERC20(token_);
-        foundationPool = IERC20(foundationPool_);
-        _stakingRequirement = stakingRequirement_;
-        _liquidatorRewardRatio = liquidatorRewardRatio_;
+        designatedToken              = IERC20(token_);
+        foundationPool               = IERC20(foundationPool_);
+        _stakingRequirement          = stakingRequirement_;
+        _liquidatorRewardRatio       = liquidatorRewardRatio_;
         _poolShareOfLiquidationRatio = poolShareOfLiquidationRatio_;
-        _recipientRatio = recipientRatio_;
+        _recipientRatio              = recipientRatio_;
+        nextServiceNodeID            = LIST_SENTINEL + 1;
 
         // Doubly-linked list with sentinel that points to itself.
         //

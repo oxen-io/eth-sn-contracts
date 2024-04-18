@@ -22,10 +22,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     IERC20 public designatedToken;
     IERC20 public foundationPool;
 
-    uint64 public nextServiceNodeID;
-    uint64 public constant LIST_END = type(uint64).max;
+    uint64 public constant LIST_SENTINEL                       = 0;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
 
+    uint64  public nextServiceNodeID;
     uint256 public totalNodes;
     uint256 public blsNonSignerThreshold;
     uint256 public upperLimitNonSigners;
@@ -49,27 +49,33 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param recipientRatio_ The recipient ratio for rewards
     function initialize(address token_, address foundationPool_, uint256 stakingRequirement_, uint256 liquidatorRewardRatio_, uint256 poolShareOfLiquidationRatio_, uint256 recipientRatio_) initializer()  public {
         if (recipientRatio_ < 1) revert RecipientRewardsTooLow();
-        IsActive = false;
-        nextServiceNodeID = 1;
-        totalNodes = 0;
-        blsNonSignerThreshold = 0;
-        upperLimitNonSigners = 300;
-        proofOfPossessionTag = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
-        rewardTag = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
-        removalTag = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
-        liquidateTag = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
+        IsActive                     = false;
+        nextServiceNodeID            = 1;
+        totalNodes                   = 0;
+        blsNonSignerThreshold        = 0;
+        upperLimitNonSigners         = 300;
+        proofOfPossessionTag         = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
+        rewardTag                    = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
+        removalTag                   = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
+        liquidateTag                 = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
 
-        designatedToken = IERC20(token_);
-        foundationPool = IERC20(foundationPool_);
-        _stakingRequirement = stakingRequirement_;
-        _liquidatorRewardRatio = liquidatorRewardRatio_;
+        designatedToken              = IERC20(token_);
+        foundationPool               = IERC20(foundationPool_);
+        _stakingRequirement          = stakingRequirement_;
+        _liquidatorRewardRatio       = liquidatorRewardRatio_;
         _poolShareOfLiquidationRatio = poolShareOfLiquidationRatio_;
-        _recipientRatio = recipientRatio_;
+        _recipientRatio              = recipientRatio_;
+        nextServiceNodeID            = LIST_SENTINEL + 1;
 
-        _serviceNodes[LIST_END].previous = LIST_END;
-        _serviceNodes[LIST_END].next = LIST_END;
+        // Doubly-linked list with sentinel that points to itself.
+        //
+        // +-<prev- [Sentinel] -next->-+
+        // |                           |
+        // +----------------------------
+
+        _serviceNodes[LIST_SENTINEL].prev = LIST_SENTINEL;
+        _serviceNodes[LIST_SENTINEL].next = LIST_SENTINEL;
         __Ownable_init(msg.sender);
-
     }
 
     mapping(uint64 => ServiceNode) private _serviceNodes;
@@ -203,31 +209,16 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             contributors[0] = Contributor(operator, _stakingRequirement);
         }
         uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(blsPubkey)];
-        if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
+        if (serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
         validateProofOfPossession(blsPubkey, blsSignature, operator, serviceNodeParams.serviceNodePubkey);
-        uint64 previous = _serviceNodes[LIST_END].previous;
 
-        /*_serviceNodes[nextServiceNodeID] = ServiceNode(previous, operator, pubkey, LIST_END);*/
-        _serviceNodes[previous].next = nextServiceNodeID;
-        _serviceNodes[nextServiceNodeID].previous = previous;
-        _serviceNodes[nextServiceNodeID].next = LIST_END;
-        _serviceNodes[nextServiceNodeID].pubkey = blsPubkey;
+        uint64 allocID                  = serviceNodeAdd(blsPubkey);
         // TODO sean only operator can exit atm need to make any contributor
-        _serviceNodes[nextServiceNodeID].operator = operator;
-        _serviceNodes[nextServiceNodeID].deposit = _stakingRequirement;
-        _serviceNodes[LIST_END].previous = nextServiceNodeID;
+        _serviceNodes[allocID].operator = operator;
+        _serviceNodes[allocID].deposit  = _stakingRequirement;
 
-        serviceNodeIDs[BN256G1.getKeyForG1Point(blsPubkey)] = nextServiceNodeID;
-
-        if (_serviceNodes[LIST_END].next != LIST_END) {
-            _aggregatePubkey = BN256G1.add(_aggregatePubkey, blsPubkey);
-        } else {
-            _aggregatePubkey = blsPubkey;
-        }
-        totalNodes++;
         updateBLSThreshold();
-        emit NewServiceNode(nextServiceNodeID, operator, blsPubkey, serviceNodeParams, contributors);
-        nextServiceNodeID++;
+        emit NewServiceNode(allocID, operator, blsPubkey, serviceNodeParams, contributors);
         SafeERC20.safeTransferFrom(designatedToken, operator, address(this), _stakingRequirement);
     }
 
@@ -297,26 +288,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @dev Internal function to remove a BLS public key. Updates the linked list to remove the node
     /// @param serviceNodeID The ID of the service node to be removed.
     function _removeBLSPublicKey(uint64 serviceNodeID, uint256 returnedAmount) internal {
-        address serviceNodeOperator = _serviceNodes[serviceNodeID].operator;
-        uint64 previousServiceNode = _serviceNodes[serviceNodeID].previous;
-        uint64 nextServiceNode = _serviceNodes[serviceNodeID].next;
-        if (nextServiceNode == 0) revert ServiceNodeDoesntExist(serviceNodeID);
+        address         operator      = _serviceNodes[serviceNodeID].operator;
+        BN256G1.G1Point memory pubkey = _serviceNodes[serviceNodeID].pubkey;
+        serviceNodeDelete(serviceNodeID);
 
-        _serviceNodes[previousServiceNode].next = nextServiceNode;
-        _serviceNodes[nextServiceNode].previous = previousServiceNode;
-
-        BN256G1.G1Point memory pubkey = BN256G1.G1Point(_serviceNodes[serviceNodeID].pubkey.X, _serviceNodes[serviceNodeID].pubkey.Y);
-
-        _aggregatePubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(pubkey));
-
-        delete _serviceNodes[serviceNodeID];
-
-        delete serviceNodeIDs[BN256G1.getKeyForG1Point(pubkey)];
-
-        totalNodes--;
         updateBLSThreshold();
-
-        emit ServiceNodeRemoval(serviceNodeID, serviceNodeOperator, returnedAmount, pubkey);
+        emit ServiceNodeRemoval(serviceNodeID, operator, returnedAmount, pubkey);
     }
 
     /// @notice Removes a BLS public key using a bls signature and rewards the caller for doing so. This function can be called by anyone, but requires the network to provide a valid signature to do so. The nodes will only provides this signature if the network wishes for the node to be forcably removed (ie from a dereg) without relying on the user to remove themselves.
@@ -366,40 +343,85 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param amounts Array of amounts that the service node has staked, associated with each public key.
     function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) external onlyOwner {
         if (pkX.length != pkY.length || pkX.length != amounts.length) revert ArrayLengthMismatch();
-        uint64 lastServiceNodeID = _serviceNodes[LIST_END].previous;
-        bool firstServiceNode = serviceNodesLength() == 0;
-
-        for(uint256 i = 0; i < pkX.length; i++) {
-            BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX[i], pkY[i]);
-            bytes memory pubkeybytes = BN256G1.getKeyForG1Point(pubkey);
-            uint64 serviceNodeID = serviceNodeIDs[pubkeybytes];
-            if(serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
-
-            /*_serviceNodes[nextServiceNodeID] = ServiceNode(previous, recipient, pubkey, LIST_END);*/
-            _serviceNodes[lastServiceNodeID].next = nextServiceNodeID;
-            _serviceNodes[nextServiceNodeID].previous = lastServiceNodeID;
-            _serviceNodes[nextServiceNodeID].pubkey = pubkey;
-            _serviceNodes[nextServiceNodeID].deposit = amounts[i];
-
-            serviceNodeIDs[pubkeybytes] = nextServiceNodeID;
-
-            if (!firstServiceNode) {
-                _aggregatePubkey = BN256G1.add(_aggregatePubkey, pubkey);
-            } else {
-                _aggregatePubkey = pubkey;
-                firstServiceNode = false;
-            }
-
-            emit NewSeededServiceNode(nextServiceNodeID, pubkey);
-            lastServiceNodeID = nextServiceNodeID;
-            nextServiceNodeID++;
-            totalNodes++;
+        for (uint256 i = 0; i < pkX.length; i++) {
+            BN256G1.G1Point memory pubkey  = BN256G1.G1Point(pkX[i], pkY[i]);
+            uint64 allocID                 = serviceNodeAdd(pubkey);
+            _serviceNodes[allocID].deposit = amounts[i];
+            emit NewSeededServiceNode(allocID, pubkey);
         }
 
-        _serviceNodes[lastServiceNodeID].next = LIST_END;
-        _serviceNodes[LIST_END].previous = lastServiceNodeID;
-
         updateBLSThreshold();
+    }
+
+    /// @notice Add the service node with the specified BLS public key to
+    /// the service node list. EVM revert if the service node already exists.
+    /// @return result The ID allocated for the service node. The service node can then
+    /// be accessed by `_serviceNodes[result]`
+    function serviceNodeAdd(BN256G1.G1Point memory pubkey) internal returns (uint64 result) {
+        // NOTE: Check if the service node already exists
+        // (e.g. <BLS Key> -> <SN> mapping)
+        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(pubkey);
+        if (serviceNodeIDs[pubkeyBytes] != LIST_SENTINEL)
+            revert BLSPubkeyAlreadyExists(serviceNodeIDs[pubkeyBytes]);
+
+        result             = nextServiceNodeID;
+        nextServiceNodeID += 1;
+        totalNodes        += 1;
+
+        // NOTE: Create service node slot and patch up the slot links.
+        //
+        // The following is the insertion pattern in a doubly-linked list
+        // with sentinel at index 0
+        //
+        // ```c
+        // node->next       = sentinel;
+        // node->prev       = sentinel->prev;
+        // node->next->prev = node;
+        // node->prev->next = node;
+        // ```
+        _serviceNodes[result].next                     = LIST_SENTINEL;
+        _serviceNodes[result].prev                     = _serviceNodes[LIST_SENTINEL].prev;
+        _serviceNodes[_serviceNodes[result].next].prev = result;
+        _serviceNodes[_serviceNodes[result].prev].next = result;
+
+        // NOTE: Assign BLS pubkey
+        _serviceNodes[result].pubkey                   = pubkey;
+
+        // NOTE: Create mapping from <BLS Key> -> <SN Linked List Index>
+        serviceNodeIDs[pubkeyBytes] = result;
+
+        if (totalNodes == 1) {
+            _aggregatePubkey = pubkey;
+        } else {
+            _aggregatePubkey = BN256G1.add(_aggregatePubkey, pubkey);
+        }
+        return result;
+    }
+
+    /// @notice Delete the service node with `nodeID`
+    /// @param nodeID The ID of the service node to delete
+    function serviceNodeDelete(uint64 nodeID) internal {
+        ServiceNode memory node = _serviceNodes[nodeID];
+
+        // The following is the deletion pattern in a doubly-linked list
+        // with sentinel at index 0
+        //
+        // ```c
+        // node->next->prev = node->prev;
+        // node->prev->next = node->next;
+        // ```
+        _serviceNodes[node.next].prev = node.prev;
+        _serviceNodes[node.prev].next = node.next;
+
+        // NOTE: Update aggregate BLS key
+        _aggregatePubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(node.pubkey));
+
+        // NOTE: Delete service node from EVM storage
+        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(node.pubkey);
+        delete _serviceNodes[nodeID];
+        delete serviceNodeIDs[pubkeyBytes]; // Delete mapping
+
+        totalNodes -= 1;
     }
 
     //////////////////////////////////////////////////////////////
@@ -463,10 +485,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @notice Counts the number of service nodes in the linked list.
     /// @return count The total number of service nodes in the list.
     function serviceNodesLength() public view returns (uint256 count) {
-        uint64 currentNode = _serviceNodes[LIST_END].next;
+        uint64 currentNode = _serviceNodes[LIST_SENTINEL].next;
         count = 0;
 
-        while (currentNode != LIST_END) {
+        while (currentNode != LIST_SENTINEL) {
             count++;
             currentNode = _serviceNodes[currentNode].next;
         }
@@ -513,5 +535,3 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         return keccak256(bytes(abi.encodePacked(baseTag, block.chainid, address(this))));
     }
 }
-
-

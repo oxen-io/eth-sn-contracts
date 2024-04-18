@@ -17,24 +17,25 @@
 #include <string>
 #include <vector>
 
+constexpr inline uint64_t SERVICE_NODE_LIST_SENTINEL = 0;
+
 class ServiceNode {
 private:
     bls::SecretKey secretKey;
 public:
-    uint64_t service_node_id;
+    uint64_t service_node_id = SERVICE_NODE_LIST_SENTINEL;
+    ServiceNode() = default;
     ServiceNode(uint64_t _service_node_id);
-    ~ServiceNode();
-    bls::Signature signHash(const std::array<unsigned char, 32>& hash);
-    std::string proofOfPossession(uint32_t chainID, const std::string& contractAddress, const std::string& senderEthAddress, const std::string& serviceNodePubkey);
-    std::string getPublicKeyHex();
-    bls::PublicKey getPublicKey();
-// End Service Node
+    bls::Signature signHash(const std::array<unsigned char, 32>& hash) const;
+    std::string    proofOfPossession(uint32_t chainID, const std::string& contractAddress, const std::string& senderEthAddress, const std::string& serviceNodePubkey);
+    std::string    getPublicKeyHex() const;
+    bls::PublicKey getPublicKey() const;
 };
 
 class ServiceNodeList {
 public:
-    uint64_t next_service_node_id = 1;
     std::vector<ServiceNode> nodes;
+    uint64_t                 next_service_node_id = SERVICE_NODE_LIST_SENTINEL + 1;
 
     ServiceNodeList(size_t numNodes);
     ~ServiceNodeList();

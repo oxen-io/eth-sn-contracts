@@ -352,6 +352,77 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         updateBLSThreshold();
     }
 
+    /// @notice Add the service node with the specified BLS public key to
+    /// the service node list. EVM revert if the service node already exists.
+    /// @return result The ID allocated for the service node. The service node can then
+    /// be accessed by `_serviceNodes[result]`
+    function serviceNodeAdd(BN256G1.G1Point memory pubkey) internal returns (uint64 result) {
+        // NOTE: Check if the service node already exists
+        // (e.g. <BLS Key> -> <SN> mapping)
+        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(pubkey);
+        if (serviceNodeIDs[pubkeyBytes] != LIST_SENTINEL)
+            revert BLSPubkeyAlreadyExists(serviceNodeIDs[pubkeyBytes]);
+
+        result             = nextServiceNodeID;
+        nextServiceNodeID += 1;
+        totalNodes        += 1;
+
+        // NOTE: Create service node slot and patch up the slot links.
+        //
+        // The following is the insertion pattern in a doubly-linked list
+        // with sentinel at index 0
+        //
+        // ```c
+        // node->next       = sentinel;
+        // node->prev       = sentinel->prev;
+        // node->next->prev = node;
+        // node->prev->next = node;
+        // ```
+        _serviceNodes[result].next                     = LIST_SENTINEL;
+        _serviceNodes[result].prev                     = _serviceNodes[LIST_SENTINEL].prev;
+        _serviceNodes[_serviceNodes[result].next].prev = result;
+        _serviceNodes[_serviceNodes[result].prev].next = result;
+
+        // NOTE: Assign BLS pubkey
+        _serviceNodes[result].pubkey                   = pubkey;
+
+        // NOTE: Create mapping from <BLS Key> -> <SN Linked List Index>
+        serviceNodeIDs[pubkeyBytes] = result;
+
+        if (totalNodes == 1) {
+            _aggregatePubkey = pubkey;
+        } else {
+            _aggregatePubkey = BN256G1.add(_aggregatePubkey, pubkey);
+        }
+        return result;
+    }
+
+    /// @notice Delete the service node with `nodeID`
+    /// @param nodeID The ID of the service node to delete
+    function serviceNodeDelete(uint64 nodeID) internal {
+        ServiceNode memory node = _serviceNodes[nodeID];
+
+        // The following is the deletion pattern in a doubly-linked list
+        // with sentinel at index 0
+        //
+        // ```c
+        // node->next->prev = node->prev;
+        // node->prev->next = node->next;
+        // ```
+        _serviceNodes[node.next].prev = node.prev;
+        _serviceNodes[node.prev].next = node.next;
+
+        // NOTE: Update aggregate BLS key
+        _aggregatePubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(node.pubkey));
+
+        // NOTE: Delete service node from EVM storage
+        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(node.pubkey);
+        delete _serviceNodes[nodeID];
+        delete serviceNodeIDs[pubkeyBytes]; // Delete mapping
+
+        totalNodes -= 1;
+    }
+
     //////////////////////////////////////////////////////////////
     //                                                          //
     //                        Governance                        //
@@ -461,76 +532,5 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @return The constructed tag string.
     function buildTag(string memory baseTag) private view returns (bytes32) {
         return keccak256(bytes(abi.encodePacked(baseTag, block.chainid, address(this))));
-    }
-
-    /// @notice Add the service node with the specified BLS public key to
-    /// the service node list. EVM revert if the service node already exists.
-    /// @return result The ID allocated for the service node. The service node can then
-    /// be accessed by `_serviceNodes[result]`
-    function serviceNodeAdd(BN256G1.G1Point memory pubkey) internal returns (uint64 result) {
-        // NOTE: Check if the service node already exists
-        // (e.g. <BLS Key> -> <SN> mapping)
-        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(pubkey);
-        if (serviceNodeIDs[pubkeyBytes] != LIST_SENTINEL)
-            revert BLSPubkeyAlreadyExists(serviceNodeIDs[pubkeyBytes]);
-
-        result             = nextServiceNodeID;
-        nextServiceNodeID += 1;
-        totalNodes        += 1;
-
-        // NOTE: Create service node slot and patch up the slot links.
-        //
-        // The following is the insertion pattern in a doubly-linked list
-        // with sentinel at index 0
-        //
-        // ```c
-        // node->next       = sentinel;
-        // node->prev       = sentinel->prev;
-        // node->next->prev = node;
-        // node->prev->next = node;
-        // ```
-        _serviceNodes[result].next                     = LIST_SENTINEL;
-        _serviceNodes[result].prev                     = _serviceNodes[LIST_SENTINEL].prev;
-        _serviceNodes[_serviceNodes[result].next].prev = result;
-        _serviceNodes[_serviceNodes[result].prev].next = result;
-
-        // NOTE: Assign BLS pubkey
-        _serviceNodes[result].pubkey                   = pubkey;
-
-        // NOTE: Create mapping from <BLS Key> -> <SN Linked List Index>
-        serviceNodeIDs[pubkeyBytes] = result;
-
-        if (totalNodes == 1) {
-            _aggregatePubkey = pubkey;
-        } else {
-            _aggregatePubkey = BN256G1.add(_aggregatePubkey, pubkey);
-        }
-        return result;
-    }
-
-    /// @notice Delete the service node with `nodeID`
-    /// @param nodeID The ID of the service node to delete
-    function serviceNodeDelete(uint64 nodeID) internal {
-        ServiceNode memory node = _serviceNodes[nodeID];
-
-        // The following is the deletion pattern in a doubly-linked list
-        // with sentinel at index 0
-        //
-        // ```c
-        // node->next->prev = node->prev;
-        // node->prev->next = node->next;
-        // ```
-        _serviceNodes[node.next].prev = node.prev;
-        _serviceNodes[node.prev].next = node.next;
-
-        // NOTE: Update aggregate BLS key
-        _aggregatePubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(node.pubkey));
-
-        // NOTE: Delete service node from EVM storage
-        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(node.pubkey);
-        delete _serviceNodes[nodeID];
-        delete serviceNodeIDs[pubkeyBytes]; // Delete mapping
-
-        totalNodes -= 1;
     }
 }

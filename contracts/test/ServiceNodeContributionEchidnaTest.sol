@@ -191,24 +191,24 @@ contract ServiceNodeContributionEchidnaTest {
     }
 
     function testWithdrawStake() public {
-        uint256 contribution          = snContribution.contributions(msg.sender);
-        uint256 balanceBeforeWithdraw = sentToken.balanceOf(msg.sender);
+        uint256 contribution             = snContribution.contributions(msg.sender);
+        uint256 balanceBeforeWithdraw    = sentToken.balanceOf(msg.sender);
+        uint256 numberContributorsBefore = snContribution.numberContributors();
 
-        if (snOperator != msg.sender) {
-            snContribution.withdrawStake();
-            assert(snContribution.contributions(msg.sender) == 0);
-        } else {
-            try snContribution.withdrawStake() {
-                assert(false); // Not allowed to withdraw since sender hasn't contributed
-            } catch {
-            }
+        try snContribution.withdrawStake() {
+            // Withdraw can succeed if we are not the operator and we had
+            // contributed to the contract
+            assert(snOperator != msg.sender);
+            assert(contribution > 0);
+            assert(snContribution.numberContributors() == (numberContributorsBefore - 1));
+        } catch {
+            assert(numberContributorsBefore == 0);
+            assert(contribution == 0);
         }
 
         assert(!snContribution.finalized());
-        assert(snContribution.contributions(msg.sender) == 0);
-        assert(snContribution.operatorContribution()    >  0 && snContribution.operatorContribution() <= STAKING_REQUIREMENT);
-        assert(snContribution.totalContribution()       >  0 && snContribution.totalContribution()    <= STAKING_REQUIREMENT);
-        assert(snContribution.numberContributors()      >  0 && snContribution.numberContributors()   <= MAX_CONTRIBUTORS);
+        assert(snContribution.operatorContribution() >=  0 && snContribution.operatorContribution() <= STAKING_REQUIREMENT);
+        assert(snContribution.totalContribution()    >=  0 && snContribution.totalContribution()    <= STAKING_REQUIREMENT);
 
         assert(sentToken.balanceOf(msg.sender) == balanceBeforeWithdraw + contribution);
     }

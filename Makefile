@@ -12,7 +12,7 @@ node:
 	anvil
 
 fuzz:
-	echidna . --contract ServiceNodeContributionEchidnaTest --config echidna.config.yml
+	echidna . --contract ServiceNodeContributionEchidnaTest --config echidna-local.config.yml
 
 deploy-local:
 	npx hardhat run scripts/deploy-local-test.js --network localhost

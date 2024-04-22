@@ -1,0 +1,10 @@
+# Select the mode to test, which can be property, assertion, overflow, exploration, optimization
+testMode:        "assertion"
+# Address that contract being tested will be deployed at
+contractAddr:    "0x00a329c0648769a73afac7f9381e08fb43dbea72"
+# Sender is set of addresses transactions may originate from
+sender:          ["0x11111", "0x22222", "0x33333", "0x44444", "0x55555"]
+# Number of fuzz-testing workers
+workers:         4
+# URL to the node running on the devnet
+rpcUrl:          http://127.0.0.1:8545

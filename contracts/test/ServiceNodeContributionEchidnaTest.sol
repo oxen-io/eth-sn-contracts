@@ -33,7 +33,7 @@ contract ServiceNodeContributionEchidnaTest {
     BN256G1.G1Point                       public blsPubkey;
 
 
-    constructor() public {
+    constructor() {
         snOperator     = msg.sender;
         snContribution = new ServiceNodeContribution(
             /*stakingRewardsContract*/ STAKING_REWARDS_CONTRACT,

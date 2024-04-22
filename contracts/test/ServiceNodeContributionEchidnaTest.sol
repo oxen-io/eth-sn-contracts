@@ -18,6 +18,8 @@ import "../ServiceNodeContribution.sol";
 
 contract ServiceNodeContributionEchidnaTest {
 
+    // TODO: Staking rewards contract address is hard-coded from deployment on devnet
+    // TODO: Max contributors is hard-coded
     // TODO: Staking requirement is currently hard-coded to value in script/deploy-local-test.js
     // TODO: Immutable variables in the testing contract causes Echidna 2.2.3 to crash
     address                               public STAKING_REWARDS_CONTRACT = 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0;

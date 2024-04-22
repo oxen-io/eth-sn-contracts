@@ -197,6 +197,28 @@ describe("ServiceNodeContribution Contract Tests", function () {
             expect(await mockERC20.balanceOf(serviceNodeContribution)).to.equal(0);
         });
     });
+
+    it("Cancel contribution contract before operator contributes", async function () {
+        // NOTE: Deploy the contract
+        const [owner, operator] = await ethers.getSigners();
+        const tx                = await serviceNodeContributionFactory.connect(operator).deployContributionContract([0,0],[0,0,0,0]);
+
+        // NOTE: Get deployed contract address
+        const receipt                        = await tx.wait();
+        const event                          = receipt.logs[0];
+        const serviceNodeContributionAddress = event.args[0]; // This should be the address of the newly deployed contract
+        const serviceNodeContribution        = await ethers.getContractAt("ServiceNodeContribution", serviceNodeContributionAddress);
+
+        // NOTE: Cancel before contribution
+        await expect(await serviceNodeContribution.connect(operator)
+                                                  .cancelNode()).to
+                                                                .emit(serviceNodeContribution, "Cancelled");
+
+        expect(await serviceNodeContribution.numberContributors()).to.equal(0);
+        expect(await serviceNodeContribution.totalContribution()).to.equal(0);
+        expect(await serviceNodeContribution.operatorContribution()).to.equal(0);
+    });
+
 });
 
 describe("ServiceNodeContribution minimum contribution tests", function () {
@@ -286,7 +308,4 @@ describe("ServiceNodeContribution minimum contribution tests", function () {
 
         expect(minimumContribution).to.equal(1250);
     });
-
-
 });
-

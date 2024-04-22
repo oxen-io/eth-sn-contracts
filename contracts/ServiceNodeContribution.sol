@@ -13,43 +13,43 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  * finalize the node setup, which will send the necessary node information and funds to the ServiceNodeRewards contract. This contract also allows for the
  * withdrawal of contributions before finalization, and cancel the node setup with refunds to contributors.
  **/
-contract ServiceNodeContribution is Shared{
+contract ServiceNodeContribution is Shared {
     using SafeERC20 for IERC20;
-    
-    // Immutable state variables
+
+    // Staking
     // solhint-disable-next-line var-name-mixedcase
-    IERC20 public immutable SENT;
-    IServiceNodeRewards public immutable stakingRewardsContract;
-    uint256 public immutable stakingRequirement;
-    uint256 public immutable maxContributors;
+    IERC20                                 public immutable SENT;
+    IServiceNodeRewards                    public immutable stakingRewardsContract;
+    uint256                                public immutable stakingRequirement;
 
-    // Service Node Details
-    BN256G1.G1Point public blsPubkey;
-    IServiceNodeRewards.BLSSignatureParams public blsSignature;
-    IServiceNodeRewards.ServiceNodeParams public serviceNodeParams;
+    // Service Node
+    BN256G1.G1Point                        public           blsPubkey;
+    IServiceNodeRewards.ServiceNodeParams  public           serviceNodeParams;
+    IServiceNodeRewards.BLSSignatureParams public           blsSignature;
 
-    // Contributors
-    address public immutable operator;
-    mapping(address => uint256) public contributions;
-    uint256 public operatorContribution;
-    uint256 public totalContribution;
-    uint256 public numberContributors;
+    // Contributions
+    address                                public immutable operator;
+    mapping(address => uint256)            public           contributions;
+    uint256                                public immutable maxContributors;
+    uint256                                public           operatorContribution;
+    uint256                                public           totalContribution;
+    uint256                                public           numberContributors;
 
-    // Smart contract state
-    bool public finalized = false;
-    bool public cancelled = false;
+    // Smart Contract
+    bool                                   public           finalized = false;
+    bool                                   public           cancelled = false;
 
     // MODIFIERS
     modifier onlyOperator() {
         require(tx.origin == operator, "Only the operator can perform this action.");
         _;
     }
-    
+
     // EVENTS
-    event Cancelled(uint256 indexed serviceNodePubkey);
-    event Finalized(uint256 indexed serviceNodePubkey);
+    event Cancelled      (uint256 indexed serviceNodePubkey);
+    event Finalized      (uint256 indexed serviceNodePubkey);
     event NewContribution(address indexed contributor, uint256 amount);
-    event StakeWithdrawn(address indexed contributor, uint256 amount);
+    event StakeWithdrawn (address indexed contributor, uint256 amount);
 
     /// @notice Constructs the ServiceNodeContribution contract. This is usually done by the parent factory contract
     /// @param _stakingRewardsContract Address of the staking rewards contract.
@@ -61,15 +61,13 @@ contract ServiceNodeContribution is Shared{
         nzUint(_maxContributors)
     {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
-        SENT = IERC20(stakingRewardsContract.designatedToken());
-        stakingRequirement = stakingRewardsContract.stakingRequirement();
-        maxContributors = _maxContributors;
-        operator = tx.origin;
-        blsPubkey = _blsPubkey;
-        serviceNodeParams = _serviceNodeParams;
+        SENT                   = IERC20(stakingRewardsContract.designatedToken());
+        stakingRequirement     = stakingRewardsContract.stakingRequirement();
+        maxContributors        = _maxContributors;
+        operator               = tx.origin;
+        blsPubkey              = _blsPubkey;
+        serviceNodeParams      = _serviceNodeParams;
     }
-
-
 
     //////////////////////////////////////////////////////////////
     //                                                          //
@@ -150,10 +148,13 @@ contract ServiceNodeContribution is Shared{
     function cancelNode() public onlyOperator {
         require(!finalized, "Cannot cancel a finalized node.");
         require(!cancelled, "Node has already been cancelled.");
+
+        if (numberContributors > 0) // Guard against operator not-yet contributing
+            numberContributors -= 1;
+
         cancelled = true;
         uint256 refundAmount = contributions[msg.sender];
         contributions[msg.sender] = 0;
-        numberContributors -= 1;
         totalContribution -= refundAmount;
         SENT.safeTransfer(msg.sender, refundAmount);
         emit Cancelled(serviceNodeParams.serviceNodePubkey);
@@ -177,6 +178,7 @@ contract ServiceNodeContribution is Shared{
     }
 
     function _minimumContribution(uint256 _contributionRemaining, uint256 _numberContributors, uint256 _maxContributors) public pure returns (uint256) {
+        require(_maxContributors > _numberContributors, "Contributors exceed permitted maximum number of contributors");
         uint256 numContributionsRemainingAvail = _maxContributors - _numberContributors;
         return (_contributionRemaining - 1) / numContributionsRemainingAvail + 1;
     }

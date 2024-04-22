@@ -11,9 +11,12 @@ node:
 	#npx hardhat node
 	anvil
 
+fuzz:
+	echidna . --contract ServiceNodeContributionEchidnaTest --config echidna.config.yml
+
 deploy-local:
 	npx hardhat run scripts/deploy-local-test.js --network localhost
-   
+
 deploy-sepolia:
 	npx hardhat run scripts/deploy.js --network sepolia
 

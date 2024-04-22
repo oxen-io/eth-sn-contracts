@@ -1,46 +1,76 @@
 # Session Token Rewards Contract
 
-This contract is designed to facilitate the integration and functioning of the Session Token within the oxen network. The core of the codebase is now split into two components: the existing C++ codebase, which handles various service node responsibilities like uptime tracking, reward calculations, and other duties; and the new smart contract system, which includes the Session Token contract and this rewards contract.
+This contract is designed to facilitate the integration and functioning of the
+Session Token within the oxen network. The core of the codebase is now split
+into two components: the existing C++ codebase, which handles various service
+node responsibilities like uptime tracking, reward calculations, and other
+duties; and the new smart contract system, which includes the Session Token
+contract and this rewards contract.
 
-The rewards contract manages the dynamics of nodes within the network. It handles various crucial operations such as the admission of node operators through stake deposits, broadcasting new node details across the network via events/logs, managing the exit of stakers with an associated unlock period, and the distribution of earned rewards. One of the key features of the rewards contract is its use of BLS signatures. This technology enables the aggregation of multiple signatures into a single, verifiable entity, ensuring that rewards are distributed only when a consensus (e.g., 95% agreement within the network) is achieved regarding the amount to be claimed.
+The rewards contract manages the dynamics of nodes within the network. It
+handles various crucial operations such as the admission of node operators
+through stake deposits, broadcasting new node details across the network via
+events/logs, managing the exit of stakers with an associated unlock period, and
+the distribution of earned rewards. One of the key features of the rewards
+contract is its use of BLS signatures. This technology enables the aggregation
+of multiple signatures into a single, verifiable entity, ensuring that rewards
+are distributed only when a consensus (e.g., 95% agreement within the network)
+is achieved regarding the amount to be claimed.
 
-## Building and tests
-There are 2 components to the tests, the regular hardhat javascript tests and c++ tests mimicking the stack our network code has.
+## Building and Tests
 
-### Running Javascript tests
-from the root directory
+There are 3 testing frameworks in use,
+
+  - Javascript: Unit tests via Hardhat
+  - C++: Integration tests via RPC over a devnet (like a local `hardhat node`)
+  - Echidna: Fuzz testing of the smart contract over a devnet
+
+### Javascript
+
+Contracts can be compiled and tested against unit tests run by executing:
+
 ```
 yarn
 yarn build
 yarn test
 ```
 
-### Running C++ tests
-This requires simultaneously running a terminal for the hardhat node and another for running the tests. In the first terminal from the root directory run
-```
-make node
-```
+### C++
 
-Then from another terminal while the node is still running
+Integration tests require running a devnet first with the deployed smart
+contracts followed by running the C++ tests which will communicate with the
+given network. First setup the devnet:
 
 ```
-make deploy-local
+make node         # Run the local devnet (note: This blocks the terminal)
+make deploy-local # Deploy the smart contracts onto the devnet
 ```
 
-This will deploy our rewards contract to the node. This will need to be done every time the c++ tests are run
-
-Next compile the c++ tests with
+Then execute the C++ tests by compilin and running, for example:
 
 ```
 cd test/cpp/
-mkdir build
-cd build
-cmake ..
-make
-```
+cmake -B build -S .
+cmake --build build --parallel --verbose
 
-which should create a test binary that you can run. Any changes to the c++ tests will need a recompile
-```
+# Run the tests
 ./test/cpp/build/test/rewards_contract_Tests
+```
+
+### Echidna
+
+Get [echidna](https://github.com/crytic/echidna) and place it onto your path.
+Fuzz testing may then be run by executing:
 
 ```
+echidna . --contract ServiceNodeContributionEchidnaTest --config echidna.config.yml
+
+# Or alternatively via the make target
+
+make fuzz
+```
+
+We run Echidna in `assertion` testing mode which allows echidna to simulate
+multiple senders (because our contracts can potentially use multiple wallets).
+`property` testing mode simulates the transactions as if they were originating
+from the smart contract which is not as useful for testing our contracts.

@@ -97,6 +97,20 @@ describe("ServiceNodeContribution Contract Tests", function () {
             expect(await serviceNodeContribution.operatorContribution()).to.equal(0);
         });
 
+        it("Random wallet can not cancel contract (test onlyOperator() modifier)", async function () {
+            const [owner] = await ethers.getSigners();
+
+            randomWallet = ethers.Wallet.createRandom();
+            randomWallet = randomWallet.connect(ethers.provider);
+            owner.sendTransaction({to: randomWallet.address, value: BigInt(1 * 10 ** 18)});
+
+            await expect(serviceNodeContribution.connect(randomWallet)
+                                                .cancelNode()).to
+                                                              .be
+                                                              .reverted;
+        });
+
+
         it("Allows operator to contribute and records correct balance", async function () {
             const minContribution = await serviceNodeContribution.minimumContribution();
             await mockERC20.transfer(serviceNodeOperator, TEST_AMNT);

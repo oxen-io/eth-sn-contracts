@@ -82,7 +82,7 @@ contract ServiceNodeContribution is Shared {
      * It can only be called once by the operator and must be done before any other contributions are made.
      */
     function contributeOperatorFunds(IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
-        require (operatorContribution == 0, "Operator already contributed funds");
+        require(operatorContribution == 0, "Operator already contributed funds");
         require(!cancelled, "Node has been cancelled.");
         operatorContribution = minimumContribution();
         blsSignature = _blsSignature;

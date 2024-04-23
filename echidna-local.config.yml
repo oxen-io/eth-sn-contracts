@@ -7,4 +7,4 @@ sender:          ["0x11111", "0x22222", "0x33333", "0x44444", "0x55555"]
 # Number of fuzz-testing workers
 workers:         4
 # URL to the node running on the devnet
-rpcUrl:          http://127.0.0.1:8545
+rpcUrl:          "http://127.0.0.1:8545"

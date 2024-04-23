@@ -60,6 +60,10 @@ cmake --build build --parallel --verbose
 ### Echidna
 
 Get [echidna](https://github.com/crytic/echidna) and place it onto your path.
+Echidna also relies on [slither](https://github.com/crytic/slither) a static
+analyzer that uses Python 3 and hence can be installed via
+`python -m pip install slither-analyzer`.
+
 Fuzz testing may then be run by executing:
 
 ```

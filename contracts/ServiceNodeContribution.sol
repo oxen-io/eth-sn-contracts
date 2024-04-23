@@ -149,14 +149,18 @@ contract ServiceNodeContribution is Shared {
         require(!finalized, "Cannot cancel a finalized node.");
         require(!cancelled, "Node has already been cancelled.");
 
-        if (numberContributors > 0) // Guard against operator not-yet contributing
-            numberContributors -= 1;
-
-        cancelled = true;
-        uint256 refundAmount = contributions[msg.sender];
-        contributions[msg.sender] = 0;
-        totalContribution -= refundAmount;
+        // NOTE: Refund
+        uint256 refundAmount       = contributions[msg.sender];
+        contributions[msg.sender]  = 0;
+        totalContribution         -= refundAmount;
         SENT.safeTransfer(msg.sender, refundAmount);
+
+        // NOTE: Cancel registration
+        require(refundAmount == operatorContribution, "Refund to operator on cancel must match operator contribution");
+        cancelled                  = true;
+        numberContributors         = numberContributors > 0 ? (numberContributors - 1) : 0;
+        operatorContribution       = 0;
+
         emit Cancelled(serviceNodeParams.serviceNodePubkey);
     }
 

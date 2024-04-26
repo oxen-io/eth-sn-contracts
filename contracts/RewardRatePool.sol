@@ -11,23 +11,22 @@ contract RewardRatePool {
     using SafeERC20 for IERC20;
 
     // solhint-disable-next-line var-name-mixedcase
-    IERC20 public immutable SENT;
+    IERC20  public immutable SENT;
+    address public immutable beneficiary;
+    uint256 public           totalPaidOut;
+    uint256 public           lastPaidOutTime;
+    uint64  public constant  ANNUAL_INTEREST_RATE = 145; // 14.5% in tenths of a percent
+    uint64  public constant  BASIS_POINTS         = 1000; // Basis points for percentage calculation
 
-    address immutable public beneficiary;
-    uint256 public totalPaidOut;
-    uint256 public lastPaidOutTime;
-    uint64 public constant ANNUAL_INTEREST_RATE = 145; // 14.5% in tenths of a percent
-    uint64 public constant BASIS_POINTS = 1000; // Basis points for percentage calculation
-    
     /**
      * @dev Sets the initial beneficiary and SENT token address.
      * @param _beneficiary Address that will receive the interest payouts.
      * @param _sent Address of the SENT ERC20 token contract.
      */
     constructor(address _beneficiary, address _sent) {
-        beneficiary = _beneficiary;
+        beneficiary     = _beneficiary;
         lastPaidOutTime = block.timestamp;
-        SENT = IERC20(_sent);
+        SENT            = IERC20(_sent);
     }
 
     // EVENTS
@@ -42,10 +41,12 @@ contract RewardRatePool {
     /**
      * @dev Calculates and releases the due interest payout to the beneficiary.
      * Updates the total paid out and the last payout time.
-     */    
+     */
     function payoutReleased() public {
-        uint256 released = calculateReleasedAmount(block.timestamp);
-        totalPaidOut += released;
+        uint256 newTotalPaidOut  = calculateReleasedAmount(block.timestamp);
+        uint256 released         = newTotalPaidOut - totalPaidOut;
+        totalPaidOut             = newTotalPaidOut;
+        lastPaidOutTime          = block.timestamp;
         SENT.safeTransfer(beneficiary, released);
         emit FundsReleased(released);
     }
@@ -66,7 +67,7 @@ contract RewardRatePool {
         uint256 totalDeposited = calculateTotalDeposited();
         return calculateInterestAmount(totalDeposited - alreadyReleased, 2 minutes);
     }
-    
+
     /**
      * @dev Calculates the total amount of SENT tokens deposited in the contract.
      * @return The sum of SENT tokens currently held by the contract and the total amount previously paid out.

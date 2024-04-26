@@ -41,7 +41,7 @@ contract ServiceNodeContribution is Shared {
 
     // MODIFIERS
     modifier onlyOperator() {
-        require(tx.origin == operator, "Only the operator can perform this action.");
+        require(msg.sender == operator, "Only the operator can perform this action.");
         _;
     }
 
@@ -64,7 +64,7 @@ contract ServiceNodeContribution is Shared {
         SENT                   = IERC20(stakingRewardsContract.designatedToken());
         stakingRequirement     = stakingRewardsContract.stakingRequirement();
         maxContributors        = _maxContributors;
-        operator               = tx.origin;
+        operator               = tx.origin; // NOTE: Creation is delegated by operator through factory
         blsPubkey              = _blsPubkey;
         serviceNodeParams      = _serviceNodeParams;
     }

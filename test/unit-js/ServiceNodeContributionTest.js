@@ -68,15 +68,14 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
             // NOTE: Deploy the contract
             const tx = await serviceNodeContributionFactory.connect(serviceNodeOperator).deployContributionContract([0,0],[0,0,0,0]);
-
             // NOTE: Get deployed contract address
             const receipt                        = await tx.wait();
             const event                          = receipt.logs[0];
             expect(event.eventName).to.equal("NewServiceNodeContributionContract");
-
             serviceNodeContributionAddress = event.args[0]; // This should be the address of the newly deployed contract
             serviceNodeContribution        = await ethers.getContractAt("ServiceNodeContribution", serviceNodeContributionAddress);
         });
+
 
         it("Does not allow contributions if operator hasn't contributed", async function () {
             const [contributor]   = await ethers.getSigners();

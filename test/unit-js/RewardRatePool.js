@@ -29,6 +29,7 @@ describe("RewardRatePool Contract Tests", function () {
         ServiceNodeRewards = await ethers.getContractFactory("MockServiceNodeRewards");
         serviceNodeRewards = await ServiceNodeRewards.deploy(mockERC20, STAKING_TEST_AMNT);
 
+        // NOTE: Set the serviceNodeRewards contract as the recipient of rewards
         RewardRatePool = await ethers.getContractFactory("RewardRatePool");
         rewardRatePool = await RewardRatePool.deploy(serviceNodeRewards, mockERC20);
     });
@@ -67,12 +68,31 @@ describe("RewardRatePool Contract Tests", function () {
     it("should be able to release funds to the rewards contract", async function () {
         await mockERC20.transfer(rewardRatePool, bigAtomicPrincipal);
         expect(await mockERC20.balanceOf(rewardRatePool)).to.equal(bigAtomicPrincipal);
-        let last_paid = await rewardRatePool.lastPaidOutTime();
-        let expected_removed = await rewardRatePool.calculateReleasedAmount(last_paid + BigInt(seconds_in_year));
+
+        // NOTE: Advance time and test the payout release
+        let last_paid    = await rewardRatePool.lastPaidOutTime();
+        let total_payout = await rewardRatePool.calculateReleasedAmount(last_paid + BigInt(seconds_in_year));
+
         await time.setNextBlockTimestamp(last_paid + BigInt(seconds_in_year));
-        await expect(await rewardRatePool.payoutReleased())
-            .to.emit(rewardRatePool, 'FundsReleased')
-            .withArgs(expected_removed);
-        expect(await mockERC20.balanceOf(serviceNodeRewards)).to.equal(expected_removed);
+        await expect(await rewardRatePool.payoutReleased()).to
+                                                           .emit(rewardRatePool, 'FundsReleased')
+                                                           .withArgs(total_payout);
+
+        expect(await mockERC20.balanceOf(serviceNodeRewards)).to
+                                                             .equal(total_payout);
+
+
+        // NOTE: Advance time again and test the payout release
+        last_paid             = await rewardRatePool.lastPaidOutTime();
+        let next_total_payout = await rewardRatePool.calculateReleasedAmount(last_paid + BigInt(seconds_in_year));
+        total_payout          = next_total_payout - total_payout;
+
+        await time.setNextBlockTimestamp(last_paid + BigInt(seconds_in_year));
+        await expect(await rewardRatePool.payoutReleased()).to
+                                                           .emit(rewardRatePool, 'FundsReleased')
+                                                           .withArgs(total_payout);
+
+        expect(await mockERC20.balanceOf(serviceNodeRewards)).to
+                                                             .equal(next_total_payout);
     });
 });

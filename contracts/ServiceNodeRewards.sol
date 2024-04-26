@@ -28,7 +28,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     uint64  public nextServiceNodeID;
     uint256 public totalNodes;
     uint256 public blsNonSignerThreshold;
-    uint256 public upperLimitNonSigners;
+    uint256 public blsNonSignerThresholdMax;
 
     bytes32 public proofOfPossessionTag;
     bytes32 public rewardTag;
@@ -53,7 +53,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         nextServiceNodeID            = 1;
         totalNodes                   = 0;
         blsNonSignerThreshold        = 0;
-        upperLimitNonSigners         = 300;
+        blsNonSignerThresholdMax     = 300;
         proofOfPossessionTag         = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
         rewardTag                    = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
         removalTag                   = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
@@ -90,7 +90,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event NewServiceNode( uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey, ServiceNodeParams serviceNode, Contributor[] contributors);
     event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
-    event NonSignersLimitUpdated(uint256 newRequirement);
+    event BLSNonSignerThresholdMaxUpdated(uint256 newMax);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
     event ServiceNodeRemoval(uint64 indexed serviceNodeID, address recipient, uint256 returnedAmount, BN256G1.G1Point pubkey);
     event ServiceNodeRemovalRequest(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
@@ -98,6 +98,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     // ERRORS
     error ArrayLengthMismatch();
+    error DeleteSentinelNodeNotAllowed();
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
     error BLSPubkeyDoesNotMatch(uint64 serviceNodeID, BN256G1.G1Point pubkey);
     error ContractAlreadyActive();
@@ -217,7 +218,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         _serviceNodes[allocID].operator = operator;
         _serviceNodes[allocID].deposit  = _stakingRequirement;
 
-        updateBLSThreshold();
+        updateBLSNonSignerThreshold();
         emit NewServiceNode(allocID, operator, blsPubkey, serviceNodeParams, contributors);
         SafeERC20.safeTransferFrom(designatedToken, operator, address(this), _stakingRequirement);
     }
@@ -292,7 +293,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         BN256G1.G1Point memory pubkey = _serviceNodes[serviceNodeID].pubkey;
         serviceNodeDelete(serviceNodeID);
 
-        updateBLSThreshold();
+        updateBLSNonSignerThreshold();
         emit ServiceNodeRemoval(serviceNodeID, operator, returnedAmount, pubkey);
     }
 
@@ -350,7 +351,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             emit NewSeededServiceNode(allocID, pubkey);
         }
 
-        updateBLSThreshold();
+        updateBLSNonSignerThreshold();
     }
 
     /// @notice Add the service node with the specified BLS public key to
@@ -401,6 +402,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @notice Delete the service node with `nodeID`
     /// @param nodeID The ID of the service node to delete
     function serviceNodeDelete(uint64 nodeID) internal {
+        require(totalNodes > 0);
+        if (nodeID == LIST_SENTINEL)
+            revert DeleteSentinelNodeNotAllowed();
+
         ServiceNode memory node = _serviceNodes[nodeID];
 
         // The following is the deletion pattern in a doubly-linked list
@@ -436,12 +441,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     }
 
     /// @notice Updates the internal threshold for how many non signers an aggregate signature can contain before being invalid
-    function updateBLSThreshold() internal {
-        if (totalNodes > 900) {
-            blsNonSignerThreshold = upperLimitNonSigners;
-        } else {
-            blsNonSignerThreshold = totalNodes / 3;
-        }
+    function updateBLSNonSignerThreshold() internal {
+        uint256 oneThirdOfNodes = totalNodes / 3;
+        blsNonSignerThreshold   = oneThirdOfNodes > blsNonSignerThresholdMax ? blsNonSignerThresholdMax : oneThirdOfNodes;
     }
 
     /// @notice Contract begins locked and owner can start after nodes have been populated and hardfork has begun
@@ -468,12 +470,14 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         emit StakingRequirementUpdated(newRequirement);
     }
 
-    /// @notice Setter function for upperLimitNonSigners, only callable by owner
-    /// @param newRequirement the value being changed to
-    function setUpperLimitNonSigners(uint256 newRequirement) public onlyOwner {
-        require(newRequirement > 0, "Staking requirement must be positive");
-        upperLimitNonSigners = newRequirement;
-        emit NonSignersLimitUpdated(newRequirement);
+    /// @notice Max number of permitted non-signers during signature aggregation
+    /// applied when one third of the nodes exceeds this value. Only callable by
+    /// the owner.
+    /// @param newMax The new maximum non-signer threshold
+    function setBLSNonSignerThresholdMax(uint256 newMax) public onlyOwner {
+        require(newMax > 0, "The new BLS non-signer threshold must be non-zero");
+        blsNonSignerThresholdMax = newMax;
+        emit BLSNonSignerThresholdMaxUpdated(newMax);
     }
 
     //////////////////////////////////////////////////////////////

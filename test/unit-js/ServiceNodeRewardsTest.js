@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 
 describe("ServiceNodeRewards Contract Tests", function () {
     let MockERC20;
@@ -22,16 +22,15 @@ describe("ServiceNodeRewards Contract Tests", function () {
         // Get signers
         [owner, foundationPool] = await ethers.getSigners();
 
-        ServiceNodeRewards = await ethers.getContractFactory("ServiceNodeRewards");
-        serviceNodeRewards = await ServiceNodeRewards.deploy(
-            mockERC20,              // token address
-            foundationPool,         // foundation pool address
+        ServiceNodeRewardsMaster = await ethers.getContractFactory("ServiceNodeRewards");
+        serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster, 
+            [ await mockERC20.getAddress(),              // token address
+            await foundationPool.getAddress(),         // foundation pool address
             15000,                          // staking requirement
             0,                              // liquidator reward ratio
             0,                              // pool share of liquidation ratio
             1                               // recipient ratio
-        );
-
+            ]);
     });
 
     it("Should deploy and set the correct owner", async function () {
@@ -59,7 +58,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
             await serviceNodeRewards.connect(owner).seedPublicKeyList(pkX, pkY, amounts);
 
             expect(await serviceNodeRewards.serviceNodesLength()).to.equal(1);
-            let aggregate_pubkey = await serviceNodeRewards.aggregate_pubkey();
+            let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
             expect(aggregate_pubkey[0] == P[0])
             expect(aggregate_pubkey[1] == P[1])
         });
@@ -82,7 +81,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                 BigInt("0x040a638a13320ea807115f1e7865c89c70d2d3df83e2e8c3eaea519e18b6e6b0"),
                 BigInt("0x019081a4475388be53e1088f6ec0dd79f99fc794709b9cf8b1ad401a9c4d3413"),
             ];
-            let aggregate_pubkey = await serviceNodeRewards.aggregate_pubkey();
+            let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
             expect(aggregate_pubkey[0] == expected_aggregate_pubkey[0])
             expect(aggregate_pubkey[1] == expected_aggregate_pubkey[1])
 

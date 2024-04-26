@@ -16,9 +16,6 @@ ServiceNode::ServiceNode(uint64_t _service_node_id) {
     secretKey.init();
 }
 
-ServiceNode::~ServiceNode() {
-}
-
 std::string buildTag(const std::string& baseTag, uint32_t chainID, const std::string& contractAddress) {
     // Check if contractAddress starts with "0x" prefix
     std::string contractAddressOutput = contractAddress;
@@ -28,28 +25,31 @@ std::string buildTag(const std::string& baseTag, uint32_t chainID, const std::st
     return utils::toHexString(utils::hash(concatenatedTag));
 }
 
-bls::Signature ServiceNode::signHash(const std::array<unsigned char, 32>& hash) {
+bls::Signature ServiceNode::signHash(const std::array<unsigned char, 32>& hash) const {
     bls::Signature sig;
     secretKey.signHash(sig, hash.data(), hash.size());
     return sig;
 }
 
-std::string ServiceNode::proofOfPossession(uint32_t chainID, const std::string& contractAddress) {
+std::string ServiceNode::proofOfPossession(uint32_t chainID, const std::string& contractAddress, const std::string& senderEthAddress, const std::string& serviceNodePubkey) {
+    std::string senderAddressOutput = senderEthAddress;
+    if (senderAddressOutput.substr(0, 2) == "0x")
+        senderAddressOutput = senderAddressOutput.substr(2);  // remove "0x"
     std::string fullTag = buildTag(proofOfPossessionTag, chainID, contractAddress);
-    std::string message = "0x" + fullTag + getPublicKeyHex();
+    std::string message = "0x" + fullTag + getPublicKeyHex() + senderAddressOutput + utils::padTo32Bytes(utils::toHexString(serviceNodePubkey), utils::PaddingDirection::LEFT);
     const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature sig;
     secretKey.signHash(sig, hash.data(), hash.size());
     return utils::SignatureToHex(sig);
 }
 
-std::string ServiceNode::getPublicKeyHex() {
+std::string ServiceNode::getPublicKeyHex() const {
     bls::PublicKey publicKey;
     secretKey.getPublicKey(publicKey);
-    return utils::PublicKeyToHex(publicKey);
+    return utils::BLSPublicKeyToHex(publicKey);
 }
 
-bls::PublicKey ServiceNode::getPublicKey() {
+bls::PublicKey ServiceNode::getPublicKey() const {
     bls::PublicKey publicKey;
     secretKey.getPublicKey(publicKey);
     return publicKey;
@@ -102,7 +102,7 @@ std::string ServiceNodeList::aggregatePubkeyHex() {
     for(auto& node : nodes) {
         aggregate_pubkey.add(node.getPublicKey());
     }
-    return utils::PublicKeyToHex(aggregate_pubkey);
+    return utils::BLSPublicKeyToHex(aggregate_pubkey);
 }
 
 std::string ServiceNodeList::aggregateSignatures(const std::string& message) {

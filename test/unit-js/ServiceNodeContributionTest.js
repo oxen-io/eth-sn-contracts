@@ -101,13 +101,15 @@ describe("ServiceNodeContribution Contract Tests", function () {
     });
 
     describe("After operator has set up funds", function () {
+        let serviceNodeContributionAddress;
+
         beforeEach(async function () {
             const [owner, operator] = await ethers.getSigners();
             const tx = await serviceNodeContributionFactory.connect(operator).deployContributionContract([0,0],[0,0,0,0]);
             const receipt = await tx.wait();
             const event = receipt.logs[0];
             expect(event.eventName).to.equal("NewServiceNodeContributionContract");
-            const serviceNodeContributionAddress = event.args[0]; // This should be the address of the newly deployed contract
+            serviceNodeContributionAddress = event.args[0]; // This should be the address of the newly deployed contract
             serviceNodeContribution = await ethers.getContractAt("ServiceNodeContribution", serviceNodeContributionAddress);
 
             const minContribution = await serviceNodeContribution.minimumContribution();
@@ -116,6 +118,16 @@ describe("ServiceNodeContribution Contract Tests", function () {
             await expect(serviceNodeContribution.connect(operator).contributeOperatorFunds([0,0,0,0]))
                   .to.emit(serviceNodeContribution, "NewContribution")
                   .withArgs(await operator.getAddress(), minContribution);
+        });
+
+        it("Check proxy contract cannot bypass onlyOperator", async function () {
+            const [owner, operator] = await ethers.getSigners();
+            const factory       = await ethers.getContractFactory("TestModifierOnlyOperatorViaProxyContract");
+            const proxyContract = await factory.deploy(serviceNodeContributionAddress);
+            await expect(proxyContract.connect(operator)
+                                      .proxyCancelNode()).to
+                                                         .be
+                                                         .reverted;
         });
 
         it("Should be able to contribute funds as a contributor", async function () {

@@ -12,19 +12,22 @@ async function main() {
     try {
         // Deploy a mock ERC20 token
         MockERC20 = await ethers.getContractFactory("MockERC20");
-        mockERC20 = await MockERC20.deploy("SENT Token", "SENT", 18);
+        mockERC20 = await MockERC20.deploy("SENT Token", "SENT", 9);
     } catch (error) {
         console.error("Error deploying MockERC20:", error);
     }
 
     // Get signers
-    [owner, foundationPool] = await ethers.getSigners();
+    [owner] = await ethers.getSigners();
+
+    RewardRatePool = await ethers.getContractFactory("RewardRatePool");
+    rewardRatePool = await upgrades.deployProxy(RewardRatePool, [await owner.getAddress(), await mockERC20.getAddress()]);
 
     // Deploy the ServiceNodeRewards contract
     ServiceNodeRewardsMaster = await ethers.getContractFactory("ServiceNodeRewards");
     serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,[
-        await mockERC20.getAddress(),            // token address
-        await foundationPool.getAddress(),         // foundation pool address
+        await mockERC20.getAddress(),              // token address
+        await rewardRatePool.getAddress(),         // foundation pool address
         100000000000,                              // staking requirement
         0,                                         // liquidator reward ratio
         0,                                         // pool share of liquidation ratio
@@ -40,6 +43,12 @@ async function main() {
         chalk.cyan(`Service Node Rewards Contract`),
         'deployed to:',
         chalk.greenBright(await serviceNodeRewards.getAddress()),
+    )
+    console.log(
+        '  ',
+        chalk.cyan(`Reward Rate Pool Contract`),
+        'deployed to:',
+        chalk.greenBright(await rewardRatePool.getAddress()),
     )
 }
 

@@ -2,35 +2,40 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title Reward Rate Pool Contract
  * @dev Implements reward distribution based on a fixed annual interest rate.
  */
-contract RewardRatePool {
+contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     using SafeERC20 for IERC20;
 
     // solhint-disable-next-line var-name-mixedcase
-    IERC20  public immutable SENT;
-    address public immutable beneficiary;
-    uint256 public           totalPaidOut;
-    uint256 public           lastPaidOutTime;
-    uint64  public constant  ANNUAL_INTEREST_RATE = 145; // 14.5% in tenths of a percent
-    uint64  public constant  BASIS_POINTS         = 1000; // Basis points for percentage calculation
+    IERC20 public SENT;
 
+    address public beneficiary;
+    uint256 public totalPaidOut;
+    uint256 public lastPaidOutTime;
+    uint64 public constant ANNUAL_INTEREST_RATE = 145; // 14.5% in tenths of a percent
+    uint64 public constant BASIS_POINTS = 1000; // Basis points for percentage calculation
+    
     /**
      * @dev Sets the initial beneficiary and SENT token address.
      * @param _beneficiary Address that will receive the interest payouts.
      * @param _sent Address of the SENT ERC20 token contract.
      */
-    constructor(address _beneficiary, address _sent) {
-        beneficiary     = _beneficiary;
+    function initialize(address _beneficiary, address _sent) initializer()  public {
+        beneficiary = _beneficiary;
         lastPaidOutTime = block.timestamp;
-        SENT            = IERC20(_sent);
+        SENT = IERC20(_sent);
+        __Ownable_init(msg.sender);
     }
 
     // EVENTS
     event FundsReleased(uint256 amount);
+    event BeneficiaryUpdated(address newBeneficiary);
 
     //////////////////////////////////////////////////////////////
     //                                                          //
@@ -49,6 +54,13 @@ contract RewardRatePool {
         lastPaidOutTime          = block.timestamp;
         SENT.safeTransfer(beneficiary, released);
         emit FundsReleased(released);
+    }
+
+    /// @notice Setter function for beneficiary, only callable by owner
+    /// @param newBeneficiary the address the beneficiary is being changed to
+    function setBeneficiary(address newBeneficiary) public onlyOwner {
+        beneficiary = newBeneficiary;
+        emit BeneficiaryUpdated(newBeneficiary);
     }
 
     //////////////////////////////////////////////////////////////

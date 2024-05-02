@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
 const STAKING_TEST_AMNT = 15000000000000
@@ -31,7 +31,7 @@ describe("RewardRatePool Contract Tests", function () {
 
         // NOTE: Set the serviceNodeRewards contract as the recipient of rewards
         RewardRatePool = await ethers.getContractFactory("RewardRatePool");
-        rewardRatePool = await RewardRatePool.deploy(serviceNodeRewards, mockERC20);
+        rewardRatePool = await upgrades.deployProxy(RewardRatePool, [await serviceNodeRewards.getAddress(), await mockERC20.getAddress()]);
     });
 
     it("Should have the correct interest rate", async function () {

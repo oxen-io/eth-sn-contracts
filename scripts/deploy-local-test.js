@@ -7,6 +7,9 @@
 const hre = require("hardhat");
 const chalk = require('chalk')
 
+let principal = 40000000;
+let bigAtomicPrincipal = ethers.parseUnits(principal.toString(), 9);
+
 async function main() {
     // Deploy a mock ERC20 token
     try {
@@ -22,6 +25,8 @@ async function main() {
 
     RewardRatePool = await ethers.getContractFactory("RewardRatePool");
     rewardRatePool = await upgrades.deployProxy(RewardRatePool, [await owner.getAddress(), await mockERC20.getAddress()]);
+
+    await mockERC20.transfer(rewardRatePool, bigAtomicPrincipal);
 
     // Deploy the ServiceNodeRewards contract
     ServiceNodeRewardsMaster = await ethers.getContractFactory("ServiceNodeRewards");

@@ -94,7 +94,7 @@ namespace config {
         inline constexpr uint32_t CHAIN_ID = 31337;
         inline constexpr std::string_view BLOCK_EXPLORER_URL = "";
         inline constexpr std::string_view OFFICIAL_WEBSITE = "";
-        inline constexpr std::string_view REWARDS_CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+        inline constexpr std::string_view REWARDS_CONTRACT_ADDRESS = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707";
         inline constexpr std::string_view PRIVATE_KEY = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
         inline constexpr std::string_view ADDITIONAL_PRIVATE_KEY1 = "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
         inline constexpr std::string_view ADDITIONAL_PRIVATE_KEY2 = "5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";

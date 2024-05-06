@@ -110,11 +110,19 @@ describe("ServiceNodeContribution Contract Tests", function () {
         });
 
 
+        it("Prevents operator contributing less than min amount", async function () {
+            const minContribution = await serviceNodeContribution.minimumContribution();
+            await mockERC20.transfer(serviceNodeOperator, TEST_AMNT);
+            await mockERC20.connect(serviceNodeOperator).approve(serviceNodeContributionAddress, minContribution);
+            await expect(serviceNodeContribution.connect(serviceNodeOperator).contributeOperatorFunds(minContribution - BigInt(1), [0,0,0,0]))
+                .to.be.revertedWith("Contribution is below minimum requirement");
+        });
+
         it("Allows operator to contribute and records correct balance", async function () {
             const minContribution = await serviceNodeContribution.minimumContribution();
             await mockERC20.transfer(serviceNodeOperator, TEST_AMNT);
             await mockERC20.connect(serviceNodeOperator).approve(serviceNodeContributionAddress, minContribution);
-            await expect(serviceNodeContribution.connect(serviceNodeOperator).contributeOperatorFunds([0,0,0,0]))
+            await expect(serviceNodeContribution.connect(serviceNodeOperator).contributeOperatorFunds(minContribution, [0,0,0,0]))
                   .to.emit(serviceNodeContribution, "NewContribution")
                   .withArgs(await serviceNodeOperator.getAddress(), minContribution);
 
@@ -132,7 +140,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 const minContribution = await serviceNodeContribution.minimumContribution();
                 await mockERC20.transfer(serviceNodeOperator, TEST_AMNT);
                 await mockERC20.connect(serviceNodeOperator).approve(serviceNodeContributionAddress, minContribution);
-                await expect(serviceNodeContribution.connect(serviceNodeOperator).contributeOperatorFunds([0,0,0,0]))
+                await expect(serviceNodeContribution.connect(serviceNodeOperator).contributeOperatorFunds(minContribution, [0,0,0,0]))
                       .to.emit(serviceNodeContribution, "NewContribution")
                       .withArgs(await serviceNodeOperator.getAddress(), minContribution);
             });
@@ -186,8 +194,10 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 await expect(await serviceNodeContribution.connect(contributor).contributeFunds(minContribution))
                     .to.emit(serviceNodeContribution, "NewContribution")
                     .withArgs(await contributor.getAddress(), minContribution);
-                await expect(serviceNodeContribution.connect(serviceNodeOperator).finalizeNode())
-                    .to.be.revertedWith("Funding goal has not been met.");
+                await expect(await serviceNodeContribution.connect(serviceNodeOperator).finalized())
+                    .to.equal(false);
+                await expect(await mockERC20.balanceOf(serviceNodeContribution))
+                    .to.equal(previousContribution + minContribution);
             });
 
             it("Should not be able to overcapitalize", async function () {
@@ -200,20 +210,19 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     .to.be.revertedWith("Contribution exceeds the funding goal.");
             });
 
-            it("Should be able to finalise if funded", async function () {
+            it("Should be finalise if funded", async function () {
                 const [owner, contributor, contributor2] = await ethers.getSigners();
                 const stakingRequirement = await serviceNodeContribution.stakingRequirement();
                 let previousContribution = await serviceNodeContribution.totalContribution();
                 await mockERC20.transfer(contributor, stakingRequirement - previousContribution);
                 await mockERC20.connect(contributor).approve(serviceNodeContribution, stakingRequirement - previousContribution);
                 await expect(await serviceNodeContribution.connect(contributor).contributeFunds(stakingRequirement - previousContribution))
-                      .to.emit(serviceNodeContribution, "NewContribution");
-                await expect(await serviceNodeContribution.connect(serviceNodeOperator).finalizeNode())
-                    .to.emit(serviceNodeContribution, "Finalized");
+                      .to.emit(serviceNodeContribution, "Finalized");
                 expect(await mockERC20.balanceOf(serviceNodeRewards)).to.equal(stakingRequirement);
                 expect(await serviceNodeRewards.totalNodes()).to.equal(1);
                 expect(await serviceNodeContribution.finalized()).to.equal(true);
                 expect(await mockERC20.balanceOf(serviceNodeContribution)).to.equal(0);
+
             });
         });
     });

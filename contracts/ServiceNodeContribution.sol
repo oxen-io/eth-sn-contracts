@@ -30,6 +30,7 @@ contract ServiceNodeContribution is Shared {
     // Contributions
     address                                public immutable operator;
     mapping(address => uint256)            public           contributions;
+    address[]                              public           contributorAddresses;
     uint256                                public immutable maxContributors;
     uint256                                public           operatorContribution;
     uint256                                public           totalContribution;
@@ -81,10 +82,11 @@ contract ServiceNodeContribution is Shared {
      * @param _blsSignature - 128 byte bls proof of possession signature
      * It can only be called once by the operator and must be done before any other contributions are made.
      */
-    function contributeOperatorFunds(IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
+    function contributeOperatorFunds(uint256 amount, IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
         require(operatorContribution == 0, "Operator already contributed funds");
         require(!cancelled, "Node has been cancelled.");
-        operatorContribution = minimumContribution();
+        require(amount >= minimumContribution(), "Contribution is below minimum requirement");
+        operatorContribution = amount;
         blsSignature = _blsSignature;
         contributeFunds(operatorContribution);
     }
@@ -100,29 +102,63 @@ contract ServiceNodeContribution is Shared {
         require(totalContribution + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
         require(!finalized, "Node has already been finalized.");
         require(!cancelled, "Node has been cancelled.");
-        numberContributors += 1;
+        if (contributions[msg.sender] == 0) {
+            numberContributors += 1;
+            contributorAddresses.push(msg.sender);
+        }
         contributions[msg.sender] += amount;
         totalContribution += amount;
         SENT.safeTransferFrom(msg.sender, address(this), amount);
         emit NewContribution(msg.sender, amount);
+        if (totalContribution == stakingRequirement)
+            finalizeNode();
     }
 
-    //TODO sean move this into contribute funds
-    function finalizeNode() public onlyOperator {
+    /**
+     * @notice When the contribute Funds function fills the contract this is called to call the AddBLSPublicKey function on the rewards contract and send funds to it
+     */
+    function finalizeNode() internal {
         require(totalContribution == stakingRequirement, "Funding goal has not been met.");
         require(!finalized, "Node has already been finalized.");
         require(!cancelled, "Node has been cancelled.");
         finalized = true;
+        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](numberContributors);
+        for (uint256 i = 0; i < numberContributors; i++) {
+            address contributorAddress = contributorAddresses[i];
+            contributors[i] = IServiceNodeRewards.Contributor(contributorAddress, contributions[contributorAddress]);
+        }
         SENT.approve(address(stakingRewardsContract), stakingRequirement);
-        // TODO sean change the params to pass in all the contributor details also
-        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](1);
-        contributors[0] = IServiceNodeRewards.Contributor(operator, stakingRequirement);
         stakingRewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
 
         emit Finalized(serviceNodeParams.serviceNodePubkey);
     }
 
-    // TODO rescue funds remaining after finalising
+    /**
+     * @notice Function to reset the contract to an empty state
+     * @param amount The amount of funds the operator is to contribute.
+     */
+    function resetContract(uint256 amount) external onlyOperator {
+        require(finalized, "Contract has not been finalized yet.");
+        finalized = false;
+        operatorContribution = 0;
+        totalContribution = 0;
+        numberContributors = 0;
+        delete contributorAddresses;
+        contributeOperatorFunds(amount, blsSignature);
+    }
+
+    /**
+     * @notice Function to allow owner to rescue ERC20 tokens if the contract is finalized
+     * @param tokenAddress the ERC20 token to rescue
+     */
+    function rescueERC20(address tokenAddress) external onlyOperator {
+        require(finalized, "Contract has not been finalized yet.");
+        require(!cancelled, "Contract has been cancelled.");
+        IERC20 token = IERC20(tokenAddress);
+        uint256 balance = token.balanceOf(address(this));
+        require(balance > 0, "Contract has no balance of the specified token.");
+        token.transfer(operator, balance);
+    }
 
 
     /**

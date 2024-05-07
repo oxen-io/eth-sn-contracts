@@ -138,16 +138,33 @@ contract ServiceNodeContribution is Shared {
     }
 
     /**
-     * @notice Function to reset the contract to an empty state
+     * @notice Reset the contract and refund the contributions to the operator
+     * and contributors. The operator must re-initialise the contract
      * @param amount The amount of funds the operator is to contribute.
      */
     function resetContract(uint256 amount) external onlyOperator {
         require(finalized, "Contract has not been finalized yet.");
-        finalized = false;
-        operatorContribution = 0;
-        totalContribution = 0;
-        numberContributors = 0;
+
+        // NOTE: Remove and refund all contributors (including the operator)
+        for (uint256 index = 0; index < numberContributors; index++) {
+            // NOTE: We return the contributions in reverse order (due to
+            // swap-and-pop pattern) for more predictability in return sequence.
+            uint256 reverseIndex = numberContributors - (index + 1);
+            address toRemove     = contributorAddresses[reverseIndex];
+            removeAndRefundContributor(toRemove);
+        }
+
+        // NOTE: Reset left-over contract variables
         delete contributorAddresses;
+        finalized = false;
+
+        // NOTE: Verify
+        require(contributorAddresses.length == 0, "There should be 0 contributors in the contract");
+        require(operatorContribution        == 0, "Operator contribution should have been refunded and zero-ed");
+        require(totalContribution           == 0, "The contribution should be zero-ed out");
+        require(numberContributors          == 0, "All contributors should have been refunded");
+
+        // NOTE: Re-init the contract with the operator contribution.
         contributeOperatorFunds(amount, blsSignature);
     }
 
@@ -164,7 +181,6 @@ contract ServiceNodeContribution is Shared {
         token.transfer(operator, balance);
     }
 
-
     /**
      * @notice Allows contributors to withdraw their stake before the node is finalized.
      * @dev Withdrawals are only allowed if the node has not been finalized or cancelled. The operator cannot withdraw their contribution through this method. Operator should call cancelNode() instead.
@@ -174,11 +190,7 @@ contract ServiceNodeContribution is Shared {
         require(block.timestamp - contributionTimestamp[msg.sender] > WITHDRAWAL_DELAY, "Withdrawal unavailable: 24 hours have not passed");
         require(!finalized, "Node has already been finalized.");
         require(msg.sender != operator, "Operator cannot withdraw");
-        uint256 refundAmount = contributions[msg.sender];
-        contributions[msg.sender] = 0;
-        numberContributors -= 1;
-        totalContribution -= refundAmount;
-        SENT.safeTransfer(msg.sender, refundAmount);
+        uint256 refundAmount = removeAndRefundContributor(msg.sender);
         emit StakeWithdrawn(msg.sender, refundAmount);
     }
 
@@ -189,20 +201,55 @@ contract ServiceNodeContribution is Shared {
     function cancelNode() public onlyOperator {
         require(!finalized, "Cannot cancel a finalized node.");
         require(!cancelled, "Node has already been cancelled.");
-
-        // NOTE: Refund
-        uint256 refundAmount       = contributions[msg.sender];
-        contributions[msg.sender]  = 0;
-        totalContribution         -= refundAmount;
-        SENT.safeTransfer(msg.sender, refundAmount);
-
-        // NOTE: Cancel registration
-        require(refundAmount == operatorContribution, "Refund to operator on cancel must match operator contribution");
-        cancelled                  = true;
-        numberContributors         = numberContributors > 0 ? (numberContributors - 1) : 0;
-        operatorContribution       = 0;
-
+        removeAndRefundContributor(msg.sender);
+        cancelled = true;
         emit Cancelled(serviceNodeParams.serviceNodePubkey);
+    }
+
+    /**
+     * @dev Remove the contributor by address specified by `toRemove` from the
+     * smart contract. This updates all contributor related smart contract
+     * variables including the:
+     *
+     *   1) Removing contributor from contribution mapping
+     *   2) Removing their address from the contribution array
+     *   3) Updating the contribution/SENT metadata in the contract
+     *   4) Refunding the SENT amount contributed to the contributor
+     *
+     * @return The amount of SENT refunded for the given `toRemove` address. If
+     * `toRemove` is not a contributor/does not exist, 0 is returned as the
+     * refunded amount.
+     */
+    function removeAndRefundContributor(address toRemove) private returns (uint256) {
+        uint256 result = contributions[toRemove];
+        if (result == 0)
+            return result;
+
+        // 1) Removing contributor from contribution mapping
+        contributions[toRemove] = 0;
+
+        // 2) Removing their address from the contribution array
+        for (uint256 index = 0; index < contributorAddresses.length; index++) {
+            if (toRemove == contributorAddresses[index]) {
+                contributorAddresses[index] = contributorAddresses[contributorAddresses.length - 1];
+                contributorAddresses.pop();
+                break;
+            }
+        }
+
+        // 3) Updating the contribution/SENT metadata in the contract 
+        numberContributors      -= 1;
+        totalContribution       -= result;
+
+        // NOTE: Handle if the operator is being removed
+        if (toRemove == operator) {
+            require(result == operatorContribution, "Refund to operator on cancel must match operator contribution");
+            operatorContribution = 0;
+        }
+
+        // 4) Refunding the SENT amount contributed to the contributor
+        SENT.safeTransfer(toRemove, result);
+        return result;
     }
 
     //////////////////////////////////////////////////////////////
@@ -226,6 +273,15 @@ contract ServiceNodeContribution is Shared {
         require(_maxContributors > _numberContributors, "Contributors exceed permitted maximum number of contributors");
         uint256 numContributionsRemainingAvail = _maxContributors - _numberContributors;
         return (_contributionRemaining - 1) / numContributionsRemainingAvail + 1;
+    }
+
+    /**
+     * @dev This function allows unit-tests to query the length without having
+     * to know the storage slot of the array size.
+     */
+    function contributorAddressesLength() public view returns (uint256) {
+        uint256 result = contributorAddresses.length;
+        return result;
     }
 }
 

@@ -91,7 +91,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                                       .cancelNode()).to
                                                                     .emit(serviceNodeContribution, "Cancelled");
 
-            expect(await serviceNodeContribution.numberContributors()).to.equal(0);
+            expect(await serviceNodeContribution.contributorAddressesLength()).to.equal(0);
             expect(await serviceNodeContribution.totalContribution()).to.equal(0);
             expect(await serviceNodeContribution.operatorContribution()).to.equal(0);
         });
@@ -130,7 +130,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 .to.equal(minContribution);
             await expect(await serviceNodeContribution.totalContribution())
                 .to.equal(minContribution);
-            await expect(await serviceNodeContribution.numberContributors())
+            await expect(await serviceNodeContribution.contributorAddressesLength())
                 .to.equal(1);
         });
 
@@ -158,7 +158,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     .to.equal(previousContribution);
                 await expect(await serviceNodeContribution.totalContribution())
                     .to.equal(previousContribution + minContribution);
-                await expect(await serviceNodeContribution.numberContributors())
+                await expect(await serviceNodeContribution.contributorAddressesLength())
                     .to.equal(2);
             });
 
@@ -193,18 +193,17 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                                                                 .equal(previousContribution);
                     expect(await serviceNodeContribution.totalContribution()).to
                                                                              .equal(previousContribution + minContribution1 + minContribution2);
-                    expect(await serviceNodeContribution.numberContributors()).to
-                                                                              .equal(3);
+                    expect(await serviceNodeContribution.contributorAddressesLength()).to
+                                                                                      .equal(3);
                 });
 
                 it("Withdraw contributor 1", async function () {
                     const [owner, contributor1, contributor2] = await ethers.getSigners();
 
                     // NOTE: Collect contract initial state
-                    const contributor1Amount              = await serviceNodeContribution.contributions(contributor1);
-                    const numberContributors              = await serviceNodeContribution.numberContributors();
-                    const totalContribution               = await serviceNodeContribution.totalContribution();
-                    const contributorAddressesLength      = await serviceNodeContribution.contributorAddressesLength();
+                    const contributor1Amount         = await serviceNodeContribution.contributions(contributor1);
+                    const totalContribution          = await serviceNodeContribution.totalContribution();
+                    const contributorAddressesLength = await serviceNodeContribution.contributorAddressesLength();
 
                     // NOTE: Withdraw stake
                     await serviceNodeContribution.connect(contributor1).withdrawStake();
@@ -216,7 +215,6 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     await expect(serviceNodeContribution.connect(contributor1).withdrawStake()).to.be.reverted;
 
                     // NOTE: Test contract state
-                    expect(await serviceNodeContribution.numberContributors()).to.equal(numberContributors - BigInt(1));
                     expect(await serviceNodeContribution.totalContribution()).to.equal(totalContribution - contributor1Amount);
                     expect(await serviceNodeContribution.contributorAddressesLength()).to.equal(contributorAddressesLength - BigInt(1));
 

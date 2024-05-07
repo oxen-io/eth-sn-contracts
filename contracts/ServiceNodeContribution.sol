@@ -34,7 +34,6 @@ contract ServiceNodeContribution is Shared {
     uint256                                public immutable maxContributors;
     uint256                                public           operatorContribution;
     uint256                                public           totalContribution;
-    uint256                                public           numberContributors;
 
     // Smart Contract
     bool                                   public           finalized = false;
@@ -57,7 +56,7 @@ contract ServiceNodeContribution is Shared {
     /// @param _maxContributors Maximum number of contributors allowed.
     /// @param _blsPubkey - 64 bytes bls public key
     /// @param _serviceNodeParams - Service node public key, signature proving ownership of public key and fee that operator is charging
-    constructor(address _stakingRewardsContract, uint256 _maxContributors, BN256G1.G1Point memory _blsPubkey, IServiceNodeRewards.ServiceNodeParams memory _serviceNodeParams) 
+    constructor(address _stakingRewardsContract, uint256 _maxContributors, BN256G1.G1Point memory _blsPubkey, IServiceNodeRewards.ServiceNodeParams memory _serviceNodeParams)
         nzAddr(_stakingRewardsContract)
         nzUint(_maxContributors)
     {
@@ -103,7 +102,6 @@ contract ServiceNodeContribution is Shared {
         require(!finalized, "Node has already been finalized.");
         require(!cancelled, "Node has been cancelled.");
         if (contributions[msg.sender] == 0) {
-            numberContributors += 1;
             contributorAddresses.push(msg.sender);
         }
         contributions[msg.sender] += amount;
@@ -122,8 +120,8 @@ contract ServiceNodeContribution is Shared {
         require(!finalized, "Node has already been finalized.");
         require(!cancelled, "Node has been cancelled.");
         finalized = true;
-        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](numberContributors);
-        for (uint256 i = 0; i < numberContributors; i++) {
+        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](contributorAddresses.length);
+        for (uint256 i = 0; i < contributorAddresses.length; i++) {
             address contributorAddress = contributorAddresses[i];
             contributors[i] = IServiceNodeRewards.Contributor(contributorAddress, contributions[contributorAddress]);
         }
@@ -134,33 +132,34 @@ contract ServiceNodeContribution is Shared {
     }
 
     /**
-     * @notice Reset the contract and refund the contributions to the operator
-     * and contributors. The operator must re-initialise the contract
+     * @notice Reset the contract allowing it to be reused to re-register the
+     * pre-existing node. The service node must be removed from the rewards
+     * contract before a contract that has been reset can be refinalized.
+     *
+     * @dev Since this contract can only be called after finalisation, the SENT
+     * balance of this contract will have been transferred to the rewards
+     * contract and hence no refunding of balances is necessary.
+     *
+     * Once finalised, any refunding that has to occur will need to be done via
+     * the rewards contract.
+     *
      * @param amount The amount of funds the operator is to contribute.
      */
     function resetContract(uint256 amount) external onlyOperator {
-        require(finalized, "Contract has not been finalized yet.");
-
-        // NOTE: Remove and refund all contributors (including the operator)
-        for (uint256 index = 0; index < numberContributors; index++) {
-            // NOTE: We return the contributions in reverse order (due to
-            // swap-and-pop pattern) for more predictability in return sequence.
-            uint256 reverseIndex = numberContributors - (index + 1);
-            address toRemove     = contributorAddresses[reverseIndex];
-            removeAndRefundContributor(toRemove);
+        require(finalized, "You cannot reset a contract that hasn't been finalised yet");
+        // NOTE: Zero out all addresses in `contributions`
+        for (uint256 i = 0; i < contributorAddresses.length; i++) {
+            address toRemove        = contributorAddresses[i];
+            contributions[toRemove] = 0;
         }
 
         // NOTE: Reset left-over contract variables
         delete contributorAddresses;
-        finalized = false;
-
-        // NOTE: Verify
-        require(contributorAddresses.length == 0, "There should be 0 contributors in the contract");
-        require(operatorContribution        == 0, "Operator contribution should have been refunded and zero-ed");
-        require(totalContribution           == 0, "The contribution should be zero-ed out");
-        require(numberContributors          == 0, "All contributors should have been refunded");
+        operatorContribution = 0;
+        totalContribution    = 0;
 
         // NOTE: Re-init the contract with the operator contribution.
+        finalized = false;
         contributeOperatorFunds(amount, blsSignature);
     }
 
@@ -233,8 +232,7 @@ contract ServiceNodeContribution is Shared {
         }
 
         // 3) Updating the contribution/SENT metadata in the contract 
-        numberContributors      -= 1;
-        totalContribution       -= result;
+        totalContribution -= result;
 
         // NOTE: Handle if the operator is being removed
         if (toRemove == operator) {
@@ -261,13 +259,13 @@ contract ServiceNodeContribution is Shared {
     function minimumContribution() public view returns (uint256) {
         if (operatorContribution == 0)
             return (stakingRequirement - 1) / 4 + 1;
-        return _minimumContribution(stakingRequirement - totalContribution, numberContributors, maxContributors);
+        return _minimumContribution(stakingRequirement - totalContribution, contributorAddresses.length, maxContributors);
     }
 
-    function _minimumContribution(uint256 _contributionRemaining, uint256 _numberContributors, uint256 _maxContributors) public pure returns (uint256) {
-        require(_maxContributors > _numberContributors, "Contributors exceed permitted maximum number of contributors");
-        uint256 numContributionsRemainingAvail = _maxContributors - _numberContributors;
-        return (_contributionRemaining - 1) / numContributionsRemainingAvail + 1;
+    function _minimumContribution(uint256 contributionRemaining, uint256 numberContributors, uint256 _maxContributors) public pure returns (uint256) {
+        require(_maxContributors > numberContributors, "Contributors exceed permitted maximum number of contributors");
+        uint256 numContributionsRemainingAvail = _maxContributors - numberContributors;
+        return (contributionRemaining - 1) / numContributionsRemainingAvail + 1;
     }
 
     /**

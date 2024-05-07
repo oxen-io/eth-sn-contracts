@@ -162,27 +162,79 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     .to.equal(2);
             });
 
-            it("Should be able to have multiple contributors", async function () {
-                const [owner, contributor, contributor2] = await ethers.getSigners();
-                const minContribution = await serviceNodeContribution.minimumContribution();
-                let previousContribution = await serviceNodeContribution.totalContribution();
-                await mockERC20.transfer(contributor, minContribution);
-                await mockERC20.connect(contributor).approve(serviceNodeContribution, minContribution);
-                await expect(serviceNodeContribution.connect(contributor).contributeFunds(minContribution))
-                      .to.emit(serviceNodeContribution, "NewContribution")
-                      .withArgs(await contributor.getAddress(), minContribution);
-                const minContribution2 = await serviceNodeContribution.minimumContribution();
-                await mockERC20.transfer(contributor2, minContribution2);
-                await mockERC20.connect(contributor2).approve(serviceNodeContribution, minContribution2);
-                await expect(serviceNodeContribution.connect(contributor2).contributeFunds(minContribution2))
-                      .to.emit(serviceNodeContribution, "NewContribution")
-                      .withArgs(await contributor2.getAddress(), minContribution2);
-                await expect(await serviceNodeContribution.operatorContribution())
-                    .to.equal(previousContribution);
-                await expect(await serviceNodeContribution.totalContribution())
-                    .to.equal(previousContribution + minContribution + minContribution2);
-                await expect(await serviceNodeContribution.numberContributors())
-                    .to.equal(3);
+            describe("Should be able to have multiple contributors w/min contribution", async function () {
+                beforeEach(async function () {
+                    // NOTE: Get operator contribution
+                    const [owner, contributor1, contributor2] = await ethers.getSigners();
+                    const previousContribution                = await serviceNodeContribution.totalContribution();
+
+                    // NOTE: Contributor 1 w/ minContribution()
+                    const minContribution1                   = await serviceNodeContribution.minimumContribution();
+                    await mockERC20.transfer(contributor1, minContribution1);
+                    await mockERC20.connect(contributor1).approve(serviceNodeContribution, minContribution1);
+                    await expect(serviceNodeContribution.connect(contributor1)
+                                                        .contributeFunds(minContribution1)).to
+                                                                                           .emit(serviceNodeContribution, "NewContribution")
+                                                                                           .withArgs(await contributor1.getAddress(), minContribution1);
+
+                    // NOTE: Contributor 2 w/ minContribution()
+                    const minContribution2 = await serviceNodeContribution.minimumContribution();
+                    await mockERC20.transfer(contributor2, minContribution2);
+                    await mockERC20.connect(contributor2)
+                                   .approve(serviceNodeContribution,
+                                           minContribution2);
+                    await expect(serviceNodeContribution.connect(contributor2)
+                                                        .contributeFunds(minContribution2)).to
+                                                                                           .emit(serviceNodeContribution, "NewContribution")
+                                                                                           .withArgs(await contributor2.getAddress(), minContribution2);
+
+                    // NOTE: Check contribution values
+                    expect(await serviceNodeContribution.operatorContribution()).to
+                                                                                .equal(previousContribution);
+                    expect(await serviceNodeContribution.totalContribution()).to
+                                                                             .equal(previousContribution + minContribution1 + minContribution2);
+                    expect(await serviceNodeContribution.numberContributors()).to
+                                                                              .equal(3);
+                });
+
+                it("Withdraw contributor 1", async function () {
+                    const [owner, contributor1, contributor2] = await ethers.getSigners();
+
+                    // NOTE: Collect contract initial state
+                    const contributor1Amount              = await serviceNodeContribution.contributions(contributor1);
+                    const numberContributors              = await serviceNodeContribution.numberContributors();
+                    const totalContribution               = await serviceNodeContribution.totalContribution();
+                    const contributorAddressesLength      = await serviceNodeContribution.contributorAddressesLength();
+
+                    // NOTE: Withdraw stake
+                    await serviceNodeContribution.connect(contributor1).withdrawStake();
+
+                    // NOTE: Test stake is withdrawn to contributor
+                    expect(await mockERC20.balanceOf(contributor1)).to.equal(contributor1Amount);
+
+                    // NOTE: Test repeated withdraw is reverted
+                    await expect(serviceNodeContribution.connect(contributor1).withdrawStake()).to.be.reverted;
+
+                    // NOTE: Test contract state
+                    expect(await serviceNodeContribution.numberContributors()).to.equal(numberContributors - BigInt(1));
+                    expect(await serviceNodeContribution.totalContribution()).to.equal(totalContribution - contributor1Amount);
+                    expect(await serviceNodeContribution.contributorAddressesLength()).to.equal(contributorAddressesLength - BigInt(1));
+
+                    // NOTE: Query the contributor addresses in the contract
+                    const contributorArrayLengthAfter = await serviceNodeContribution.contributorAddressesLength();
+                    const contributorArrayExpected    = [BigInt(await owner.getAddress()), BigInt(await contributor2.getAddress())];
+
+                    let contributorArray              = [];
+                    for (let index = 0; index < contributorArrayLengthAfter; index++) {
+                        const address = await serviceNodeContribution.contributorAddresses(index);
+                        contributorArray.push(address);
+                    }
+
+                    // NOTE: Compare the contributor array against what we expect
+                    expect(contributorArrayExpected.length).to.equal(contributorArray.length);
+                    for (let index = 0; index < contributorArrayExpected.length; index++)
+                        expect(contributorArray[index]).to.equal(contributorArrayExpected[index]);
+                });
             });
 
             it("Should not finalise if not full", async function () {

@@ -72,7 +72,7 @@ contract ServiceNodeContributionEchidnaTest {
     //                                                          //
     //////////////////////////////////////////////////////////////
     function echidna_prop_max_contributor_limit() public view returns (bool) {
-        bool result = snContribution.contributorAddressesLength() < snContribution.maxContributors();
+        bool result = snContribution.contributorAddressesLength() <= snContribution.maxContributors();
         assert(result);
         return result;
     }

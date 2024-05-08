@@ -83,7 +83,7 @@ contract ServiceNodeContribution is Shared {
      * It can only be called once by the operator and must be done before any other contributions are made.
      */
     function contributeOperatorFunds(uint256 amount, IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
-        require(operatorContribution() == 0, "Operator already contributed funds");
+        require(contributorAddresses.length == 0, "Operator already contributed funds");
         require(!cancelled, "Node has been cancelled.");
         require(amount >= minimumContribution(), "Contribution is below minimum requirement");
         blsSignature = _blsSignature;
@@ -97,7 +97,7 @@ contract ServiceNodeContribution is Shared {
      */
     function contributeFunds(uint256 amount) public {
         if (msg.sender != operator)
-            require(operatorContribution() > 0, "Operator has not contributed funds");
+            require(contributorAddresses.length > 0, "Operator has not contributed funds");
         require(amount >= minimumContribution(), "Contribution is below the minimum requirement.");
         require(totalContribution() + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
         require(!finalized, "Node has already been finalized.");
@@ -247,7 +247,7 @@ contract ServiceNodeContribution is Shared {
      * @return The minimum contribution amount.
      */
     function minimumContribution() public view returns (uint256) {
-        if (operatorContribution() == 0)
+        if (contributorAddresses.length == 0)
             return (stakingRequirement - 1) / 4 + 1;
         return _minimumContribution(stakingRequirement - totalContribution(), contributorAddresses.length, maxContributors);
     }

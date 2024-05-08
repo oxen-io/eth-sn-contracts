@@ -78,8 +78,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
 
         it("Does not allow contributions if operator hasn't contributed", async function () {
-            const [contributor]   = await ethers.getSigners();
-            const minContribution = await serviceNodeContribution.minimumContribution();
+            const [owner, contributor] = await ethers.getSigners();
+            const minContribution      = await serviceNodeContribution.minimumContribution();
             await mockERC20.transfer(contributor, TEST_AMNT);
             await mockERC20.connect(contributor).approve(serviceNodeContributionAddress, minContribution);
             await expect(serviceNodeContribution.connect(contributor).contributeFunds(minContribution))

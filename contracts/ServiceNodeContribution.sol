@@ -32,8 +32,6 @@ contract ServiceNodeContribution is Shared {
     mapping(address => uint256)            public           contributions;
     address[]                              public           contributorAddresses;
     uint256                                public immutable maxContributors;
-    uint256                                public           operatorContribution;
-    uint256                                public           totalContribution;
 
     // Smart Contract
     bool                                   public           finalized = false;
@@ -82,12 +80,11 @@ contract ServiceNodeContribution is Shared {
      * It can only be called once by the operator and must be done before any other contributions are made.
      */
     function contributeOperatorFunds(uint256 amount, IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
-        require(operatorContribution == 0, "Operator already contributed funds");
+        require(operatorContribution() == 0, "Operator already contributed funds");
         require(!cancelled, "Node has been cancelled.");
         require(amount >= minimumContribution(), "Contribution is below minimum requirement");
-        operatorContribution = amount;
         blsSignature = _blsSignature;
-        contributeFunds(operatorContribution);
+        contributeFunds(amount);
     }
 
     /**
@@ -96,19 +93,19 @@ contract ServiceNodeContribution is Shared {
      * @param amount The amount of funds to contribute.
      */
     function contributeFunds(uint256 amount) public {
-        require(operatorContribution > 0, "Operator has not contributed funds");
+        if (msg.sender != operator)
+            require(operatorContribution() > 0, "Operator has not contributed funds");
         require(amount >= minimumContribution(), "Contribution is below the minimum requirement.");
-        require(totalContribution + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
+        require(totalContribution() + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
         require(!finalized, "Node has already been finalized.");
         require(!cancelled, "Node has been cancelled.");
         if (contributions[msg.sender] == 0) {
             contributorAddresses.push(msg.sender);
         }
         contributions[msg.sender] += amount;
-        totalContribution += amount;
         SENT.safeTransferFrom(msg.sender, address(this), amount);
         emit NewContribution(msg.sender, amount);
-        if (totalContribution == stakingRequirement)
+        if (totalContribution() == stakingRequirement)
             finalizeNode();
     }
 
@@ -116,7 +113,7 @@ contract ServiceNodeContribution is Shared {
      * @notice When the contribute Funds function fills the contract this is called to call the AddBLSPublicKey function on the rewards contract and send funds to it
      */
     function finalizeNode() internal {
-        require(totalContribution == stakingRequirement, "Funding goal has not been met.");
+        require(totalContribution() == stakingRequirement, "Funding goal has not been met.");
         require(!finalized, "Node has already been finalized.");
         require(!cancelled, "Node has been cancelled.");
         finalized = true;
@@ -155,8 +152,6 @@ contract ServiceNodeContribution is Shared {
 
         // NOTE: Reset left-over contract variables
         delete contributorAddresses;
-        operatorContribution = 0;
-        totalContribution    = 0;
 
         // NOTE: Re-init the contract with the operator contribution.
         finalized = false;
@@ -207,8 +202,7 @@ contract ServiceNodeContribution is Shared {
      *
      *   1) Removing contributor from contribution mapping
      *   2) Removing their address from the contribution array
-     *   3) Updating the contribution/SENT metadata in the contract
-     *   4) Refunding the SENT amount contributed to the contributor
+     *   3) Refunding the SENT amount contributed to the contributor
      *
      * @return The amount of SENT refunded for the given `toRemove` address. If
      * `toRemove` is not a contributor/does not exist, 0 is returned as the
@@ -231,15 +225,6 @@ contract ServiceNodeContribution is Shared {
             }
         }
 
-        // 3) Updating the contribution/SENT metadata in the contract 
-        totalContribution -= result;
-
-        // NOTE: Handle if the operator is being removed
-        if (toRemove == operator) {
-            require(result == operatorContribution, "Refund to operator on cancel must match operator contribution");
-            operatorContribution = 0;
-        }
-
         // 4) Refunding the SENT amount contributed to the contributor
         SENT.safeTransfer(toRemove, result);
         return result;
@@ -257,9 +242,9 @@ contract ServiceNodeContribution is Shared {
      * @return The minimum contribution amount.
      */
     function minimumContribution() public view returns (uint256) {
-        if (operatorContribution == 0)
+        if (operatorContribution() == 0)
             return (stakingRequirement - 1) / 4 + 1;
-        return _minimumContribution(stakingRequirement - totalContribution, contributorAddresses.length, maxContributors);
+        return _minimumContribution(stakingRequirement - totalContribution(), contributorAddresses.length, maxContributors);
     }
 
     function _minimumContribution(uint256 contributionRemaining, uint256 numberContributors, uint256 _maxContributors) public pure returns (uint256) {
@@ -272,8 +257,28 @@ contract ServiceNodeContribution is Shared {
      * @dev This function allows unit-tests to query the length without having
      * to know the storage slot of the array size.
      */
-    function contributorAddressesLength() public view returns (uint256) {
-        uint256 result = contributorAddresses.length;
+    function contributorAddressesLength() public view returns (uint256 result) {
+        result = contributorAddresses.length;
+        return result;
+    }
+
+    /**
+     * @notice Get the contribution by the operator, defined to always be the
+     * first contribution in the contract.
+     */
+    function operatorContribution() public view returns (uint256 result) {
+        result = contributorAddresses.length > 0 ? contributions[contributorAddresses[0]] : 0;
+        return result;
+    }
+
+    /**
+     * @notice Sum up all the contributions recorded in the contributors list
+     */
+    function totalContribution() public view returns (uint256 result) {
+        for (uint256 i = 0; i < contributorAddresses.length; i++) {
+            address entry = contributorAddresses[i];
+            result += contributions[entry];
+        }
         return result;
     }
 }

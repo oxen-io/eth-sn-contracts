@@ -225,7 +225,7 @@ contract ServiceNodeContribution is Shared {
             }
         }
 
-        // 4) Refunding the SENT amount contributed to the contributor
+        // 3) Refunding the SENT amount contributed to the contributor
         SENT.safeTransfer(toRemove, result);
         return result;
     }

@@ -7,12 +7,19 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title Service Node Contribution Contract
- * @dev This contract allows for the collection of contributions towards a service node. Operators usually generate one of these smart contracts 
- * for every service node they start and wish to allow other external persons to contribute to using the parent factory contract. 
- * Contributors can fund the service node until the staking requirement is met. After this point the operator will 
- * finalize the node setup, which will send the necessary node information and funds to the ServiceNodeRewards contract. This contract also allows for the
- * withdrawal of contributions before finalization, and cancel the node setup with refunds to contributors.
- **/
+ *
+ * @dev This contract allows for the collection of contributions towards
+ * a service node. Operators usually generate one of these smart contracts using
+ * the parent factory contract `ServiceNodeContributionFactory` for each service
+ * node they start and wish to collateralise with funds from the public.
+ *
+ * Contributors can fund the service node until the staking requirement is met.
+ * Once the staking requirement is met, the contract is automatically finalized
+ * and send the service node registration `ServiceNodeRewards` contract.
+ *
+ * This contract supports revoking of the contract prior to finalisation,
+ * refunding the contribution to the contributors and the operator.
+ */
 contract ServiceNodeContribution is Shared {
     using SafeERC20 for IERC20;
 
@@ -52,11 +59,19 @@ contract ServiceNodeContribution is Shared {
     event NewContribution(address indexed contributor, uint256 amount);
     event StakeWithdrawn (address indexed contributor, uint256 amount);
 
-    /// @notice Constructs the ServiceNodeContribution contract. This is usually done by the parent factory contract
-    /// @param _stakingRewardsContract Address of the staking rewards contract.
-    /// @param _maxContributors Maximum number of contributors allowed.
-    /// @param _blsPubkey - 64 bytes bls public key
-    /// @param _serviceNodeParams - Service node public key, signature proving ownership of public key and fee that operator is charging
+    /**
+     * @notice Constructs a multi-contribution service node contract for the
+     * specified `_stakingRewardsContract`.
+     *
+     * @dev This contract should typically be invoked from the parent
+     * contribution factory `ServiceNodeContributionFactory`.
+     *
+     * @param _stakingRewardsContract Address of the staking rewards contract.
+     * @param _maxContributors Maximum number of contributors allowed.
+     * @param _blsPubkey 64 byte BLS public key for the service node.
+     * @param _serviceNodeParams Service node public key and signature proving
+     * ownership of the public key and the fee the operator is charging.
+     */
     constructor(address _stakingRewardsContract, uint256 _maxContributors, BN256G1.G1Point memory _blsPubkey, IServiceNodeRewards.ServiceNodeParams memory _serviceNodeParams)
         nzAddr(_stakingRewardsContract)
         nzUint(_maxContributors)
@@ -78,8 +93,15 @@ contract ServiceNodeContribution is Shared {
 
     /**
      * @notice Allows the operator to contribute funds towards their own node.
-     * @dev This function sets the operator's contribution and emits a NewContribution event.
-     * @param _blsSignature - 128 byte bls proof of possession signature
+     *
+     * @dev This function sets the operator's contribution and emits
+     * a NewContribution event.
+     *
+     * @param amount The number of SENT tokens contributed by the operator. It
+     * must be at least `minimumContribution` amount of tokens or the operation
+     * is reverted.
+     * @param _blsSignature 128 byte BLS proof of possession signature that
+     * proves ownership of the `blsPubkey`.
      * It can only be called once by the operator and must be done before any other contributions are made.
      */
     function contributeOperatorFunds(uint256 amount, IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
@@ -91,9 +113,18 @@ contract ServiceNodeContribution is Shared {
     }
 
     /**
-     * @notice Allows contributors to fund the service node. This is the main entry point for contributors wanting to stake to a node.
-     * @dev Contributions are only accepted if the operator has already contributed, the node has not been finalized or cancelled, and the contribution amount is above the minimum requirement.
-     * @param amount The amount of funds to contribute.
+     * @notice Contribute funds to the contract for the service node run by
+     * `operator`. The `amount` of SENT token must be at least the
+     * `minimumContribution` or otherwise the contribution is reverted.
+     *
+     * @dev Main entry point for funds to enter the contract. Contributions are
+     * only permitted the public if the operator has already contributed and the
+     * node has not
+     *
+     *   - finalized
+     *   - cancelled
+     *
+     * @param amount The amount of SENT token to contribute to the contract.
      */
     function contributeFunds(uint256 amount) public {
         if (msg.sender != operator)
@@ -114,21 +145,29 @@ contract ServiceNodeContribution is Shared {
     }
 
     /**
-     * @notice When the contribute Funds function fills the contract this is called to call the AddBLSPublicKey function on the rewards contract and send funds to it
+     * @notice Invoked when the `totalContribution` of the contract matches the
+     * `stakingRequirement`. The service node registration and SENT tokens are
+     * transferred to the `stakingRewardsContract` to be included as a service
+     * node in the network.
      */
     function finalizeNode() internal {
         require(totalContribution() == stakingRequirement, "Funding goal has not been met.");
         require(!finalized, "Node has already been finalized.");
         require(!cancelled, "Node has been cancelled.");
+
+        // NOTE: Finalise the contract and setup the contributors for the
+        // `stakingRewardsContract`
         finalized = true;
         IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](contributorAddresses.length);
         for (uint256 i = 0; i < contributorAddresses.length; i++) {
             address contributorAddress = contributorAddresses[i];
-            contributors[i] = IServiceNodeRewards.Contributor(contributorAddress, contributions[contributorAddress]);
+            contributors[i]            = IServiceNodeRewards.Contributor(contributorAddress, contributions[contributorAddress]);
         }
+
+        // NOTE: Transfer SENT and register the service node to the
+        // `stakingRewardsContract`
         SENT.approve(address(stakingRewardsContract), stakingRequirement);
         stakingRewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
-
         emit Finalized(serviceNodeParams.serviceNodePubkey);
     }
 
@@ -163,21 +202,30 @@ contract ServiceNodeContribution is Shared {
     }
 
     /**
-     * @notice Function to allow owner to rescue ERC20 tokens if the contract is finalized
-     * @param tokenAddress the ERC20 token to rescue
+     * @notice Function to allow owner to rescue any ERC20 tokens sent to the
+     * contract after it has been finalized.
+     *
+     * @dev Rescue is only allowed after finalisation so any balance from
+     * contributors have been transferred to the `stakingRewardsContract`.
+     *
+     * @param tokenAddress The ERC20 token to rescue from the contract.
      */
     function rescueERC20(address tokenAddress) external onlyOperator {
         require(finalized, "Contract has not been finalized yet.");
         require(!cancelled, "Contract has been cancelled.");
-        IERC20 token = IERC20(tokenAddress);
+        IERC20 token    = IERC20(tokenAddress);
         uint256 balance = token.balanceOf(address(this));
         require(balance > 0, "Contract has no balance of the specified token.");
         token.transfer(operator, balance);
     }
 
     /**
-     * @notice Allows contributors to withdraw their stake before the node is finalized.
-     * @dev Withdrawals are only allowed if the node has not been finalized or cancelled. The operator cannot withdraw their contribution through this method. Operator should call cancelNode() instead.
+     * @notice Allows contributors to withdraw their stake if the contract has
+     * not been finalized.
+
+     * After finalization, the registration is transferred to the
+     * `stakingRewardsContract` and withdrawal by or the operator contributors
+     * must be done through that contract.
      */
     function withdrawStake() public {
         require(contributions[msg.sender] > 0, "You have not contributed.");
@@ -189,8 +237,12 @@ contract ServiceNodeContribution is Shared {
     }
 
     /**
-     * @notice Cancels the service node setup. Will refund the operator and the contributors will be able to call withdrawStake to get their stake back.
-     * @dev This can only be done by the operator and only if the node has not been finalized or already cancelled.
+     * @notice Cancels the service node contract. The contract will refund the
+     * operator and contributors are able to invoke `withdrawStake` to return
+     * their contributions.
+     *
+     * @dev This can only be done by the operator and only if the node has not
+     * been finalized or already has already called cancelled.
      */
     function cancelNode() public onlyOperator {
         require(!finalized, "Cannot cancel a finalized node.");
@@ -242,8 +294,11 @@ contract ServiceNodeContribution is Shared {
     //////////////////////////////////////////////////////////////
 
     /**
-     * @notice Calculates the minimum contribution amount.
-     * @dev The minimum contribution is dynamically calculated based on the number of contributors and the staking requirement. It returns math.ceilDiv of the calculation
+     * @notice Calculates the minimum contribution amount given the current
+     * state contribution status of the contract.
+     * @dev The minimum contribution is dynamically calculated based on the
+     * number of contributors and the staking requirement. It returns
+     * math.ceilDiv of the calculation
      * @return The minimum contribution amount.
      */
     function minimumContribution() public view returns (uint256) {

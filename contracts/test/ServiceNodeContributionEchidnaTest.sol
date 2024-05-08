@@ -78,8 +78,13 @@ contract ServiceNodeContributionEchidnaTest {
     }
 
     function echidna_prop_total_contribution_is_staking_requirement() public view returns (bool) {
-        bool result = snContribution.contributorAddressesLength() == snContribution.maxContributors() ? (snContribution.totalContribution() <= snContribution.stakingRequirement())
-                                                                                                      : (snContribution.totalContribution() <  snContribution.stakingRequirement());
+        bool result   = true;
+        uint256 total = snContribution.totalContribution();
+        if (snContribution.finalized()) {
+            result = total == STAKING_REQUIREMENT;
+        } else {
+            result = total <= STAKING_REQUIREMENT;
+        }
         assert(result);
         return result;
     }
@@ -235,7 +240,7 @@ contract ServiceNodeContributionEchidnaTest {
         assert(sentToken.balanceOf(msg.sender) == balanceBeforeCancel + operatorContribution);
     }
 
-    function testResetNode(uint256 _amount) public {
+    function testResetContract(uint256 _amount) public {
         if (!snContribution.finalized() || snContribution.cancelled()) {
             try snContribution.resetContract(_amount) {
                 assert(false); // Can't reset until after finalized
@@ -259,6 +264,31 @@ contract ServiceNodeContributionEchidnaTest {
                 }
             }
             assert(!snContribution.finalized());
+        }
+    }
+
+    function testRescueERC20(uint256 amount) public {
+        if (msg.sender == snOperator && snContribution.finalized() && !snContribution.cancelled()) {
+            bool fundTheContract = (amount % 2 == 0); // NOTE: 50% chance of funding
+            if (fundTheContract)
+                sentToken.transferFrom(address(0), address(snContribution), amount);
+
+            if (fundTheContract) {
+                try snContribution.rescueERC20(address(sentToken)) {
+                } catch {
+                    assert(false); // Rescue should be allowed because we just funded the contract
+                }
+            } else {
+                try snContribution.rescueERC20(address(sentToken)) {
+                    assert(false); // Can't rescue because contract was not funded
+                } catch {
+                }
+            }
+        } else {
+            try snContribution.rescueERC20(address(sentToken)) {
+                assert(false); // Contract is not finalized or it is cancelled so we can't rescue
+            } catch {
+            }
         }
     }
 

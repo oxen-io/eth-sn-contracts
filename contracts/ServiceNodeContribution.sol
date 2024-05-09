@@ -73,9 +73,9 @@ contract ServiceNodeContribution is Shared {
         nzAddr(_stakingRewardsContract)
         nzUint(_maxContributors)
     {
-        stakingRewardsContract  = IServiceNodeRewards(_stakingRewardsContract);
-        stakingRequirement      = stakingRewardsContract.stakingRequirement();
-        SENT                    = IERC20(stakingRewardsContract.designatedToken());
+        stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
+        stakingRequirement     = stakingRewardsContract.stakingRequirement();
+        SENT                   = IERC20(stakingRewardsContract.designatedToken());
 
         maxContributors        = _maxContributors;
         operator               = tx.origin; // NOTE: Creation is delegated by operator through factory
@@ -195,10 +195,14 @@ contract ServiceNodeContribution is Shared {
      * Once finalised, any refunding that has to occur will need to be done via
      * the rewards contract.
      *
-     * @param amount The amount of funds the operator is to contribute.
+     * @param amount The amount of funds the operator is to contribute. This
+     * amount must be greater than the minimum operator contribution which can
+     * be calculated by calling `calcMinimumContribution` with the staking
+     * requirement and 0 contributors.
      */
     function resetContract(uint256 amount) external onlyOperator {
         require(finalized, "You cannot reset a contract that hasn't been finalised yet");
+
         // NOTE: Zero out all addresses in `contributions`
         for (uint256 i = 0; i < contributorAddresses.length; i++) {
             address toRemove        = contributorAddresses[i];
@@ -309,7 +313,7 @@ contract ServiceNodeContribution is Shared {
 
     /**
      * @notice Calculates the minimum contribution amount given the current
-     * state contribution status of the contract.
+     * contribution status of the contract.
      *
      * @dev The minimum contribution is dynamically calculated based on the
      * number of contributors and the staking requirement. It returns
@@ -346,6 +350,15 @@ contract ServiceNodeContribution is Shared {
             uint256 slotsRemaining = maxNumContributors - numContributors;
             result                 = (contributionRemaining - 1) / slotsRemaining + 1;
         }
+        return result;
+    }
+
+    /**
+     * @notice Calculates the minimum operator contribution given the staking
+     * requirement.
+     */
+    function minimumOperatorContribution(uint256 _stakingRequirement) public pure returns (uint256 result) {
+        result = calcMinimumContribution(_stakingRequirement, 0, 1);
         return result;
     }
 

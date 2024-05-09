@@ -40,7 +40,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
     it("Allows deployment of multi-sn contribution contract and emits log correctly", async function () {
         const [owner, operator] = await ethers.getSigners();
         await expect(snContributionFactory.connect(operator)
-                                          .deployContributionContract([0,0],[0,0,0,0])).to
+                                          .deployContributionContract([1,2],[3,4,5,6])).to
                                                                                        .emit(snContributionFactory, 'NewServiceNodeContributionContract');
     });
 
@@ -54,7 +54,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
             // NOTE: Deploy the contract
             const tx = await snContributionFactory.connect(snOperator)
-                                                  .deployContributionContract([0,0],[0,0,0,0]);
+                                                  .deployContributionContract([1,2],[3,4,5,6]);
 
             // NOTE: Get TX logs to determine contract address
             const receipt                  = await tx.wait();
@@ -67,7 +67,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         });
 
         describe("Minimum contribution tests", function () {
-            it('should return the correct minimum contribution when there is one last contributor', async function () {
+            it('Correct minimum contribution when there is one last contributor', async function () {
                 const contributionRemaining = 100;
                 const numberContributors = 9;
                 const maxContributors = 10;
@@ -120,6 +120,44 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
                 expect(minimumContribution).to.equal(1250);
             });
+
+            it('Calc min contribution API returns correct operator minimum contribution', async function () {
+                const maxContributors             = await snContribution.maxContributors();
+                const stakingRequirement          = await snContribution.stakingRequirement();
+                const minimumOperatorContribution = await snContribution.minimumOperatorContribution(stakingRequirement);
+                for (let i = 1; i < maxContributors; i++) {
+                    const amount = await snContribution.calcMinimumContribution(
+                        stakingRequirement,
+                        /*numContributors*/ 0,
+                        i
+                    );
+                    expect(amount).to.equal(minimumOperatorContribution);
+                }
+            });
+
+            it('Minimum contribution reverts with bad parameters numbers', async function () {
+                const stakingRequirement = await snContribution.stakingRequirement();
+
+                // NOTE: Test no contributors
+                await expect(snContribution.calcMinimumContribution(stakingRequirement, /*numberContributors*/ 0, /*maxContributors*/ 0)).to
+                                                                                                                                         .be
+                                                                                                                                         .reverted
+
+                // NOTE: Test number of contributers greater than max contributors
+                await expect(snContribution.calcMinimumContribution(stakingRequirement, /*numberContributors*/ 3, /*maxContributors*/ 2)).to
+                                                                                                                                         .be
+                                                                                                                                         .reverted
+
+                // NOTE: Test 0 staking requirement
+                await expect(snContribution.calcMinimumContribution(0, /*numberContributors*/ 1, /*maxContributors*/ 2)).to
+                                                                                                                        .be
+                                                                                                                        .reverted
+
+                // NOTE: Test number of contributors equal to max contributors (e.g. division by 0)
+                await expect(snContribution.calcMinimumContribution(stakingRequirement, /*numberContributors*/ 3, /*maxContributors*/ 3)).to
+                                                                                                                                         .be
+                                                                                                                                         .reverted
+            });
         });
 
         it("Does not allow contributions if operator hasn't contributed", async function () {
@@ -159,7 +197,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const minContribution = await snContribution.minimumContribution();
             await sentToken.transfer(snOperator, TEST_AMNT);
             await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
-            await expect(snContribution.connect(snOperator).contributeOperatorFunds(minContribution - BigInt(1), [0,0,0,0]))
+            await expect(snContribution.connect(snOperator).contributeOperatorFunds(minContribution - BigInt(1), [3,4,5,6]))
                 .to.be.revertedWith("Contribution is below minimum requirement");
         });
 
@@ -167,7 +205,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const minContribution = await snContribution.minimumContribution();
             await sentToken.transfer(snOperator, TEST_AMNT);
             await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
-            await expect(snContribution.connect(snOperator).contributeOperatorFunds(minContribution, [0,0,0,0]))
+            await expect(snContribution.connect(snOperator).contributeOperatorFunds(minContribution, [3,4,5,6]))
                   .to.emit(snContribution, "NewContribution")
                   .withArgs(await snOperator.getAddress(), minContribution);
 
@@ -187,7 +225,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 await sentToken.transfer(snOperator, TEST_AMNT);
                 await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
                 await expect(snContribution.connect(snOperator)
-                                           .contributeOperatorFunds(minContribution, [0,0,0,0])).to
+                                           .contributeOperatorFunds(minContribution, [3,4,5,6])).to
                                                                                                 .emit(snContribution, "NewContribution")
                                                                                                 .withArgs(await snOperator.getAddress(), minContribution);
             });
@@ -353,19 +391,129 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     .to.be.revertedWith("Contribution exceeds the funding goal.");
             });
 
-            it("Should be finalise if funded", async function () {
-                const [owner, contributor, contributor2] = await ethers.getSigners();
-                const stakingRequirement = await snContribution.stakingRequirement();
-                let previousContribution = await snContribution.totalContribution();
-                await sentToken.transfer(contributor, stakingRequirement - previousContribution);
-                await sentToken.connect(contributor).approve(snContribution, stakingRequirement - previousContribution);
-                await expect(await snContribution.connect(contributor).contributeFunds(stakingRequirement - previousContribution))
-                      .to.emit(snContribution, "Finalized");
-                expect(await sentToken.balanceOf(snRewards)).to.equal(stakingRequirement);
-                expect(await snRewards.totalNodes()).to.equal(1);
-                expect(await snContribution.finalized()).to.equal(true);
-                expect(await sentToken.balanceOf(snContribution)).to.equal(0);
+            describe("Finalise w/ 1 contributor", async function () {
+                beforeEach(async function () {
+                    const [owner, contributor1] = await ethers.getSigners();
+                    const stakingRequirement = await snContribution.stakingRequirement();
+                    let previousContribution = await snContribution.totalContribution();
 
+                    await sentToken.transfer(contributor1, stakingRequirement - previousContribution);
+                    await sentToken.connect(contributor1)
+                                   .approve(snContribution, stakingRequirement - previousContribution);
+
+                    await expect(await snContribution.connect(contributor1)
+                                                     .contributeFunds(stakingRequirement - previousContribution)).to
+                                                                                                                 .emit(snContribution, "Finalized");
+
+                    expect(await sentToken.balanceOf(snRewards)).to.equal(stakingRequirement);
+                    expect(await snRewards.totalNodes()).to.equal(1);
+                    expect(await snContribution.finalized()).to.equal(true);
+                    expect(await snContribution.cancelled()).to.equal(false);
+                    expect(await sentToken.balanceOf(snContribution)).to.equal(0);
+                });
+
+                it("Check withdraw is rejected via operator and contributor", async function () {
+                    const [owner, contributor1, contributor2] = await ethers.getSigners();
+                    await expect(snContribution.connect(owner).withdrawContribution()).to
+                                                                                      .be
+                                                                                      .reverted;
+                    await expect(snContribution.connect(contributor1).withdrawContribution()).to
+                                                                                             .be
+                                                                                             .reverted;
+
+                    // NOTE: Contributor 2 never contributed, but we test withdraw anyway
+                    await expect(snContribution.connect(contributor2).withdrawContribution()).to
+                                                                                             .be
+                                                                                             .reverted;
+
+                });
+
+                it("Check cancel is rejected after finalisation", async function () {
+                    const [owner, contributor1, contributor2] = await ethers.getSigners();
+                    await expect(snContribution.connect(owner).cancelNode()).to
+                                                                            .be
+                                                                            .reverted;
+                    await expect(snContribution.connect(contributor1).cancelNode()).to
+                                                                                   .be
+                                                                                   .reverted;
+
+                    // NOTE: Contributor 2 never contributed, but we test cancel anyway
+                    await expect(snContribution.connect(contributor2).cancelNode()).to
+                                                                                   .be
+                                                                                   .reverted;
+
+                });
+
+                it("Check reset contract is reverted with invalid parameters", async function () {
+                    const [owner, contributor1, contributor2] = await ethers.getSigners();
+                    const zero                                = BigInt(0);
+                    const one                                 = BigInt(1);
+
+                    // NOTE: Test reset w/ contributor1 and contributor2 (of
+                    // which contributor2 is not a one of the actual
+                    // contributors of the contract).
+                    await expect(snContribution.connect(contributor1).resetContract(zero)).to
+                                                                                          .be
+                                                                                          .reverted;
+                    await expect(snContribution.connect(contributor2).resetContract(zero)).to
+                                                                                          .be
+                                                                                          .reverted;
+
+                    // NOTE: Operator resets, first with an amount insufficient
+                    // to reinitialise the contract
+                    await expect(snContribution.connect(contributor2).resetContract(zero)).to
+                                                                                          .be
+                                                                                          .reverted;
+
+                    // NOTE: Then try with an amount too large
+                    const stakingRequirement = await snContribution.stakingRequirement();
+                    await expect(snContribution.connect(contributor2).resetContract(stakingRequirement + one)).to
+                                                                                                              .be
+                                                                                                              .reverted;
+
+                    // NOTE: Then try an amount that is too 1 token too less
+                    const minOperatorContribution = await snContribution.minimumOperatorContribution(stakingRequirement);
+                    await expect(snContribution.connect(contributor2).resetContract(minOperatorContribution - one)).to
+                                                                                                                   .be
+                                                                                                                   .reverted;
+                });
+
+                it("Check reset contract works with min contribution", async function () {
+                    const [owner, contributor1, contributor2] = await ethers.getSigners();
+                    const stakingRequirement                  = await snContribution.stakingRequirement();
+                    const minOperatorContribution             = await snContribution.minimumOperatorContribution(stakingRequirement);
+
+                    // NOTE: Test reset w/ contributor1 and contributor2 (of
+                    // which contributor2 is not a one of the actual
+                    // contributors of the contract).
+                    await expect(snContribution.connect(contributor1).resetContract(minOperatorContribution)).to
+                                                                                                             .be
+                                                                                                             .reverted;
+                    await expect(snContribution.connect(contributor2).resetContract(minOperatorContribution)).to
+                                                                                                             .be
+                                                                                                             .reverted;
+
+                    // NOTE: Test reset w/ operator
+                    const blsSignatureBefore      = await snContribution.blsSignature();
+                    const blsPubkeyBefore         = await snContribution.blsPubkey();
+                    const serviceNodeParamsBefore = await snContribution.serviceNodeParams();
+                    const maxContributorsBefore   = await snContribution.maxContributors();
+
+                    await sentToken.connect(owner).approve(snContributionAddress, minOperatorContribution);
+                    await expect(snContribution.connect(owner).resetContract(minOperatorContribution)).to
+                                                                                                      .emit(snContribution, "NewContribution");
+
+                    // NOTE: Verify contract state
+                    expect(await snContribution.contributorAddressesLength()).to.equal(1);
+                    expect(await snContribution.contributions(owner)).to.equal(minOperatorContribution);
+                    expect(await snContribution.contributorAddresses(0)).to.equal(await owner.getAddress());
+                    expect(await snContribution.finalized()).to.equal(false);
+                    expect(await snContribution.cancelled()).to.equal(false);
+                    expect(await snContribution.blsSignature()).to.deep.equal(blsSignatureBefore);
+                    expect(await snContribution.blsPubkey()).to.deep.equal(blsPubkeyBefore);
+                    expect(await snContribution.serviceNodeParams()).to.deep.equal(serviceNodeParamsBefore);
+                    expect(await snContribution.maxContributors()).to.equal(maxContributorsBefore);
+                });
             });
         });
     });

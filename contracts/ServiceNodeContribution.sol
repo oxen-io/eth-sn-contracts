@@ -275,12 +275,12 @@ contract ServiceNodeContribution is Shared {
      *   2) Removing their address from the contribution array
      *   3) Refunding the SENT amount contributed to the contributor
      *
-     * @return The amount of SENT refunded for the given `toRemove` address. If
-     * `toRemove` is not a contributor/does not exist, 0 is returned as the
-     * refunded amount.
+     * @return result The amount of SENT refunded for the given `toRemove`
+     * address. If `toRemove` is not a contributor/does not exist, 0 is returned
+     * as the refunded amount.
      */
-    function removeAndRefundContributor(address toRemove) private returns (uint256) {
-        uint256 result = contributions[toRemove];
+    function removeAndRefundContributor(address toRemove) private returns (uint256 result) {
+        result = contributions[toRemove];
         if (result == 0)
             return result;
 
@@ -315,7 +315,7 @@ contract ServiceNodeContribution is Shared {
      * number of contributors and the staking requirement. It returns
      * math.ceilDiv of the calculation
      *
-     * @return The minimum contribution amount.
+     * @return result The minimum contribution amount.
      */
     function minimumContribution() public view returns (uint256 result) {
         result = calcMinimumContribution(stakingRequirement - totalContribution(),

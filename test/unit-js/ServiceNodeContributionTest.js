@@ -252,14 +252,14 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     const totalContribution          = await snContribution.totalContribution();
                     const contributorAddressesLength = await snContribution.contributorAddressesLength();
 
-                    // NOTE: Withdraw stake
-                    await snContribution.connect(contributor1).withdrawStake();
+                    // NOTE: Withdraw contribution
+                    await snContribution.connect(contributor1).withdrawContribution();
 
                     // NOTE: Test stake is withdrawn to contributor
                     expect(await sentToken.balanceOf(contributor1)).to.equal(contributor1Amount);
 
                     // NOTE: Test repeated withdraw is reverted
-                    await expect(snContribution.connect(contributor1).withdrawStake()).to.be.reverted;
+                    await expect(snContribution.connect(contributor1).withdrawContribution()).to.be.reverted;
 
                     // NOTE: Test contract state
                     expect(await snContribution.totalContribution()).to.equal(totalContribution - contributor1Amount);

@@ -51,10 +51,10 @@ contract ServiceNodeContribution is Shared {
     }
 
     // EVENTS
-    event Cancelled      (uint256 indexed serviceNodePubkey);
-    event Finalized      (uint256 indexed serviceNodePubkey);
-    event NewContribution(address indexed contributor, uint256 amount);
-    event StakeWithdrawn (address indexed contributor, uint256 amount);
+    event Cancelled           (uint256 indexed serviceNodePubkey);
+    event Finalized           (uint256 indexed serviceNodePubkey);
+    event NewContribution     (address indexed contributor, uint256 amount);
+    event WithdrawContribution(address indexed contributor, uint256 amount);
 
     /**
      * @notice Constructs a multi-contribution service node contract for the
@@ -235,25 +235,25 @@ contract ServiceNodeContribution is Shared {
     }
 
     /**
-     * @notice Allows contributors to withdraw their stake if the contract has
-     * not been finalized.
+     * @notice Allows contributors to withdraw their individual contribution if
+     * the contract has not been finalized.
 
      * After finalization, the registration is transferred to the
      * `stakingRewardsContract` and withdrawal by or the operator contributors
      * must be done through that contract.
      */
-    function withdrawStake() public {
+    function withdrawContribution() public {
         require(contributions[msg.sender] > 0, "You have not contributed.");
         require(!finalized,                    "Node has already been finalized.");
         require(msg.sender != operator,        "Operator cannot withdraw");
         uint256 refundAmount = removeAndRefundContributor(msg.sender);
-        emit StakeWithdrawn(msg.sender, refundAmount);
+        emit WithdrawContribution(msg.sender, refundAmount);
     }
 
     /**
      * @notice Cancels the service node contract. The contract will refund the
-     * operator and contributors are able to invoke `withdrawStake` to return
-     * their contributions.
+     * operator and contributors are able to invoke `withdrawContribution` to
+     * return their contributions.
      *
      * @dev This can only be done by the operator and only if the node has not
      * been finalized or already has already called cancelled.

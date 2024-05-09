@@ -197,12 +197,12 @@ contract ServiceNodeContributionEchidnaTest {
         }
     }
 
-    function testWithdrawStake() public {
+    function testWithdrawContribution() public {
         uint256 contribution             = snContribution.contributions(msg.sender);
         uint256 balanceBeforeWithdraw    = sentToken.balanceOf(msg.sender);
         uint256 numberContributorsBefore = snContribution.contributorAddressesLength();
 
-        try snContribution.withdrawStake() {
+        try snContribution.withdrawContribution() {
             // Withdraw can succeed if we are not the operator and we had
             // contributed to the contract
             assert(snOperator != msg.sender);

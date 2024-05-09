@@ -244,6 +244,12 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                                               .reverted;
         });
 
+        it("Operator is not allowed to call `contributeFunds` before `contributeOperatorFunds`", async function () {
+            const minContribution = await snContribution.minimumContribution();
+            await sentToken.transfer(snOperator, TEST_AMNT);
+            await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
+            await expect(snContribution.connect(snOperator).contributeFunds(minContribution)).to.be.reverted;
+        });
 
         it("Prevents operator contributing less than min amount", async function () {
             const minContribution = await snContribution.minimumContribution();

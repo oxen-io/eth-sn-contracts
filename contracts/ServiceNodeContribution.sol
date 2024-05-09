@@ -127,10 +127,11 @@ contract ServiceNodeContribution is Shared {
      * @param amount The amount of SENT token to contribute to the contract.
      */
     function contributeFunds(uint256 amount) public {
-
-        // NOTE: Public contributors can only contribute if the operator has
-        // contributed.
-        if (msg.sender != operator) {
+        // NOTE: Check if we are allowed to call contribute funds
+        if (msg.sender == operator) {
+            require(blsSignatureIsInit(blsSignature), "Operator must initially contribute via `contributOperatorFunds`");
+        } else {
+            // NOTE: Operator must have contributed first before the public can contribute
             require(contributorAddresses.length > 0, "Operator has not contributed funds");
         }
 
@@ -310,6 +311,17 @@ contract ServiceNodeContribution is Shared {
     //                Non-state-changing functions              //
     //                                                          //
     //////////////////////////////////////////////////////////////
+
+    /**
+     * @notice Checks if the BLS signature has been set to non-zero values.
+     * @dev This is used to guard against the operator calling `contributeFunds`
+     * directly before calling `contributeOperatorFunds` otherwise an operator
+     * could fund a node without setting the BLS proof-of-possession signature.
+     */
+    function blsSignatureIsInit(IServiceNodeRewards.BLSSignatureParams memory params) private pure returns (bool result) {
+        result = params.sigs0 > 0 || params.sigs1 > 0 || params.sigs2 > 0 || params.sigs3 > 0;
+        return result;
+    }
 
     /**
      * @notice Calculates the minimum contribution amount given the current

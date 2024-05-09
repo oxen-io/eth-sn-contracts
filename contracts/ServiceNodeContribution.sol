@@ -73,9 +73,10 @@ contract ServiceNodeContribution is Shared {
         nzAddr(_stakingRewardsContract)
         nzUint(_maxContributors)
     {
-        stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
-        SENT                   = IERC20(stakingRewardsContract.designatedToken());
-        stakingRequirement     = stakingRewardsContract.stakingRequirement();
+        stakingRewardsContract  = IServiceNodeRewards(_stakingRewardsContract);
+        stakingRequirement      = stakingRewardsContract.stakingRequirement();
+        SENT                    = IERC20(stakingRewardsContract.designatedToken());
+
         maxContributors        = _maxContributors;
         operator               = tx.origin; // NOTE: Creation is delegated by operator through factory
         blsPubkey              = _blsPubkey;
@@ -103,8 +104,8 @@ contract ServiceNodeContribution is Shared {
      */
     function contributeOperatorFunds(uint256 amount, IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
         require(contributorAddresses.length == 0, "Operator already contributed funds");
-        require(!cancelled, "Node has been cancelled.");
-        require(amount >= minimumContribution(), "Contribution is below minimum requirement");
+        require(!cancelled,                       "Node has been cancelled.");
+        require(amount >= minimumContribution(),  "Contribution is below minimum requirement");
         blsSignature = _blsSignature;
         contributeFunds(amount);
     }
@@ -124,20 +125,33 @@ contract ServiceNodeContribution is Shared {
      * @param amount The amount of SENT token to contribute to the contract.
      */
     function contributeFunds(uint256 amount) public {
-        if (msg.sender != operator)
+
+        // NOTE: Public contributors can only contribute if the operator has
+        // contributed.
+        if (msg.sender != operator) {
             require(contributorAddresses.length > 0, "Operator has not contributed funds");
-        require(amount >= minimumContribution(), "Contribution is below the minimum requirement.");
+        }
+
+        require(amount >= minimumContribution(),                    "Contribution is below the minimum requirement.");
         require(totalContribution() + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
-        require(!finalized, "Node has already been finalized.");
-        require(!cancelled, "Node has been cancelled.");
+        require(!finalized,                                         "Node has already been finalized.");
+        require(!cancelled,                                         "Node has been cancelled.");
+
+        // NOTE: Add the contributor to the contract
         if (contributions[msg.sender] == 0) {
             contributorAddresses.push(msg.sender);
         }
+
+        // NOTE: Update the amount contributed and transfer the tokens
         contributions[msg.sender] += amount;
         SENT.safeTransferFrom(msg.sender, address(this), amount);
+
         emit NewContribution(msg.sender, amount);
-        if (totalContribution() == stakingRequirement)
+
+        // NOTE: Finalize the node if the staking requirement is met
+        if (totalContribution() == stakingRequirement) {
             finalizeNode();
+        }
     }
 
     /**
@@ -148,8 +162,8 @@ contract ServiceNodeContribution is Shared {
      */
     function finalizeNode() internal {
         require(totalContribution() == stakingRequirement, "Funding goal has not been met.");
-        require(!finalized, "Node has already been finalized.");
-        require(!cancelled, "Node has been cancelled.");
+        require(!finalized,                                "Node has already been finalized.");
+        require(!cancelled,                                "Node has been cancelled.");
 
         // NOTE: Finalise the contract and setup the contributors for the
         // `stakingRewardsContract`
@@ -201,17 +215,20 @@ contract ServiceNodeContribution is Shared {
      * @notice Function to allow owner to rescue any ERC20 tokens sent to the
      * contract after it has been finalized.
      *
-     * @dev Rescue is only allowed after finalisation so any balance from
-     * contributors have been transferred to the `stakingRewardsContract`.
+     * @dev Rescue is only allowed after finalisation so any token balance from
+     * contributors have been transferred to the `stakingRewardsContract` and
+     * the remaining tokens are those sent mistakenly after finalisation.
      *
      * @param tokenAddress The ERC20 token to rescue from the contract.
      */
     function rescueERC20(address tokenAddress) external onlyOperator {
-        require(finalized, "Contract has not been finalized yet.");
+        require(finalized,  "Contract has not been finalized yet.");
         require(!cancelled, "Contract has been cancelled.");
+
         IERC20 token    = IERC20(tokenAddress);
         uint256 balance = token.balanceOf(address(this));
         require(balance > 0, "Contract has no balance of the specified token.");
+
         token.transfer(operator, balance);
     }
 
@@ -225,8 +242,8 @@ contract ServiceNodeContribution is Shared {
      */
     function withdrawStake() public {
         require(contributions[msg.sender] > 0, "You have not contributed.");
-        require(!finalized, "Node has already been finalized.");
-        require(msg.sender != operator, "Operator cannot withdraw");
+        require(!finalized,                    "Node has already been finalized.");
+        require(msg.sender != operator,        "Operator cannot withdraw");
         uint256 refundAmount = removeAndRefundContributor(msg.sender);
         emit StakeWithdrawn(msg.sender, refundAmount);
     }
@@ -291,21 +308,42 @@ contract ServiceNodeContribution is Shared {
     /**
      * @notice Calculates the minimum contribution amount given the current
      * state contribution status of the contract.
+     *
      * @dev The minimum contribution is dynamically calculated based on the
      * number of contributors and the staking requirement. It returns
      * math.ceilDiv of the calculation
+     *
      * @return The minimum contribution amount.
      */
     function minimumContribution() public view returns (uint256) {
-        if (contributorAddresses.length == 0)
-            return (stakingRequirement - 1) / 4 + 1;
-        return _minimumContribution(stakingRequirement - totalContribution(), contributorAddresses.length, maxContributors);
+        return calcMinimumContribution(stakingRequirement - totalContribution(),
+                                       contributorAddresses.length,
+                                       maxContributors);
     }
 
-    function _minimumContribution(uint256 contributionRemaining, uint256 numberContributors, uint256 _maxContributors) public pure returns (uint256) {
-        require(_maxContributors > numberContributors, "Contributors exceed permitted maximum number of contributors");
-        uint256 numContributionsRemainingAvail = _maxContributors - numberContributors;
-        return (contributionRemaining - 1) / numContributionsRemainingAvail + 1;
+    /**
+     * @notice Function to calculate the minimum contribution given the staking
+     * parameters.
+     *
+     * This function reverts if invalid parameters are given such that the
+     * operations would wrap or divide by 0.
+     *
+     * @param contributionRemaining The amount of contribution still available
+     * to be contributed to this contract.
+     * @param numContributors The number of contributors that have contributed
+     * to the contract already including the operator.
+     * @param maxNumContributors The maximum number of contributors allowed to
+     * contribute to this contract.
+     */
+    function calcMinimumContribution(uint256 contributionRemaining, uint256 numContributors, uint256 maxNumContributors) public pure returns (uint256 result) {
+        require(maxNumContributors > numContributors, "Contributors exceed permitted maximum number of contributors");
+        if (numContributors == 0) {
+            result = ((contributionRemaining - 1) / 4) + 1; // math.ceilDiv(25% of requirement)
+        } else {
+            uint256 slotsRemaining = maxNumContributors - numContributors;
+            result                 = (contributionRemaining - 1) / slotsRemaining + 1;
+        }
+        return result;
     }
 
     /**
@@ -331,8 +369,8 @@ contract ServiceNodeContribution is Shared {
      */
     function totalContribution() public view returns (uint256 result) {
         for (uint256 i = 0; i < contributorAddresses.length; i++) {
-            address entry = contributorAddresses[i];
-            result += contributions[entry];
+            address entry  = contributorAddresses[i];
+            result        += contributions[entry];
         }
         return result;
     }

@@ -72,7 +72,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 const numberContributors = 9;
                 const maxContributors = 10;
 
-                const minimumContribution = await snContribution._minimumContribution(
+                const minimumContribution = await snContribution.calcMinimumContribution(
                     contributionRemaining,
                     numberContributors,
                     maxContributors
@@ -86,7 +86,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 const numberContributors = 0;
                 const maxContributors = 4;
 
-                const minimumContribution = await snContribution._minimumContribution(
+                const minimumContribution = await snContribution.calcMinimumContribution(
                     contributionRemaining,
                     numberContributors,
                     maxContributors
@@ -100,7 +100,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 let numberContributors    = 0;
                 const maxContributors     = 4;
                 for (let numberContributors = 0; numberContributors < maxContributors; numberContributors++) {
-                    const minimumContribution  = await snContribution._minimumContribution( contributionRemaining, numberContributors, maxContributors);
+                    const minimumContribution  = await snContribution.calcMinimumContribution(contributionRemaining, numberContributors, maxContributors);
                     contributionRemaining     -= minimumContribution;
                     expect(minimumContribution).to.equal(3750);
                 }
@@ -112,7 +112,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 const numberContributors    = 1;
                 const maxContributors       = 10;
 
-                const minimumContribution = await snContribution._minimumContribution(
+                const minimumContribution = await snContribution.calcMinimumContribution(
                     contributionRemaining,
                     numberContributors,
                     maxContributors

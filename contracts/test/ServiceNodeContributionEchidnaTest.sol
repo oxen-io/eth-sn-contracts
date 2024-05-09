@@ -299,12 +299,12 @@ contract ServiceNodeContributionEchidnaTest {
     }
 
     /*
-     * @notice Fuzz all branches of `_minimumContribution`
+     * @notice Fuzz all branches of `calcMinContribution`
      */
-    function test_MinimumContribution(uint256 _contributionRemaining, uint256 _numberContributors, uint256 _maxContributors) public view returns (uint256) {
-        uint256 result = snContribution._minimumContribution(_contributionRemaining,
-                                                             _numberContributors,
-                                                             _maxContributors);
+    function test_MinimumContribution(uint256 contributionRemaining, uint256 numContributors, uint256 maxNumContributors) public view returns (uint256) {
+        uint256 result = snContribution.calcMinimumContribution(contributionRemaining,
+                                                                numContributors,
+                                                                maxNumContributors);
         return result;
     }
 
@@ -312,13 +312,13 @@ contract ServiceNodeContributionEchidnaTest {
      * @notice Fuzz the non-reverting branch of `_minimumContribution` by
      * sanitising inputs into the desired ranges.
      */
-    function testFiltered_MinimumContribution(uint256 _contributionRemaining, uint256 _numberContributors, uint256 _maxContributors) public view returns (uint256) {
-        uint256 maxContributors    = (_maxContributors    % (MAX_CONTRIBUTORS + 1));
-        uint256 numberContributors = (_numberContributors % (maxContributors  + 1));
-        uint256 result             = snContribution._minimumContribution(_contributionRemaining,
-                                                                         numberContributors,
-                                                                         maxContributors);
-        assert(result <= _contributionRemaining);
+    function testFiltered_MinimumContribution(uint256 contributionRemaining, uint256 numContributors, uint256 maxNumContributors) public view returns (uint256) {
+        maxNumContributors = (maxNumContributors % (MAX_CONTRIBUTORS   + 1));
+        numContributors    = (numContributors    % (maxNumContributors + 1));
+        uint256 result     = snContribution.calcMinimumContribution(contributionRemaining,
+                                                                    numContributors,
+                                                                    maxNumContributors);
+        assert(result <= contributionRemaining);
         return result;
     }
 }

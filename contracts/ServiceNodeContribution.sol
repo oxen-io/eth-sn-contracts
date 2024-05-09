@@ -100,7 +100,9 @@ contract ServiceNodeContribution is Shared {
      * is reverted.
      * @param _blsSignature 128 byte BLS proof of possession signature that
      * proves ownership of the `blsPubkey`.
-     * It can only be called once by the operator and must be done before any other contributions are made.
+     *
+     * It can only be called once by the operator and must be done before any
+     * other contributions are made.
      */
     function contributeOperatorFunds(uint256 amount, IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
         require(contributorAddresses.length == 0, "Operator already contributed funds");
@@ -315,10 +317,11 @@ contract ServiceNodeContribution is Shared {
      *
      * @return The minimum contribution amount.
      */
-    function minimumContribution() public view returns (uint256) {
-        return calcMinimumContribution(stakingRequirement - totalContribution(),
-                                       contributorAddresses.length,
-                                       maxContributors);
+    function minimumContribution() public view returns (uint256 result) {
+        result = calcMinimumContribution(stakingRequirement - totalContribution(),
+                                         contributorAddresses.length,
+                                         maxContributors);
+        return result;
     }
 
     /**

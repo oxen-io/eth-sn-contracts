@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "../ServiceNodeContribution.sol";
 import "./MockERC20.sol";
 import "./MockServiceNodeRewards.sol";
+import "hardhat/console.sol";
 
 
 // NOTE: We conduct assertion based testing for the service node contribution
@@ -30,6 +31,12 @@ import "./MockServiceNodeRewards.sol";
 //
 // To debug this I recommend commenting out asserts one at a time to isolate
 // the assertion that is failing.
+//
+// I've noticed that there's a bug somewhere in Echidna itself where it refuses
+// to deploy a contract even though no assertions are triggered. However
+// shuffling code around, or, evaluating the assert in a different way
+// "suddenly" gets it to deploy. Very frustrating, there's no way to console.log
+// from echidna yet where I can double check this.
 
 contract ServiceNodeContributionEchidnaTest {
 
@@ -57,6 +64,8 @@ contract ServiceNodeContributionEchidnaTest {
             /*maxContributors*/        MAX_CONTRIBUTORS,
             /*blsPubkey*/              blsPubkey,
             /*serviceNodeParams*/      snParams);
+
+        assert(snContribution.maxContributors() == MAX_CONTRIBUTORS);
     }
 
     function mintTokensForTesting() internal {

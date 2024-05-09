@@ -6,6 +6,58 @@ const STAKING_TEST_AMNT = 15000000000000
 const TEST_AMNT         = 50000000000000
 const MAX_CONTRIBUTORS  = 10;
 
+// Withdraw a contributor from the service node contribution contract
+// `snContribution`. This function expects to succeed (e.g. the contributor must
+// have successfully contributed to the contract prior).
+async function withdrawContributor(sentToken, snContribution, contributor) {
+    // NOTE: Collect contract initial state
+    const contributorTokenBalanceBefore = await sentToken.balanceOf(contributor);
+    const contributorAmount             = await snContribution.contributions(contributor);
+    const totalContribution             = await snContribution.totalContribution();
+    const contributorAddressesLength    = await snContribution.contributorAddressesLength();
+
+    let contributorArrayBefore = [];
+    for (let index = 0; index < contributorAddressesLength; index++) {
+        const address = await snContribution.contributorAddresses(index);
+        contributorArrayBefore.push(address);
+    }
+
+    // NOTE: Withdraw contribution
+    await snContribution.connect(contributor).withdrawContribution();
+
+    // NOTE: Test stake is withdrawn to contributor
+    expect(await sentToken.balanceOf(contributor)).to.equal(contributorTokenBalanceBefore + contributorAmount);
+
+    // NOTE: Test repeated withdraw is reverted
+    await expect(snContribution.connect(contributor).withdrawContribution()).to.be.reverted;
+
+    // NOTE: Test contract state
+    expect(await snContribution.totalContribution()).to.equal(totalContribution - contributorAmount);
+    expect(await snContribution.contributorAddressesLength()).to.equal(contributorAddressesLength - BigInt(1));
+
+    // NOTE: Calculate the expected contributor array, emulate the swap-n-pop
+    // idiom as used in Solidity.
+    let contributorArrayExpected = contributorArrayBefore;
+    for (let index = 0; index < contributorArrayExpected.length; index++) {
+        if (BigInt(contributorArrayExpected[index]) === BigInt(await contributor.getAddress())) {
+            contributorArrayExpected[index] = contributorArrayExpected[contributorArrayExpected.length - 1];
+            contributorArrayExpected.pop();
+            break;
+        }
+    }
+
+    // NOTE: Query the contributor addresses in the contract
+    const contributorArrayLengthAfter = await snContribution.contributorAddressesLength();
+    let contributorArray = [];
+    for (let index = 0; index < contributorArrayLengthAfter; index++) {
+        const address = await snContribution.contributorAddresses(index);
+        contributorArray.push(address);
+    }
+
+    // NOTE: Compare the contributor array against what we expect
+    expect(contributorArrayExpected).to.deep.equal(contributorArray);
+}
+
 describe("ServiceNodeContribution Contract Tests", function () {
     // NOTE: Contract factories for deploying onto the blockchain
     let sentTokenContractFactory;
@@ -282,41 +334,68 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                                                              .equal(3);
                 });
 
-                it("Withdraw contributor 1", async function () {
-                    const [owner, contributor1, contributor2] = await ethers.getSigners();
+                describe("Withdraw contributor 1", async function () {
+                    beforeEach(async function () {
+                        const [owner, contributor1, contributor2] = await ethers.getSigners();
+                        await withdrawContributor(sentToken, snContribution, contributor1);
+                    });
 
-                    // NOTE: Collect contract initial state
-                    const contributor1Amount         = await snContribution.contributions(contributor1);
-                    const totalContribution          = await snContribution.totalContribution();
-                    const contributorAddressesLength = await snContribution.contributorAddressesLength();
+                    describe("Withdraw contributor 2", async function () {
+                        beforeEach(async function () {
+                            const [owner, contributor1, contributor2] = await ethers.getSigners();
+                            await withdrawContributor(sentToken, snContribution, contributor2);
+                        });
 
-                    // NOTE: Withdraw contribution
-                    await snContribution.connect(contributor1).withdrawContribution();
+                        describe("Contributor 1, 2 rejoin", async function() {
+                            beforeEach(async function() {
+                                // NOTE: Get operator contribution
+                                const [owner, contributor1, contributor2] = await ethers.getSigners();
+                                const previousContribution                = await snContribution.totalContribution();
 
-                    // NOTE: Test stake is withdrawn to contributor
-                    expect(await sentToken.balanceOf(contributor1)).to.equal(contributor1Amount);
+                                const stakingRequirement = await snContribution.stakingRequirement();
+                                expect(previousContribution).to.equal(await snContribution.minimumOperatorContribution(stakingRequirement));
 
-                    // NOTE: Test repeated withdraw is reverted
-                    await expect(snContribution.connect(contributor1).withdrawContribution()).to.be.reverted;
+                                // NOTE: Contributor 1 w/ minContribution()
+                                const minContribution1                   = await snContribution.minimumContribution();
+                                await sentToken.transfer(contributor1, minContribution1);
+                                await sentToken.connect(contributor1).approve(snContribution, minContribution1);
+                                await expect(snContribution.connect(contributor1)
+                                                                    .contributeFunds(minContribution1)).to
+                                                                                                       .emit(snContribution, "NewContribution")
+                                                                                                       .withArgs(await contributor1.getAddress(), minContribution1);
 
-                    // NOTE: Test contract state
-                    expect(await snContribution.totalContribution()).to.equal(totalContribution - contributor1Amount);
-                    expect(await snContribution.contributorAddressesLength()).to.equal(contributorAddressesLength - BigInt(1));
+                                // NOTE: Contributor 2 w/ minContribution()
+                                const minContribution2 = await snContribution.minimumContribution();
+                                await sentToken.transfer(contributor2, minContribution2);
+                                await sentToken.connect(contributor2)
+                                               .approve(snContribution,
+                                                       minContribution2);
+                                await expect(snContribution.connect(contributor2)
+                                                                    .contributeFunds(minContribution2)).to
+                                                                                                       .emit(snContribution, "NewContribution")
+                                                                                                       .withArgs(await contributor2.getAddress(), minContribution2);
 
-                    // NOTE: Query the contributor addresses in the contract
-                    const contributorArrayLengthAfter = await snContribution.contributorAddressesLength();
-                    const contributorArrayExpected    = [BigInt(await owner.getAddress()), BigInt(await contributor2.getAddress())];
+                                // NOTE: Check contribution values
+                                expect(await snContribution.operatorContribution()).to
+                                                                                   .equal(previousContribution);
+                                expect(await snContribution.totalContribution()).to
+                                                                                .equal(previousContribution + minContribution1 + minContribution2);
+                                expect(await snContribution.contributorAddressesLength()).to
+                                                                                         .equal(3);
+                            });
 
-                    let contributorArray              = [];
-                    for (let index = 0; index < contributorArrayLengthAfter; index++) {
-                        const address = await snContribution.contributorAddresses(index);
-                        contributorArray.push(address);
-                    }
+                            it("Cancel node and check contributors can withdraw", async function() {
+                                const [owner, contributor1, contributor2] = await ethers.getSigners();
+                                await expect(snContribution.connect(owner).cancelNode());
 
-                    // NOTE: Compare the contributor array against what we expect
-                    expect(contributorArrayExpected.length).to.equal(contributorArray.length);
-                    for (let index = 0; index < contributorArrayExpected.length; index++)
-                        expect(contributorArray[index]).to.equal(contributorArrayExpected[index]);
+                                const contributorArray = [contributor1, contributor2];
+                                for (let i = 0; i < contributorArray.length; i++) {
+                                    const contributor = contributorArray[i];
+                                    await withdrawContributor(sentToken, snContribution, contributor);
+                                }
+                            });
+                        });
+                    });
                 });
             });
 

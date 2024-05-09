@@ -599,6 +599,44 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     expect(await snContribution.serviceNodeParams()).to.deep.equal(serviceNodeParamsBefore);
                     expect(await snContribution.maxContributors()).to.equal(maxContributorsBefore);
                 });
+
+                it("Check we can rescue ERC20 tokens sent after finalisation", async function() {
+                    const [owner, contributor1, contributor2] = await ethers.getSigners();
+
+                    // NOTE: Check that the contract SENT balance is empty
+                    const contractBalance = await sentToken.balanceOf(snContribution);
+                    expect(contractBalance).to.equal(BigInt(0));
+
+                    // NOTE: Transfer tokens to the contract after it was finalised
+                    await sentToken.transfer(snContribution, TEST_AMNT);
+
+                    // NOTE: Check contributors can't rescue the token
+                    await expect(snContribution.connect(contributor1)
+                                               .rescueERC20(sentToken)).to.be.reverted;
+                    await expect(snContribution.connect(contributor2)
+                                               .rescueERC20(sentToken)).to.be.reverted;
+
+                    // NOTE: Check that the operator can rescue the tokens
+                    const balanceBefore = await sentToken.balanceOf(owner);
+                    expect(await snContribution.connect(owner)
+                                               .rescueERC20(sentToken));
+
+                    // NOTE: Verify the balances
+                    const balanceAfter         = await sentToken.balanceOf(owner);
+                    const contractBalanceAfter = await sentToken.balanceOf(snContribution);
+                    expect(balanceBefore + BigInt(TEST_AMNT)).to.equal(balanceAfter);
+                    expect(contractBalanceAfter).to.equal(BigInt(0));
+
+                    // NOTE: Tokes are rescued, contract is empty, test that no
+                    // one can rescue, not even the operator (because the
+                    // balance of the contract is empty).
+                    await expect(snContribution.connect(contributor1)
+                                               .rescueERC20(sentToken)).to.be.reverted;
+                    await expect(snContribution.connect(contributor2)
+                                               .rescueERC20(sentToken)).to.be.reverted;
+                    await expect(snContribution.connect(owner)
+                                               .rescueERC20(sentToken)).to.be.reverted;
+                });
             });
         });
     });

@@ -181,13 +181,15 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
         describe("After operator has set up funds", function () {
             beforeEach(async function () {
-                const [owner] = await ethers.getSigners();
+                const [owner]         = await ethers.getSigners();
                 const minContribution = await snContribution.minimumContribution();
+
                 await sentToken.transfer(snOperator, TEST_AMNT);
                 await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
-                await expect(snContribution.connect(snOperator).contributeOperatorFunds(minContribution, [0,0,0,0]))
-                      .to.emit(snContribution, "NewContribution")
-                      .withArgs(await snOperator.getAddress(), minContribution);
+                await expect(snContribution.connect(snOperator)
+                                           .contributeOperatorFunds(minContribution, [0,0,0,0])).to
+                                                                                                .emit(snContribution, "NewContribution")
+                                                                                                .withArgs(await snOperator.getAddress(), minContribution);
             });
 
             it("Should be able to contribute funds as a contributor", async function () {
@@ -278,6 +280,52 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     for (let index = 0; index < contributorArrayExpected.length; index++)
                         expect(contributorArray[index]).to.equal(contributorArrayExpected[index]);
                 });
+            });
+
+            it("Max contributors cannot be exceeded", async function () {
+                expect(await snContribution.contributorAddressesLength()).to.equal(1); // SN operator
+                expect(await snContribution.maxContributors()).to.equal(MAX_CONTRIBUTORS);
+
+                const signers         = [];
+                const maxContributors = Number(await snContribution.maxContributors()) - 1; // Remove SN operator from list
+
+                for (let i = 0; i < maxContributors + 1 /*Add one more to exceed*/; i++) {
+                    // NOTE: Create wallet
+                    let wallet = await ethers.Wallet.createRandom();
+                    wallet     = wallet.connect(ethers.provider);
+
+                    // NOTE: Fund the wallet
+                    await sentToken.transfer(await wallet.getAddress(), TEST_AMNT);
+                    await snOperator.sendTransaction({
+                        to:    await wallet.getAddress(),
+                        value: ethers.parseEther("1.0")
+                    });
+
+                    signers.push(wallet);
+                }
+
+                // NOTE: Contribute
+                const minContribution = await snContribution.minimumContribution();
+                for (let i = 0; i < signers.length; i++) {
+                    const signer          = signers[i];
+                    await sentToken.connect(signer).approve(snContribution, minContribution);
+
+                    if (i == (signers.length - 1)) {
+                        await expect(snContribution.connect(signer)
+                                                   .contributeFunds(minContribution)).to
+                                                                                     .be
+                                                                                     .reverted;
+                    } else {
+                        await expect(snContribution.connect(signer)
+                                                   .contributeFunds(minContribution)).to
+                                                                                     .emit(snContribution, "NewContribution")
+                                                                                     .withArgs(await signer.getAddress(), minContribution);
+                    }
+                }
+
+                expect(await snContribution.totalContribution()).to.equal(await snContribution.stakingRequirement());
+                expect(await snContribution.contributorAddressesLength()).to.equal(await snContribution.maxContributors());
+                expect(await snContribution.finalized()).to.equal(true);
             });
 
             it("Should not finalise if not full", async function () {

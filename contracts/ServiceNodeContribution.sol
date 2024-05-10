@@ -92,6 +92,9 @@ contract ServiceNodeContribution is Shared {
     /**
      * @notice Allows the operator to contribute funds towards their own node.
      *
+     * It can only be called once by the operator and must be done before any
+     * other contributions are made.
+     *
      * @dev This function sets the operator's contribution and emits
      * a NewContribution event.
      *
@@ -100,9 +103,6 @@ contract ServiceNodeContribution is Shared {
      * is reverted.
      * @param _blsSignature 128 byte BLS proof of possession signature that
      * proves ownership of the `blsPubkey`.
-     *
-     * It can only be called once by the operator and must be done before any
-     * other contributions are made.
      */
     function contributeOperatorFunds(uint256 amount, IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
         require(contributorAddresses.length == 0, "Operator already contributed funds");
@@ -119,10 +119,7 @@ contract ServiceNodeContribution is Shared {
      *
      * @dev Main entry point for funds to enter the contract. Contributions are
      * only permitted the public if the operator has already contributed and the
-     * node has not
-     *
-     *   - finalized
-     *   - cancelled
+     * node has not been finalized or cancelled.
      *
      * @param amount The amount of SENT token to contribute to the contract.
      */
@@ -403,4 +400,3 @@ contract ServiceNodeContribution is Shared {
         return result;
     }
 }
-

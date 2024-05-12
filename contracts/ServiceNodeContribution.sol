@@ -242,8 +242,8 @@ contract ServiceNodeContribution is Shared {
     function cancelNode() public onlyOperator {
         require(!finalized, "Cannot cancel a finalized node.");
         require(!cancelled, "Node has already been cancelled.");
-        removeAndRefundContributor(msg.sender);
         cancelled = true;
+        removeAndRefundContributor(msg.sender);
         emit Cancelled(serviceNodeParams.serviceNodePubkey);
     }
 

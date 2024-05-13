@@ -2,6 +2,8 @@
 
 #include "service_node_rewards/ec_utils.hpp"
 
+#include <ethyl/utils.hpp>
+
 // Constructor
 ERC20Contract::ERC20Contract(const std::string& _contractAddress, std::shared_ptr<Provider> _provider)
     : contractAddress(_contractAddress), provider(_provider) {}

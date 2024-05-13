@@ -109,7 +109,6 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                                               .reverted;
         });
 
-
         it("Prevents operator contributing less than min amount", async function () {
             const minContribution = await serviceNodeContribution.minimumContribution();
             await mockERC20.transfer(serviceNodeOperator, TEST_AMNT);
@@ -223,6 +222,48 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 expect(await serviceNodeContribution.finalized()).to.equal(true);
                 expect(await mockERC20.balanceOf(serviceNodeContribution)).to.equal(0);
 
+            });
+
+            it("Should revert withdrawal if less than 24 hours have passed", async function () {
+                const [owner, contributor] = await ethers.getSigners();
+                const minContribution = await serviceNodeContribution.minimumContribution();
+                // Setting up contribution
+                await mockERC20.transfer(contributor, TEST_AMNT);
+                await mockERC20.connect(contributor).approve(serviceNodeContribution, minContribution);
+                await serviceNodeContribution.connect(contributor).contributeFunds(minContribution);
+
+                // Attempting to withdraw before 24 hours
+                await network.provider.send("evm_increaseTime", [60 * 60 * 23]); // Fast forward time by 23 hours
+                await network.provider.send("evm_mine");
+
+                // This withdrawal should fail
+                await expect(serviceNodeContribution.connect(contributor).withdrawStake())
+                    .to.be.revertedWith("Withdrawal unavailable: 24 hours have not passed");
+            });
+
+            it("Should allow withdrawal and return funds after 24 hours have passed", async function () {
+                const [owner, contributor] = await ethers.getSigners();
+                const minContribution = await serviceNodeContribution.minimumContribution();
+                // Setting up contribution
+                await mockERC20.transfer(contributor, TEST_AMNT);
+                await mockERC20.connect(contributor).approve(serviceNodeContribution, minContribution);
+                await serviceNodeContribution.connect(contributor).contributeFunds(minContribution);
+
+                // Waiting for 24 hours
+                await network.provider.send("evm_increaseTime", [60 * 60 * 24]); // Fast forward time by 24 hours
+                await network.provider.send("evm_mine");
+
+                // Checking the initial balance before withdrawal
+                const initialBalance = await mockERC20.balanceOf(contributor.getAddress());
+
+                // Performing the withdrawal
+                await expect(serviceNodeContribution.connect(contributor).withdrawStake())
+                    .to.emit(serviceNodeContribution, "StakeWithdrawn")
+                    .withArgs(await contributor.getAddress(), minContribution);
+
+                // Verify that the funds have returned to the contributor
+                const finalBalance = await mockERC20.balanceOf(contributor.getAddress());
+                expect(finalBalance).to.equal(initialBalance + minContribution);
             });
         });
     });

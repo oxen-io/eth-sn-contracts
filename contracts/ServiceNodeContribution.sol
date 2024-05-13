@@ -30,6 +30,7 @@ contract ServiceNodeContribution is Shared {
     // Contributions
     address                                public immutable operator;
     mapping(address => uint256)            public           contributions;
+    mapping(address => uint256)            public           contributionTimestamp;
     address[]                              public           contributorAddresses;
     uint256                                public immutable maxContributors;
     uint256                                public           operatorContribution;
@@ -39,6 +40,8 @@ contract ServiceNodeContribution is Shared {
     // Smart Contract
     bool                                   public           finalized = false;
     bool                                   public           cancelled = false;
+
+    uint64 public constant WITHDRAWAL_DELAY = 1 days;
 
     // MODIFIERS
     modifier onlyOperator() {
@@ -107,6 +110,7 @@ contract ServiceNodeContribution is Shared {
             contributorAddresses.push(msg.sender);
         }
         contributions[msg.sender] += amount;
+        contributionTimestamp[msg.sender] = block.timestamp;
         totalContribution += amount;
         SENT.safeTransferFrom(msg.sender, address(this), amount);
         emit NewContribution(msg.sender, amount);
@@ -167,6 +171,7 @@ contract ServiceNodeContribution is Shared {
      */
     function withdrawStake() public {
         require(contributions[msg.sender] > 0, "You have not contributed.");
+        require(block.timestamp - contributionTimestamp[msg.sender] > WITHDRAWAL_DELAY, "Withdrawal unavailable: 24 hours have not passed");
         require(!finalized, "Node has already been finalized.");
         require(msg.sender != operator, "Operator cannot withdraw");
         uint256 refundAmount = contributions[msg.sender];

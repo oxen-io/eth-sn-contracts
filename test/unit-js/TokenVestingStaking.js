@@ -58,6 +58,7 @@ describe("TokenVestingStaking Contract Tests", function () {
 
     it("Should be able to claim rewards", async function () {
         await tokenVestingStaking.connect(beneficiary).addBLSPublicKey([0,0],[0,0,0,0],[0,0,0,0]);
+        let node = await mockServiceNodeRewards.serviceNodes(1);
         const balanceBefore = await mockERC20.balanceOf(beneficiary);
         await tokenVestingStaking.connect(beneficiary).claimRewards();
         const balanceAfter = await mockERC20.balanceOf(beneficiary);
@@ -66,7 +67,7 @@ describe("TokenVestingStaking Contract Tests", function () {
 
     it("Should be able to unstake and claim rewards", async function () {
         await tokenVestingStaking.connect(beneficiary).addBLSPublicKey([0,0],[0,0,0,0],[0,0,0,0]);
-        const serviceNode = await tokenVestingStaking.serviceNodes(0)
+        const serviceNode = await tokenVestingStaking.investorServiceNodes(0)
         const balancebeneficiaryBefore = await mockERC20.balanceOf(beneficiary);
         const balanceBefore = await mockERC20.balanceOf(tokenVestingStaking);
         await mockServiceNodeRewards.removeBLSPublicKeyWithSignature(serviceNode.serviceNodeID,0,0,0,0,0,0,[]);

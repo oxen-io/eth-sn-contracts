@@ -5,6 +5,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../libraries/BN256G1.sol";
 
 interface IServiceNodeRewards {
+    struct Contributor {
+        address addr; // The address of the contributor
+        uint256 stakedAmount; // The amount staked by the contributor
+    }
+
     /// @notice Represents a service node in the network.
     struct ServiceNode {
         uint64 next;
@@ -13,17 +18,13 @@ interface IServiceNodeRewards {
         BN256G1.G1Point pubkey;
         uint256 leaveRequestTimestamp;
         uint256 deposit;
+        Contributor[] contributors;
     }
 
     /// @notice Represents a recipient of rewards, how much they can claim and how much previously claimed.
     struct Recipient {
         uint256 rewards;
         uint256 claimed;
-    }
-
-    struct Contributor {
-        address addr; // The address of the contributor
-        uint256 stakedAmount; // The amount staked by the contributor
     }
 
     struct BLSSignatureParams {
@@ -47,6 +48,7 @@ interface IServiceNodeRewards {
     function IsActive() external view returns (bool);
     function liquidateTag() external view returns (bytes32);
     function liquidatorRewardRatio() external view returns (uint256);
+    function maxContributors() external view returns (uint256);
     function nextServiceNodeID() external view returns (uint64);
     function poolShareOfLiquidationRatio() external view returns (uint256);
     function proofOfPossessionTag() external view returns (bytes32);

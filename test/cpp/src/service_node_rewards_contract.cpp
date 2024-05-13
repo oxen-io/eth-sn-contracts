@@ -37,15 +37,31 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
     const size_t        BLS_PKEY_XY_COMPONENT_HEX_SIZE = 32 * 2;
     const size_t        BLS_PKEY_HEX_SIZE              = BLS_PKEY_XY_COMPONENT_HEX_SIZE + BLS_PKEY_XY_COMPONENT_HEX_SIZE;
     const size_t        ADDRESS_HEX_SIZE               = 32 * 2;
+    const size_t        ETH_ADDRESS_HEX_SIZE           = 20 * 2;
 
     ContractServiceNode result                   = {};
     size_t              walkIt                   = 0;
+    std::string_view    totalSize                = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += totalSize.size();
     std::string_view    nextHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += nextHex.size();
     std::string_view    prevHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += prevHex.size();
     std::string_view    recipientHex             = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);  walkIt += recipientHex.size();
     std::string_view    pubkeyHex                = callResultIt.substr(walkIt, BLS_PKEY_HEX_SIZE); walkIt += pubkeyHex.size();
     std::string_view    leaveRequestTimestampHex = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += leaveRequestTimestampHex.size();
     std::string_view    depositHex               = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += depositHex.size();
+
+    // Loop over contributors
+    for (size_t i = 0; i < result.contributors.size(); ++i) {
+        std::string_view contributorAddressHex = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);    walkIt += contributorAddressHex.size();
+        std::string_view contributorAmountHex  = callResultIt.substr(walkIt, U256_HEX_SIZE);       walkIt += contributorAmountHex.size();
+
+        std::vector<unsigned char> addressBytes = utils::fromHexString(contributorAddressHex.substr(contributorAddressHex.size() - ETH_ADDRESS_HEX_SIZE, ETH_ADDRESS_HEX_SIZE));
+        assert(addressBytes.size() == result.contributors[i].address.max_size());
+        std::memcpy(result.contributors[i].address.data(), addressBytes.data(), addressBytes.size());
+
+        result.contributors[i].amount = utils::fromHexStringToUint64(contributorAmountHex);
+        if (walkIt >= callResultIt.size()) break;
+    }
+    
     assert(walkIt == callResultIt.size());
 
     // NOTE: Deserialize linked list
@@ -53,7 +69,6 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
     result.prev                = utils::fromHexStringToUint64(prevHex);
 
     // NOTE: Deserialise recipient
-    const size_t ETH_ADDRESS_HEX_SIZE = 20 * 2;
     std::vector<unsigned char> recipientBytes = utils::fromHexString(recipientHex.substr(recipientHex.size() - ETH_ADDRESS_HEX_SIZE, ETH_ADDRESS_HEX_SIZE));
     assert(recipientBytes.size() == result.recipient.max_size());
     std::memcpy(result.recipient.data(), recipientBytes.data(), recipientBytes.size());

@@ -45,7 +45,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         uint64 serviceNodeID;
         uint256 deposit;
     }
-    ServiceNode[] public serviceNodes;
+    ServiceNode[] public investorServiceNodes;
 
     /**
      * @param beneficiary_ address of the beneficiary to whom vested tokens are transferred
@@ -93,7 +93,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         uint256 stakingRequirement = stakingRewardsContract.stakingRequirement();
         uint64 serviceNodeID = stakingRewardsContract.nextServiceNodeID();
         SENT.approve(address(stakingRewardsContract), stakingRequirement);
-        serviceNodes.push(ServiceNode(serviceNodeID, stakingRequirement));
+        investorServiceNodes.push(ServiceNode(serviceNodeID, stakingRequirement));
         IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](1);
         contributors[0] = IServiceNodeRewards.Contributor(address(this), stakingRequirement);
         stakingRewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
@@ -113,16 +113,16 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     function claimRewards() external onlyBeneficiary notRevoked afterStart {
         uint256 unstaked;
 
-        uint256 length = serviceNodes.length;
+        uint256 length = investorServiceNodes.length;
 
         for (uint256 i = 1; i < length + 1; i++) {
-            IServiceNodeRewards.ServiceNode memory serviceNode = stakingRewardsContract.serviceNodes(serviceNodes[i - 1].serviceNodeID);
-            if (serviceNode.deposit == 0) {
-                unstaked += serviceNodes[i - 1].deposit;
+            IServiceNodeRewards.ServiceNode memory sn = stakingRewardsContract.serviceNodes(investorServiceNodes[i - 1].serviceNodeID);
+            if (sn.deposit == 0) {
+                unstaked += investorServiceNodes[i - 1].deposit;
                 
                 // Remove service node from the array by swapping it with the last element and then popping the array
-                serviceNodes[i - 1] = serviceNodes[length - 1];
-                serviceNodes.pop();
+                investorServiceNodes[i - 1] = investorServiceNodes[length - 1];
+                investorServiceNodes.pop();
                 
                 // Adjust loop variables since we modified the array
                 i--;

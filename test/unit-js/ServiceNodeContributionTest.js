@@ -4,7 +4,6 @@ const { ethers } = require("hardhat");
 // NOTE: Constants
 const STAKING_TEST_AMNT = 15000000000000
 const TEST_AMNT         = 50000000000000
-const MAX_CONTRIBUTORS  = 10;
 
 // Withdraw a contributor from the service node contribution contract
 // `snContribution`. This function expects to succeed (e.g. the contributor must
@@ -81,7 +80,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         // NOTE: Deploy contract instances
         sentToken             = await sentTokenContractFactory.deploy("SENT Token", "SENT", 9);
         snRewards             = await snRewardsContractFactory.deploy(sentToken, STAKING_TEST_AMNT);
-        snContributionFactory = await snContributionContractFactory.deploy(snRewards, MAX_CONTRIBUTORS);
+        snContributionFactory = await snContributionContractFactory.deploy(snRewards);
     });
 
     it("Verify staking rewards contract is set", async function () {

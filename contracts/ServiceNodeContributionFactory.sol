@@ -13,10 +13,10 @@ contract ServiceNodeContributionFactory {
     // EVENTS
     event NewServiceNodeContributionContract(address indexed contributorContract, uint256 serviceNodePubkey);
 
-    constructor(address _stakingRewardsContract, uint256 _maxContributors) {
+    constructor(address _stakingRewardsContract) {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
         SENT                   = IERC20(stakingRewardsContract.designatedToken());
-        maxContributors        = _maxContributors;
+        maxContributors        = stakingRewardsContract.maxContributors();
     }
 
     function deployContributionContract(BN256G1.G1Point memory blsPubkey, IServiceNodeRewards.ServiceNodeParams memory serviceNodeParams) public {

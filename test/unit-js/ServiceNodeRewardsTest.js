@@ -27,6 +27,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
             [ await mockERC20.getAddress(),              // token address
             await foundationPool.getAddress(),         // foundation pool address
             15000,                          // staking requirement
+            10,                             // max contributors
             0,                              // liquidator reward ratio
             0,                              // pool share of liquidation ratio
             1                               // recipient ratio

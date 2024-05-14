@@ -5,6 +5,7 @@ import "../ServiceNodeContribution.sol";
 import "./MockERC20.sol";
 import "./MockServiceNodeRewards.sol";
 
+
 // NOTE: We conduct assertion based testing for the service node contribution
 // contract in Echidna. When we use property based-testing, the sender of the
 // transactions to `ServiceNodeContribution.sol` is limited to this contract's

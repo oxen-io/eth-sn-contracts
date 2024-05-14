@@ -1,0 +1,462 @@
+Language: Cpp
+
+IndentWidth: 4
+TabWidth: 4
+
+# Align parameters on the open bracket, e.g.:
+# someLongFunction(argument1,
+#                  argument2);
+AlignAfterOpenBracket: Align
+
+# Align array column and left justify the columns e.g.:
+# struct test demo[] =
+# {
+#     {56, 23,    "hello"},
+#     {-1, 93463, "world"},
+#     {7,  5,     "!!"   }
+# };
+AlignArrayOfStructures: Left
+
+# Align assignments on consecutive lines. This will result in formattings like:
+#
+# int a            = 1;
+# int somelongname = 2;
+# double c         = 3;
+#
+# int d = 3;
+# /* A comment. */
+# double e = 4;
+AlignConsecutiveAssignments:  Consecutive
+AlignConsecutiveBitFields:    Consecutive
+AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveMacros:       Consecutive
+
+# Align escaped newlines as far left as possible.
+# #define A   \
+#   int aaaa; \
+#   int b;    \
+#   int dddddddddd;
+AlignEscapedNewlines: Left
+
+# Horizontally align operands of binary and ternary expressions.
+# Specifically, this aligns operands of a single expression that needs to be
+# split over multiple lines, e.g.:
+#
+# int aaa = bbbbbbbbbbbbbbb +
+#           ccccccccccccccc;
+AlignOperands: Align
+
+# true:                                   false:
+# int a;     // My comment a      vs.     int a; // My comment a
+# int b = 2; // comment  b                int b = 2; // comment about b
+AlignTrailingComments: true
+
+# If the function declaration doesn’t fit on a line, allow putting all
+# parameters of a function declaration onto the next line even if
+# BinPackParameters is false.
+#
+# true:
+# void myFunction(
+#     int a, int b, int c, int d, int e);
+#
+# false:
+# void myFunction(int a,
+#                 int b,
+#                 int c,
+#                 int d,
+#                 int e);
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: Never # "while (true) { continue; }" can be put on a single line.
+
+# If true, short case labels will be contracted to a single line.
+#
+# true:                                   false:
+# switch (a) {                    vs.     switch (a) {
+# case 1: x = 1; break;                   case 1:
+# case 2: return;                           x = 1;
+# }                                         break;
+#                                         case 2:
+#                                           return;
+#                                         }
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortEnumsOnASingleLine: true # enum { A, B } myEnum;
+
+# Only merge functions defined inside a class. Implies “empty”.
+#
+# class Foo {
+#   void f() { foo(); }
+# };
+# void f() {
+#   foo();
+# }
+# void f() {}
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+
+# Only merge empty lambdas.
+#
+# auto lambda = [](int a) {}
+# auto lambda2 = [](int a) {
+#     return a;
+# };
+AllowShortLambdasOnASingleLine: Empty
+AllowShortLoopsOnASingleLine: false
+
+# true:                                  false:
+# aaaa =                         vs.     aaaa = "bbbb"
+#     "bbbb"                                    "cccc";
+#     "cccc";
+AlwaysBreakBeforeMultilineStrings: true
+
+# Force break after template declaration only when the following declaration
+# spans multiple lines.
+#
+# template <typename T> T foo() {
+# }
+# template <typename T>
+# T foo(int aaaaaaaaaaaaaaaaaaaaa,
+#       int bbbbbbbbbbbbbbbbbbbbb) {
+# }
+AlwaysBreakTemplateDeclarations: MultiLine
+
+# If false, a function call’s arguments will either be all on the same line or
+# will have one line each.
+#
+# true:
+# void f() {
+#   f(aaaaaaaaaaaaaaaaaaaa, aaaaaaaaaaaaaaaaaaaa,
+#     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa);
+# }
+#
+# false:
+# void f() {
+#   f(aaaaaaaaaaaaaaaaaaaa,
+#     aaaaaaaaaaaaaaaaaaaa,
+#     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa);
+# }
+BinPackArguments:  false
+BinPackParameters: false # As BinPackArguments but for function definition parameters
+
+# Add space after the : only (space may be added before if needed for
+# AlignConsecutiveBitFields).
+#
+# unsigned bf: 2;
+BitFieldColonSpacing: After
+
+# LooooooooooongType loooooooooooooooooooooongVariable =
+#     someLooooooooooooooooongFunction();
+#
+# bool value = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa +
+#                      aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ==
+#                  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa &&
+#              aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa >
+#                  ccccccccccccccccccccccccccccccccccccccccc;
+BreakBeforeBinaryOperators: None
+
+# Always attach braces to surrounding context, but break before braces on
+# function, namespace and class definitions.
+BreakBeforeBraces: Linux
+
+# true:
+#  template<typename T>
+#  concept ...
+#
+# false:
+#  template<typename T> concept ...
+BreakBeforeConceptDeclarations: false
+
+# true:
+# veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongDescription
+#     ? firstValue
+#     : SecondValueVeryVeryVeryVeryLong;
+#
+# false:
+# veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongDescription ?
+#     firstValue :
+#     SecondValueVeryVeryVeryVeryLong;
+BreakBeforeTernaryOperators: true
+
+# Break constructor initializers before the colon and commas, and align the
+# commas with the colon.
+#
+# Constructor()
+#     : initializer1()
+#     , initializer2()
+BreakConstructorInitializers: BeforeComma
+
+# Break inheritance list only after the commas.
+#
+# class Foo : Base1,
+#             Base2
+# {};
+BreakInheritanceList: AfterComma
+
+# true:
+# const char* x = "veryVeryVeryVeryVeryVe"
+#                 "ryVeryVeryVeryVeryVery"
+#                 "VeryLongString";
+BreakStringLiterals: true
+ColumnLimit: 0
+
+# false:
+# namespace Foo {
+# namespace Bar {
+# }
+# }
+CompactNamespaces: false
+
+# true:                                  false:
+# vector<int> x{1, 2, 3, 4};     vs.     vector<int> x{ 1, 2, 3, 4 };
+# vector<T> x{{}, {}, {}, {}};           vector<T> x{ {}, {}, {}, {} };
+# f(MyMap[{composite, key}]);            f(MyMap[{ composite, key }]);
+# new int[3]{1, 2, 3};                   new int[3]{ 1, 2, 3 };
+Cpp11BracedListStyle: true
+
+# Analyze the formatted file for the most used line ending (\r\n or \n). UseCRLF
+# is only used as a fallback if none can be derived.
+DeriveLineEnding: true
+DerivePointerAlignment: true # As per DeriveLineEnding except for pointers and references
+
+# Add empty line only when access modifier starts a new logical block. Logical
+# block is a group of one or more member fields or functions.
+#
+# struct foo {
+# private:
+#   int i;
+#
+# protected:
+#   int j;
+#   /* comment */
+# public:
+#   foo() {}
+#
+# private:
+# protected:
+# };
+EmptyLineBeforeAccessModifier: LogicalBlock
+
+# true:                                  false:
+# namespace a {                  vs.     namespace a {
+# foo();                                 foo();
+# bar();                                 bar();
+# } // namespace a                       }
+FixNamespaceComments: true
+
+# false:                                 true:
+# class C {                      vs.     class C {
+#   class D {                                class D {
+#     void bar();                                void bar();
+#   protected:                                 protected:
+#     D();                                       D();
+#   };                                       };
+# public:                                  public:
+#   C();                                     C();
+# };                                     };
+# void foo() {                           void foo() {
+#   return 1;                              return 1;
+# }                                      }
+IndentAccessModifiers: false
+
+# false:                                 true:
+# switch (fool) {                vs.     switch (fool) {
+# case 1: {                              case 1:
+#   bar();                                 {
+# } break;                                   bar();
+# default: {                               }
+#   plop();                                break;
+# }                                      default:
+# }                                        {
+#                                            plop();
+#                                          }
+#                                        }
+IndentCaseBlocks: false
+
+# false:                                 true:
+# switch (fool) {                vs.     switch (fool) {
+# case 1:                                  case 1:
+#   bar();                                   bar();
+#   break;                                   break;
+# default:                                 default:
+#   plop();                                  plop();
+# }                                      }
+IndentCaseLabels: true
+
+# extern "C" {
+# void foo();
+# }
+IndentExternBlock: NoIndent
+
+# Indents directives before the hash.
+#
+# #if FOO
+#   #if BAR
+#     #include <foo>
+#   #endif
+# #endif
+IndentPPDirectives: BeforeHash
+
+# true:                                  false:
+# if (foo) {                     vs.     if (foo) {
+#                                          bar();
+#   bar();                               }
+# }
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+# The maximum number of consecutive empty lines to keep.
+#
+# MaxEmptyLinesToKeep: 1         vs.     MaxEmptyLinesToKeep: 0
+# int f() {                              int f() {
+#   int = 1;                                 int i = 1;
+#                                            i = foo();
+#   i = foo();                               return i;
+#                                        }
+#   return i;
+# }
+MaxEmptyLinesToKeep: 1
+NamespaceIndentation: None
+
+# Put all constructor initializers on the current line if they fit. Otherwise,
+# put each one on its own line.
+#
+# Constructor() : a(), b()
+#
+# Constructor()
+#     : aaaaaaaaaaaaaaaaaaaa(),
+#       bbbbbbbbbbbbbbbbbbbb(),
+#       ddddddddddddd()
+PackConstructorInitializers: CurrentLine
+PointerAlignment: Right
+
+# Different ways to arrange specifiers and qualifiers (e.g. const/volatile).
+QualifierAlignment: Custom
+QualifierOrder: ['inline', 'static', 'const', 'volatile', 'type']
+
+# false:
+# // veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of information
+# /* second veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of information */
+#
+# true:
+# // veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of
+# // information
+# /* second veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of
+#  * information */
+ReflowComments: true
+
+# false:                                     true:
+#
+# if (isa<FunctionDecl>(D)) {        vs.     if (isa<FunctionDecl>(D))
+#   handleFunctionDecl(D);                     handleFunctionDecl(D);
+# } else if (isa<VarDecl>(D)) {              else if (isa<VarDecl>(D))
+#   handleVarDecl(D);                          handleVarDecl(D);
+# }
+#
+# if (isa<VarDecl>(D)) {             vs.     if (isa<VarDecl>(D)) {
+#   for (auto *A : D.attrs()) {                for (auto *A : D.attrs())
+#     if (shouldProcessAttr(A)) {                if (shouldProcessAttr(A))
+#       handleAttr(A);                             handleAttr(A);
+#     }                                      }
+#   }
+# }
+#
+# if (isa<FunctionDecl>(D)) {        vs.     if (isa<FunctionDecl>(D))
+#   for (auto *A : D.attrs()) {                for (auto *A : D.attrs())
+#     handleAttr(A);                             handleAttr(A);
+#   }
+# }
+#
+# if (auto *D = (T)(D)) {            vs.     if (auto *D = (T)(D)) {
+#   if (shouldProcess(D)) {                    if (shouldProcess(D))
+#     handleVarDecl(D);                          handleVarDecl(D);
+#   } else {                                   else
+#     markAsIgnored(D);                          markAsIgnored(D);
+#   }                                        }
+# }
+# 
+# if (a) {                           vs.     if (a)
+#   b();                                       b();
+# } else {                                   else if (c)
+#   if (c) {                                   d();
+#     d();                                   else
+#   } else {                                   e();
+#     e();
+#   }
+# }
+RemoveBracesLLVM: true
+
+# Never                  v.s.     Always
+# #include <cstring>              #include <cstring>
+# struct Foo {
+#   int a, b, c;                  struct Foo {
+# };                                int a, b, c;
+# namespace Ns {                  };
+# class Bar {
+# public:                         namespace Ns {
+#   struct Foobar {               class Bar {
+#     int a;                      public:
+#     int b;                        struct Foobar {
+#   };                                int a;
+# private:                            int b;
+#   int t;                          };
+#   int method1() {
+#     // ...                      private:
+#   }                               int t;
+#   enum List {
+#     ITEM1,                        int method1() {
+#     ITEM2                           // ...
+#   };                              }
+#   template<typename T>
+#   int method2(T x) {              enum List {
+#     // ...                          ITEM1,
+#   }                                 ITEM2
+#   int i, j, k;                    };
+#   int method3(int par) {
+#     // ...                        template<typename T>
+#   }                               int method2(T x) {
+# };                                  // ...
+# class C {};                       }
+# }
+#                                   int i, j, k;
+#
+#                                   int method3(int par) {
+#                                     // ...
+#                                   }
+#                                 };
+#
+#                                 class C {};
+#                                 }
+SeparateDefinitionBlocks: Always
+
+# true:                                  false:
+# int a = 5;                     vs.     int a= 5;
+# a += 42;                               a+= 42;
+SpaceBeforeAssignmentOperators: true
+
+# Put a space before opening parentheses only after control statement keywords
+# (for/if/while...).
+#
+# void f() {
+#   if (true) {
+#     f();
+#   }
+# }
+SpaceBeforeParens: ControlStatements
+SpacesBeforeTrailingComments: 1
+
+# static_cast<int>(arg);
+# std::function<void(int)> fct;
+SpacesInAngles: Never
+
+Standard: Auto
+
+# Macros which are ignored in front of a statement, as if they were an
+# attribute. So that they are not parsed as identifier, for example for Qts
+# emit.
+# unsigned char data = 'x';
+# emit          signal(data); // This is parsed as variable declaration.
+#
+# vs.
+#
+# unsigned char data = 'x';
+# emit signal(data); // Now it's fine again.
+StatementAttributeLikeMacros: [emit]
+---

@@ -343,6 +343,11 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 describe("Withdraw contributor 1", async function () {
                     beforeEach(async function () {
                         const [owner, contributor1, contributor2] = await ethers.getSigners();
+
+                        // NOTE: Advance time
+                        await network.provider.send("evm_increaseTime", [60 * 60 * 24]);
+                        await network.provider.send("evm_mine");
+
                         await withdrawContributor(sentToken, snContribution, contributor1);
                     });
 
@@ -637,6 +642,48 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     await expect(snContribution.connect(owner)
                                                .rescueERC20(sentToken)).to.be.reverted;
                 });
+            });
+
+            it("Should revert withdrawal if less than 24 hours have passed", async function () {
+                const [owner, contributor] = await ethers.getSigners();
+                const minContribution = await snContribution.minimumContribution();
+                // Setting up contribution
+                await sentToken.transfer(contributor, TEST_AMNT);
+                await sentToken.connect(contributor).approve(snContribution, minContribution);
+                await snContribution.connect(contributor).contributeFunds(minContribution);
+
+                // Attempting to withdraw before 24 hours
+                await network.provider.send("evm_increaseTime", [60 * 60 * 23]); // Fast forward time by 23 hours
+                await network.provider.send("evm_mine");
+
+                // This withdrawal should fail
+                await expect(snContribution.connect(contributor).withdrawContribution())
+                    .to.be.revertedWith("Withdrawal unavailable: 24 hours have not passed");
+            });
+
+            it("Should allow withdrawal and return funds after 24 hours have passed", async function () {
+                const [owner, contributor] = await ethers.getSigners();
+                const minContribution = await snContribution.minimumContribution();
+                // Setting up contribution
+                await sentToken.transfer(contributor, TEST_AMNT);
+                await sentToken.connect(contributor).approve(snContribution, minContribution);
+                await snContribution.connect(contributor).contributeFunds(minContribution);
+
+                // Waiting for 24 hours
+                await network.provider.send("evm_increaseTime", [60 * 60 * 24]); // Fast forward time by 24 hours
+                await network.provider.send("evm_mine");
+
+                // Checking the initial balance before withdrawal
+                const initialBalance = await sentToken.balanceOf(contributor.getAddress());
+
+                // Performing the withdrawal
+                await expect(snContribution.connect(contributor).withdrawContribution())
+                    .to.emit(snContribution, "WithdrawContribution")
+                    .withArgs(await contributor.getAddress(), minContribution);
+
+                // Verify that the funds have returned to the contributor
+                const finalBalance = await sentToken.balanceOf(contributor.getAddress());
+                expect(finalBalance).to.equal(initialBalance + minContribution);
             });
         });
     });

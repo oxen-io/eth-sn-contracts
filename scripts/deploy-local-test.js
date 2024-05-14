@@ -34,6 +34,7 @@ async function main() {
         await mockERC20.getAddress(),              // token address
         await rewardRatePool.getAddress(),         // foundation pool address
         100000000000,                              // staking requirement
+        10,                                        // max contributors
         0,                                         // liquidator reward ratio
         0,                                         // pool share of liquidation ratio
         1                                          // recipient ratio
@@ -54,6 +55,12 @@ async function main() {
         chalk.cyan(`Reward Rate Pool Contract`),
         'deployed to:',
         chalk.greenBright(await rewardRatePool.getAddress()),
+    )
+    console.log(
+        '  ',
+        chalk.cyan(`SENT Contract Address`),
+        'deployed to:',
+        chalk.greenBright(await mockERC20.getAddress()),
     )
 }
 

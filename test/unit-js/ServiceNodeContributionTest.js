@@ -3,7 +3,6 @@ const { ethers } = require("hardhat");
 
 const STAKING_TEST_AMNT = 15000000000000
 const TEST_AMNT = 50000000000000
-const MAX_CONTRIBUTORS = 10;
 
 describe("ServiceNodeContributionFactory Contract Tests", function () {
   it("Should deploy and set the staking rewards contract address correctly", async function () {
@@ -22,7 +21,7 @@ describe("ServiceNodeContributionFactory Contract Tests", function () {
     const serviceNodeRewards = await ServiceNodeRewards.deploy(mockERC20, STAKING_TEST_AMNT);
 
     const ServiceNodeContributionFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
-    const serviceNodeContributionFactory = await ServiceNodeContributionFactory.deploy(serviceNodeRewards, MAX_CONTRIBUTORS);
+    const serviceNodeContributionFactory = await ServiceNodeContributionFactory.deploy(serviceNodeRewards);
 
     expect(await serviceNodeContributionFactory.stakingRewardsContract()).to.equal(await serviceNodeRewards.getAddress());
   });
@@ -50,7 +49,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         serviceNodeRewards = await ServiceNodeRewards.deploy(mockERC20, STAKING_TEST_AMNT);
 
         ServiceNodeContributionFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
-        serviceNodeContributionFactory = await ServiceNodeContributionFactory.deploy(serviceNodeRewards, MAX_CONTRIBUTORS);
+        serviceNodeContributionFactory = await ServiceNodeContributionFactory.deploy(serviceNodeRewards);
     });
 
     it("Allows deployment of contributor contract and logs correctly", async function () {
@@ -292,7 +291,7 @@ describe("ServiceNodeContribution minimum contribution tests", function () {
         serviceNodeRewards = await ServiceNodeRewards.deploy(mockERC20, STAKING_TEST_AMNT);
 
         ServiceNodeContributionFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
-        serviceNodeContributionFactory = await ServiceNodeContributionFactory.deploy(serviceNodeRewards, MAX_CONTRIBUTORS);
+        serviceNodeContributionFactory = await ServiceNodeContributionFactory.deploy(serviceNodeRewards);
         const [owner, operator, contributor] = await ethers.getSigners();
         const tx = await serviceNodeContributionFactory.connect(operator).deployContributionContract([0,0],[0,0,0,0]);
         const receipt = await tx.wait();

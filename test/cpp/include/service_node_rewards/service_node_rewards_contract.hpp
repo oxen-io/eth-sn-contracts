@@ -16,6 +16,11 @@ struct Recipient {
     Recipient(uint64_t _rewards, uint64_t _claimed) : rewards(_rewards), claimed(_claimed) {}
 };
 
+struct Contributor {
+    std::array<unsigned char, 20> address;
+    std::string                   amount;
+};
+
 struct ContractServiceNode {
     uint64_t                      next;
     uint64_t                      prev;
@@ -23,6 +28,7 @@ struct ContractServiceNode {
     bls::PublicKey                pubkey;
     uint64_t                      leaveRequestTimestamp;
     std::string                   deposit;
+    std::array<Contributor, 10>   contributors;
 };
 
 class ServiceNodeRewardsContract {

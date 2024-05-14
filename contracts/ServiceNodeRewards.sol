@@ -36,9 +36,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     bytes32 public liquidateTag;
 
     uint256 private _stakingRequirement;
-    uint256 _liquidatorRewardRatio;
-    uint256 _poolShareOfLiquidationRatio;
-    uint256 _recipientRatio;
+    uint256 private _maxContributors;
+    uint256 private _liquidatorRewardRatio;
+    uint256 private _poolShareOfLiquidationRatio;
+    uint256 private _recipientRatio;
 
     /// @notice Constructor for the Service Node Rewards Contract
     /// @param token_ The token used for rewards
@@ -47,7 +48,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param liquidatorRewardRatio_ The reward ratio for liquidators
     /// @param poolShareOfLiquidationRatio_ The pool share ratio during liquidation
     /// @param recipientRatio_ The recipient ratio for rewards
-    function initialize(address token_, address foundationPool_, uint256 stakingRequirement_, uint256 liquidatorRewardRatio_, uint256 poolShareOfLiquidationRatio_, uint256 recipientRatio_) initializer()  public {
+    function initialize(address token_, address foundationPool_, uint256 stakingRequirement_, uint256 maxContributors_, uint256 liquidatorRewardRatio_, uint256 poolShareOfLiquidationRatio_, uint256 recipientRatio_) initializer()  public {
         if (recipientRatio_ < 1) revert RecipientRewardsTooLow();
         IsActive                     = false;
         nextServiceNodeID            = 1;
@@ -62,6 +63,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         designatedToken              = IERC20(token_);
         foundationPool               = IERC20(foundationPool_);
         _stakingRequirement          = stakingRequirement_;
+        _maxContributors             = maxContributors_;
         _liquidatorRewardRatio       = liquidatorRewardRatio_;
         _poolShareOfLiquidationRatio = poolShareOfLiquidationRatio_;
         _recipientRatio              = recipientRatio_;
@@ -101,6 +103,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error DeleteSentinelNodeNotAllowed();
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
     error BLSPubkeyDoesNotMatch(uint64 serviceNodeID, BN256G1.G1Point pubkey);
+    error CallerNotContributor(uint64 serviceNodeID, address contributor);
     error ContractAlreadyActive();
     error ContractNotActive();
     error ContributionTotalMismatch(uint256 required, uint256 provided);
@@ -110,6 +113,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error InvalidBLSSignature();
     error InvalidBLSProofOfPossession();
     error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
+    error MaxContributorsExceeded();
     error NullRecipient();
     error RecipientAddressDoesNotMatch(address expectedRecipient, address providedRecipient, uint256 serviceNodeID);
     error RecipientRewardsTooLow();
@@ -193,13 +197,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @dev Internal function to add a BLS public key.
     /// @param blsPubkey - 64 bytes of the bls public key
     /// @param blsSignature - 128 byte bls proof of possession signature
-    /// @param operator - The address of the operator running the service node
+    /// @param caller - The address calling this function
     /// @param serviceNodeParams - Service node public key, signature proving ownership of public key and fee that operator is charging
     /// @param contributors - optional list of contributors to the service node, first is always the operator.
-    function _addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, address operator, ServiceNodeParams calldata serviceNodeParams, Contributor[] memory contributors) internal {
+    function _addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, address caller, ServiceNodeParams calldata serviceNodeParams, Contributor[] memory contributors) internal {
         if (!IsActive) revert ContractNotActive();
+        if (contributors.length > this.maxContributors()) revert MaxContributorsExceeded();
         if (contributors.length > 0) {
-            if (contributors[0].addr != operator) revert FirstContributorMismatch(operator, contributors[0].addr);
             uint256 totalAmount = 0;
             for (uint256 i = 0; i < contributors.length; i++) {
                 totalAmount += contributors[i].stakedAmount;
@@ -207,20 +211,23 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             if (totalAmount != _stakingRequirement)  revert ContributionTotalMismatch(_stakingRequirement, totalAmount);
         } else {
             contributors = new Contributor[](1);
-            contributors[0] = Contributor(operator, _stakingRequirement);
+            contributors[0] = Contributor(caller, _stakingRequirement);
         }
         uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(blsPubkey)];
         if (serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
-        validateProofOfPossession(blsPubkey, blsSignature, operator, serviceNodeParams.serviceNodePubkey);
+        validateProofOfPossession(blsPubkey, blsSignature, caller, serviceNodeParams.serviceNodePubkey);
 
-        uint64 allocID                  = serviceNodeAdd(blsPubkey);
-        // TODO sean only operator can exit atm need to make any contributor
-        _serviceNodes[allocID].operator = operator;
-        _serviceNodes[allocID].deposit  = _stakingRequirement;
+        uint64 allocID                      = serviceNodeAdd(blsPubkey);
+        _serviceNodes[allocID].operator     = contributors[0].addr;
+        for(uint256 i = 0; i < contributors.length; i++) {
+            _serviceNodes[allocID].contributors.push(contributors[i]);
+        }
+        _serviceNodes[allocID].deposit      = _stakingRequirement;
+
 
         updateBLSNonSignerThreshold();
-        emit NewServiceNode(allocID, operator, blsPubkey, serviceNodeParams, contributors);
-        SafeERC20.safeTransferFrom(designatedToken, operator, address(this), _stakingRequirement);
+        emit NewServiceNode(allocID, caller, blsPubkey, serviceNodeParams, contributors);
+        SafeERC20.safeTransferFrom(designatedToken, caller, address(this), _stakingRequirement);
     }
 
     /// @notice Validates the proof of possession for a given BLS public key.
@@ -242,15 +249,21 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         
     /// @notice Initiates the removal of a BLS public key.
     /// @param serviceNodeID The ID of the service node.
-    /// @param recipient The address of the recipient associated with the service node.
-    function _initiateRemoveBLSPublicKey(uint64 serviceNodeID, address recipient) internal {
+    /// @param caller The address of a contributor associated with the service node.
+    function _initiateRemoveBLSPublicKey(uint64 serviceNodeID, address caller) internal {
         if (!IsActive) revert ContractNotActive();
-        //TODO sean this needs to be any of the contributors
-        address serviceNodeRecipient = _serviceNodes[serviceNodeID].operator;
-        if(serviceNodeRecipient != recipient) revert RecipientAddressDoesNotMatch(serviceNodeRecipient, recipient, serviceNodeID);
-        if(_serviceNodes[serviceNodeID].leaveRequestTimestamp != 0) revert EarlierLeaveRequestMade(serviceNodeID, recipient);
+        bool isContributor = false;
+        for (uint256 i = 0; i < _serviceNodes[serviceNodeID].contributors.length; i++) {
+            if (_serviceNodes[serviceNodeID].contributors[i].addr == caller) {
+                isContributor = true;
+                break;
+            }
+        }
+        if (!isContributor) revert CallerNotContributor(serviceNodeID, caller);
+
+        if(_serviceNodes[serviceNodeID].leaveRequestTimestamp != 0) revert EarlierLeaveRequestMade(serviceNodeID, caller);
         _serviceNodes[serviceNodeID].leaveRequestTimestamp = block.timestamp;
-        emit ServiceNodeRemovalRequest(serviceNodeID, recipient, _serviceNodes[serviceNodeID].pubkey);
+        emit ServiceNodeRemovalRequest(serviceNodeID, caller, _serviceNodes[serviceNodeID].pubkey);
     }
 
     /// @notice Removes a BLS public key using an aggregated BLS signature from the network. This is the usual path for a node to exit the network. Anyone can call this function but only the user being removed will benefit from calling this. Once removed from the smart contracts list the network will release the staked amount.
@@ -525,6 +538,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @notice Getter function for stakingRequirement
     function stakingRequirement() external view returns (uint256) {
         return _stakingRequirement;
+    }
+
+    /// @notice Getter function for maxContributors
+    /// @dev If this is changed the size of contributors in IServiceNodeRewards needs to also be changed.
+    function maxContributors() public view returns (uint256) {
+        return _maxContributors;
     }
 
     /// @notice Getter function for the aggregatePubkey

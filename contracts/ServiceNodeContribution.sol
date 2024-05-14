@@ -249,10 +249,17 @@ contract ServiceNodeContribution is Shared {
      * must be done through that contract.
      */
     function withdrawContribution() public {
-        require(contributions[msg.sender] > 0,                                          "You have not contributed.");
-        require(block.timestamp - contributionTimestamp[msg.sender] > WITHDRAWAL_DELAY, "Withdrawal unavailable: 24 hours have not passed");
-        require(!finalized,                                                             "Node has already been finalized.");
-        require(msg.sender != operator,                                                 "Operator cannot withdraw");
+        require(contributions[msg.sender] > 0, "You have not contributed.");
+        require(!finalized,                    "Node has already been finalized.");
+        require(msg.sender != operator,        "Operator cannot withdraw");
+
+        // NOTE: We permit a withdraw if the contract has been cancelled (as the
+        // contract is killed and can no-longer be interacted with except
+        // removal of funds), a withdrawal delay is no longer required.
+        if (!cancelled) {
+            require(block.timestamp - contributionTimestamp[msg.sender] > WITHDRAWAL_DELAY, "Withdrawal unavailable: 24 hours have not passed");
+        }
+
         uint256 refundAmount = removeAndRefundContributor(msg.sender);
         emit WithdrawContribution(msg.sender, refundAmount);
     }

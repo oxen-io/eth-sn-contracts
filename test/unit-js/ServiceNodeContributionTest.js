@@ -204,6 +204,10 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     const totalContribution          = await serviceNodeContribution.totalContribution();
                     const contributorAddressesLength = await serviceNodeContribution.contributorAddressesLength();
 
+                    // NOTE: Advance time
+                    await network.provider.send("evm_increaseTime", [60 * 60 * 24]);
+                    await network.provider.send("evm_mine");
+
                     // NOTE: Withdraw stake
                     await serviceNodeContribution.connect(contributor1).withdrawStake();
 

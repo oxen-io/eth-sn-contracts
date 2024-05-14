@@ -56,6 +56,12 @@ async function main() {
         'deployed to:',
         chalk.greenBright(await rewardRatePool.getAddress()),
     )
+    console.log(
+        '  ',
+        chalk.cyan(`SENT Contract Address`),
+        'deployed to:',
+        chalk.greenBright(await mockERC20.getAddress()),
+    )
 }
 
 // We recommend this pattern to be able to use async/await everywhere

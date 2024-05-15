@@ -111,19 +111,17 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
      * @notice Gets rewards from staking and transfers to beneficiary
      */
     function claimRewards() external onlyBeneficiary notRevoked afterStart {
-        uint256 unstaked;
-
+        uint256 unstaked = 0;
         uint256 length = investorServiceNodes.length;
-
         for (uint256 i = 1; i < length + 1; i++) {
             IServiceNodeRewards.ServiceNode memory sn = stakingRewardsContract.serviceNodes(investorServiceNodes[i - 1].serviceNodeID);
             if (sn.deposit == 0) {
                 unstaked += investorServiceNodes[i - 1].deposit;
-                
+
                 // Remove service node from the array by swapping it with the last element and then popping the array
                 investorServiceNodes[i - 1] = investorServiceNodes[length - 1];
                 investorServiceNodes.pop();
-                
+
                 // Adjust loop variables since we modified the array
                 i--;
                 length--;

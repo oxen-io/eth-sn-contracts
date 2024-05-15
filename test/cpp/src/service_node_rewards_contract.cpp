@@ -1,5 +1,8 @@
 #include "service_node_rewards/service_node_rewards_contract.hpp"
 
+#include <ethyl/utils.hpp>
+#include <nlohmann/json.hpp>
+
 #include <iostream>
 
 ServiceNodeRewardsContract::ServiceNodeRewardsContract(const std::string& _contractAddress, std::shared_ptr<Provider> _provider)

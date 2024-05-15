@@ -53,10 +53,6 @@ endif()
 # Find all headers and implementation files
 include(cmake/SourcesAndHeaders.cmake)
 
-# Get NLOHMANN
-FetchContent_Declare(nlohmann URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
-FetchContent_MakeAvailable(nlohmann)
-
 add_subdirectory(external)
 
 add_library(

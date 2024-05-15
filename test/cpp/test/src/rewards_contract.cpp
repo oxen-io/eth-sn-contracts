@@ -4,6 +4,7 @@
 
 #include "ethyl/provider.hpp"
 #include "ethyl/signer.hpp"
+#include "ethyl/utils.hpp"
 #include "service_node_rewards/config.hpp"
 #include "service_node_rewards/service_node_rewards_contract.hpp"
 #include "service_node_rewards/erc20_contract.hpp"
@@ -19,7 +20,7 @@ std::string contract_address = provider->getContractDeployedInLatestBlock();
 
 ServiceNodeRewardsContract rewards_contract(contract_address, provider);
 Signer signer(provider);    
-std::vector<unsigned char> seckey = utils::fromHexString(std::string(config.PRIVATE_KEY));
+std::vector<unsigned char> seckey = utils::fromHexString(config.PRIVATE_KEY);
 //const std::string senderAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 const std::string senderAddress = signer.secretKeyToAddressString(seckey);
 

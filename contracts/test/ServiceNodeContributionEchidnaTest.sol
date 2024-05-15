@@ -51,9 +51,17 @@ contract ServiceNodeContributionEchidnaTest {
 
 
     constructor() {
-        snOperator = msg.sender;
-        sentToken  = new MockERC20("Session Token", "SENT", 9);
-        snRewards  = new MockServiceNodeRewards(address(sentToken), STAKING_REQUIREMENT);
+        snOperator                     = msg.sender;
+        sentToken                      = new MockERC20("Session Token", "SENT", 9);
+        snRewards                      = new MockServiceNodeRewards(address(sentToken), STAKING_REQUIREMENT);
+
+        snParams.serviceNodePubkey     = 1;
+        snParams.serviceNodeSignature1 = 2;
+        snParams.serviceNodeSignature2 = 3;
+        snParams.fee                   = 4;
+
+        blsPubkey.X                    = 5;
+        blsPubkey.Y                    = 6;
 
         snContribution = new ServiceNodeContribution(
             /*snRewards*/         address(snRewards),

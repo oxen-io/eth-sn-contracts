@@ -10,14 +10,14 @@ import "./libraries/Shared.sol";
  */
 contract SENT is ERC20, Shared {
     constructor(
-        uint256 totalSupply,
+        uint256 totalSupply_,
         address receiverGenesisAddress
     )
         ERC20("Session", "SENT")
         nzAddr(receiverGenesisAddress)
-        nzUint(totalSupply)
+        nzUint(totalSupply_)
     {
-        _mint(receiverGenesisAddress, totalSupply);
+        _mint(receiverGenesisAddress, totalSupply_);
     }
 
     function decimals() public pure override returns (uint8) {

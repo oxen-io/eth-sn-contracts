@@ -29,6 +29,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     uint256 public totalNodes;
     uint256 public blsNonSignerThreshold;
     uint256 public blsNonSignerThresholdMax;
+    uint256 public signatureExpiry;
 
     bytes32 public proofOfPossessionTag;
     bytes32 public rewardTag;
@@ -59,6 +60,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         rewardTag                    = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
         removalTag                   = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
         liquidateTag                 = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
+        signatureExpiry              = 10 minutes;
 
         designatedToken              = IERC20(token_);
         foundationPool               = IERC20(foundationPool_);
@@ -83,7 +85,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     mapping(uint64 => ServiceNode) private _serviceNodes;
     mapping(address => Recipient) public recipients;
     // Maps a bls public key (G1Point) to a serviceNodeID
-    mapping(bytes => uint64) public serviceNodeIDs;
+    mapping(bytes blsPublicKey => uint64 serviceNodeID) public serviceNodeIDs;
 
     BN256G1.G1Point public _aggregatePubkey;
 
@@ -97,6 +99,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event ServiceNodeRemoval(uint64 indexed serviceNodeID, address recipient, uint256 returnedAmount, BN256G1.G1Point pubkey);
     event ServiceNodeRemovalRequest(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
     event StakingRequirementUpdated(uint256 newRequirement);
+    event SignatureExpiryUpdated(uint256 newExpiry);
 
     // ERRORS
     error ArrayLengthMismatch();
@@ -118,6 +121,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error RecipientAddressDoesNotMatch(address expectedRecipient, address providedRecipient, uint256 serviceNodeID);
     error RecipientRewardsTooLow();
     error ServiceNodeDoesntExist(uint64 serviceNodeID);
+    error SignatureExpired(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
 
     //////////////////////////////////////////////////////////////
     //                                                          //
@@ -267,16 +271,19 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     }
 
     /// @notice Removes a BLS public key using an aggregated BLS signature from the network. This is the usual path for a node to exit the network. Anyone can call this function but only the user being removed will benefit from calling this. Once removed from the smart contracts list the network will release the staked amount.
-    /// @param serviceNodeID The ID of the service node to be removed.
     /// @param blsPubkey - 64 bytes of the bls public key
+    /// @param timestamp - The signature creation time
     /// @param blsSignature - 128 byte bls proof of possession signature
     /// @param ids An array of service node IDs that did not sign and to be excluded from aggregation.
-    function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external whenNotPaused {
+    function removeBLSPublicKeyWithSignature(BN256G1.G1Point calldata blsPubkey, uint256 timestamp, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external whenNotPaused {
+        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
+        uint64 serviceNodeID = serviceNodeIDs[pubkeyBytes];
+        if (block.timestamp > timestamp + signatureExpiry) revert SignatureExpired(serviceNodeID, timestamp, block.timestamp);
         if (!IsActive) revert ContractNotActive();
         if (ids.length > blsNonSignerThreshold) revert InsufficientBLSSignatures(serviceNodesLength() - ids.length, serviceNodesLength() - blsNonSignerThreshold);
         if (blsPubkey.X != _serviceNodes[serviceNodeID].pubkey.X || blsPubkey.Y != _serviceNodes[serviceNodeID].pubkey.Y) revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
         //Validating signature
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(removalTag, blsPubkey.X, blsPubkey.Y))));
+        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(removalTag, blsPubkey.X, blsPubkey.Y, timestamp))));
         BN256G1.G1Point memory pubkey;
         for(uint256 i = 0; i < ids.length; i++) {
             pubkey = BN256G1.add(pubkey, _serviceNodes[ids[i]].pubkey);
@@ -311,17 +318,20 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     }
 
     /// @notice Removes a BLS public key using a bls signature and rewards the caller for doing so. This function can be called by anyone, but requires the network to provide a valid signature to do so. The nodes will only provides this signature if the network wishes for the node to be forcably removed (ie from a dereg) without relying on the user to remove themselves.
-    /// @param serviceNodeID The ID of the service node to be liquidated.
     /// @param blsPubkey - 64 bytes of the bls public key
+    /// @param timestamp - The signature creation time
     /// @param blsSignature - 128 byte bls proof of possession signature
-    function liquidateBLSPublicKeyWithSignature(uint64 serviceNodeID, BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external whenNotPaused {
+    function liquidateBLSPublicKeyWithSignature(BN256G1.G1Point calldata blsPubkey, uint256 timestamp, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external whenNotPaused {
+        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
+        uint64 serviceNodeID = serviceNodeIDs[pubkeyBytes];
+        if (block.timestamp > timestamp + signatureExpiry) revert SignatureExpired(serviceNodeID, timestamp, block.timestamp);
         if (!IsActive) revert ContractNotActive();
         if (ids.length > blsNonSignerThreshold) revert InsufficientBLSSignatures(serviceNodesLength() - ids.length, serviceNodesLength() - blsNonSignerThreshold);
         ServiceNode memory node = _serviceNodes[serviceNodeID];
         if (blsPubkey.X != node.pubkey.X || blsPubkey.Y != node.pubkey.Y) revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
         //Validating signature
         {
-            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(liquidateTag, blsPubkey.X, blsPubkey.Y))));
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(liquidateTag, blsPubkey.X, blsPubkey.Y, timestamp))));
             BN256G1.G1Point memory pubkey;
             for(uint256 i = 0; i < ids.length; i++) {
                 pubkey = BN256G1.add(pubkey, _serviceNodes[ids[i]].pubkey);
@@ -481,6 +491,14 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         require(newRequirement > 0, "Staking requirement must be positive");
         _stakingRequirement = newRequirement;
         emit StakingRequirementUpdated(newRequirement);
+    }
+
+    /// @notice Setter function for signature expiry, only callable by owner
+    /// @param newExpiry the value being changed to
+    function setSignatureExpiry(uint256 newExpiry) public onlyOwner {
+        require(newExpiry > 0, "signature expiry must be positive");
+        signatureExpiry = newExpiry;
+        emit SignatureExpiryUpdated(newExpiry);
     }
 
     /// @notice Max number of permitted non-signers during signature aggregation

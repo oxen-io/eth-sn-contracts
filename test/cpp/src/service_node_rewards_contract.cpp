@@ -162,32 +162,32 @@ Recipient ServiceNodeRewardsContract::viewRecipientData(const std::string& addre
     return Recipient(rewards, claimed);
 }
 
-Transaction ServiceNodeRewardsContract::liquidateBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& pubkey, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
+Transaction ServiceNodeRewardsContract::liquidateBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
     Transaction tx(contractAddress, 0, 30000000);
-    std::string functionSelector = utils::getFunctionSignature("liquidateBLSPublicKeyWithSignature(uint64,(uint256,uint256),(uint256,uint256,uint256,uint256),uint64[])");
-    std::string node_id_padded = utils::padTo32Bytes(utils::decimalToHex(service_node_id), utils::PaddingDirection::LEFT);
-    // 8 Params: id, 2x pubkey, 4x sig, pointer to array
+    std::string functionSelector = utils::getFunctionSignature("liquidateBLSPublicKeyWithSignature((uint256,uint256),uint256,(uint256,uint256,uint256,uint256),uint64[])");
+    std::string timestamp_padded = utils::padTo32Bytes(utils::decimalToHex(timestamp), utils::PaddingDirection::LEFT);
+    // 8 Params: timestamp, 2x pubkey, 4x sig, pointer to array
     std::string indices_padded = utils::padTo32Bytes(utils::decimalToHex(8*32), utils::PaddingDirection::LEFT);
     indices_padded += utils::padTo32Bytes(utils::decimalToHex(non_signer_indices.size()), utils::PaddingDirection::LEFT);
     for (const auto index: non_signer_indices) {
         indices_padded += utils::padTo32Bytes(utils::decimalToHex(index), utils::PaddingDirection::LEFT);
     }
-    tx.data = functionSelector + node_id_padded + pubkey + sig + indices_padded;
+    tx.data = functionSelector + pubkey + timestamp_padded + sig + indices_padded;
 
     return tx;
 }
 
-Transaction ServiceNodeRewardsContract::removeBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& pubkey, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
+Transaction ServiceNodeRewardsContract::removeBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
     Transaction tx(contractAddress, 0, 30000000);
-    std::string functionSelector = utils::getFunctionSignature("removeBLSPublicKeyWithSignature(uint64,(uint256,uint256),(uint256,uint256,uint256,uint256),uint64[])");
-    std::string node_id_padded = utils::padTo32Bytes(utils::decimalToHex(service_node_id), utils::PaddingDirection::LEFT);
-    // 8 Params: id, 2x pubkey, 4x sig, pointer to array
+    std::string functionSelector = utils::getFunctionSignature("removeBLSPublicKeyWithSignature((uint256,uint256),uint256,(uint256,uint256,uint256,uint256),uint64[])");
+    std::string timestamp_padded = utils::padTo32Bytes(utils::decimalToHex(timestamp), utils::PaddingDirection::LEFT);
+    // 8 Params: timestamp, 2x pubkey, 4x sig, pointer to array
     std::string indices_padded = utils::padTo32Bytes(utils::decimalToHex(8*32), utils::PaddingDirection::LEFT);
     indices_padded += utils::padTo32Bytes(utils::decimalToHex(non_signer_indices.size()), utils::PaddingDirection::LEFT);
     for (const auto index: non_signer_indices) {
         indices_padded += utils::padTo32Bytes(utils::decimalToHex(index), utils::PaddingDirection::LEFT);
     }
-    tx.data = functionSelector + node_id_padded + pubkey + sig + indices_padded;
+    tx.data = functionSelector + pubkey + timestamp_padded + sig + indices_padded;
 
     return tx;
 }

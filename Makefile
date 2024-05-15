@@ -2,7 +2,7 @@
 
 test:
 	#REPORT_GAS=true npx hardhat test
-	npx hardhat test
+	npx hardhat test --parallel --bail
 
 build:
 	npx hardhat compile

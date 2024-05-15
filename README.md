@@ -67,7 +67,8 @@ analyzer that uses Python 3 and hence can be installed via
 Fuzz testing may then be run by executing:
 
 ```
-echidna . --contract ServiceNodeContributionEchidnaTest --config echidna.config.yml
+make node # Run the local devnet (note: This blocks the terminal)
+echidna . --contract ServiceNodeContributionEchidnaTest --config echidna-local.config.yml
 
 # Or alternatively via the make target
 

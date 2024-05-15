@@ -5,6 +5,7 @@ import "../ServiceNodeContribution.sol";
 import "./MockERC20.sol";
 import "./MockServiceNodeRewards.sol";
 
+
 // NOTE: We conduct assertion based testing for the service node contribution
 // contract in Echidna. When we use property based-testing, the sender of the
 // transactions to `ServiceNodeContribution.sol` is limited to this contract's
@@ -18,16 +19,31 @@ import "./MockServiceNodeRewards.sol";
 // We've left the `property` based testing in the contract but instead used them
 // with asserts to test arbitrary invariants at any point in the contract.
 
+// NOTE: If you suddenly trigger an assertion due to some faulty changes,
+// echidna reports a very unhelpful message when it tries to deploy the contract
+// to the devnet with:
+//
+// ```
+// echidna: Deploying the contract 0x00a329c0648769A73afAc7F9381E08FB43dBEA72 failed (revert, out-of-gas, sending ether to an non-payable constructor, etc.):
+// error Revert 0x
+// ```
+//
+// To debug this I recommend commenting out asserts one at a time to isolate
+// the assertion that is failing.
+//
+// I've noticed that there's a bug somewhere in Echidna itself where it refuses
+// to deploy a contract even though no assertions are triggered. However
+// shuffling code around, or, evaluating the assert in a different way
+// "suddenly" gets it to deploy. Very frustrating, there's no way to console.log
+// from echidna yet where I can double check this.
+
 contract ServiceNodeContributionEchidnaTest {
 
-    // TODO: Max contributors is hard-coded
     // TODO: Staking requirement is currently hard-coded to value in script/deploy-local-test.js
     // TODO: Immutable variables in the testing contract causes Echidna 2.2.3 to crash
-    uint256                               public STAKING_REQUIREMENT      = 100000000000;
-    uint256                               public MAX_CONTRIBUTORS         = 10;
-
+    uint256                               public STAKING_REQUIREMENT = 100000000000;
     IERC20                                public sentToken;
-    MockServiceNodeRewards                public stakingRewardsContract;
+    MockServiceNodeRewards                public snRewards;
     ServiceNodeContribution               public snContribution;
     IServiceNodeRewards.ServiceNodeParams public snParams;
     address                               public snOperator;
@@ -36,19 +52,20 @@ contract ServiceNodeContributionEchidnaTest {
 
     constructor() {
         snOperator = msg.sender;
-        sentToken = new MockERC20("Session Token", "SENT", 9);
-        stakingRewardsContract = new MockServiceNodeRewards(address(sentToken), STAKING_REQUIREMENT);
+        sentToken  = new MockERC20("Session Token", "SENT", 9);
+        snRewards  = new MockServiceNodeRewards(address(sentToken), STAKING_REQUIREMENT);
 
         snContribution = new ServiceNodeContribution(
-            /*stakingRewardsContract*/ address(stakingRewardsContract),
-            /*maxContributors*/        MAX_CONTRIBUTORS,
-            /*blsPubkey*/              blsPubkey,
-            /*serviceNodeParams*/      snParams);
-        
+            /*snRewards*/         address(snRewards),
+            /*maxContributors*/   snRewards.maxContributors(),
+            /*blsPubkey*/         blsPubkey,
+            /*serviceNodeParams*/ snParams);
+
+        assert(snContribution.maxContributors() == snRewards.maxContributors());
     }
 
     function mintTokensForTesting() internal {
-        if (sentToken.allowance(msg.sender, address(stakingRewardsContract)) <= 0) {
+        if (sentToken.allowance(msg.sender, address(snRewards)) <= 0) {
             sentToken.transferFrom(address(0), msg.sender, type(uint64).max);
             sentToken.approve(address(snContribution), type(uint64).max);
         }
@@ -60,14 +77,19 @@ contract ServiceNodeContributionEchidnaTest {
     //                                                          //
     //////////////////////////////////////////////////////////////
     function echidna_prop_max_contributor_limit() public view returns (bool) {
-        bool result = snContribution.numberContributors() < snContribution.maxContributors();
+        bool result = snContribution.contributorAddressesLength() <= snContribution.maxContributors();
         assert(result);
         return result;
     }
 
     function echidna_prop_total_contribution_is_staking_requirement() public view returns (bool) {
-        bool result = snContribution.totalContribution() == snContribution.maxContributors() ? (snContribution.totalContribution() == snContribution.stakingRequirement())
-                                                                                             : (snContribution.totalContribution() <  snContribution.stakingRequirement());
+        bool result   = true;
+        uint256 total = snContribution.totalContribution();
+        if (snContribution.finalized()) {
+            result = total == STAKING_REQUIREMENT;
+        } else {
+            result = total <= STAKING_REQUIREMENT;
+        }
         assert(result);
         return result;
     }
@@ -94,13 +116,13 @@ contract ServiceNodeContributionEchidnaTest {
 
         (uint256 blsPKeyX, uint256 blsPKeyY) = snContribution.blsPubkey();
 
-        bool result = address(stakingRewardsContract) == address(snContribution.stakingRewardsContract())          &&
-                      STAKING_REQUIREMENT             == snContribution.stakingRequirement()                       &&
-                      MAX_CONTRIBUTORS                == snContribution.maxContributors()                          &&
-                      snOperator                      == snContribution.operator()                                 &&
-                      sentToken                       == snContribution.stakingRewardsContract().designatedToken() &&
-                      blsPubkey.X                     == blsPKeyX                                                  &&
-                      blsPubkey.Y                     == blsPKeyY                                                  &&
+        bool result = address(snRewards)          == address(snContribution.stakingRewardsContract())          &&
+                      STAKING_REQUIREMENT         == snContribution.stakingRequirement()                       &&
+                      snRewards.maxContributors() == snContribution.maxContributors()                          &&
+                      snOperator                  == snContribution.operator()                                 &&
+                      sentToken                   == snContribution.stakingRewardsContract().designatedToken() &&
+                      blsPubkey.X                 == blsPKeyX                                                  &&
+                      blsPubkey.Y                 == blsPKeyY                                                  &&
                       snParamsLockedIn;
         assert(result);
         return result;
@@ -123,7 +145,7 @@ contract ServiceNodeContributionEchidnaTest {
             assert(snContribution.contributions(snContribution.operator()) == 0);
             assert(snContribution.operatorContribution()                   == 0);
             assert(snContribution.totalContribution()                      == 0);
-            assert(snContribution.numberContributors()                     == 0);
+            assert(snContribution.contributorAddressesLength()             == 0);
 
             try snContribution.contributeOperatorFunds(_amount, _blsSignature) {
             } catch {
@@ -133,7 +155,7 @@ contract ServiceNodeContributionEchidnaTest {
             assert(snContribution.contributions(snContribution.operator()) >= snContribution.minimumContribution());
             assert(snContribution.operatorContribution()                   >= snContribution.minimumContribution());
             assert(snContribution.totalContribution()                      >= snContribution.minimumContribution());
-            assert(snContribution.numberContributors()                     == 1);
+            assert(snContribution.contributorAddressesLength()             == 1);
 
             assert(sentToken.balanceOf(msg.sender) == balanceBeforeContribute - _amount);
         } else {
@@ -160,7 +182,7 @@ contract ServiceNodeContributionEchidnaTest {
             } catch {
             }
         }
-        assert(snContribution.numberContributors() < snContribution.maxContributors());
+        assert(snContribution.contributorAddressesLength() < snContribution.maxContributors());
         assert(snContribution.totalContribution() <= STAKING_REQUIREMENT);
 
         assert(sentToken.balanceOf(msg.sender) == balanceBeforeContribute - amount);
@@ -171,17 +193,17 @@ contract ServiceNodeContributionEchidnaTest {
         }
     }
 
-    function testWithdrawStake() public {
+    function testWithdrawContribution() public {
         uint256 contribution             = snContribution.contributions(msg.sender);
         uint256 balanceBeforeWithdraw    = sentToken.balanceOf(msg.sender);
-        uint256 numberContributorsBefore = snContribution.numberContributors();
+        uint256 numberContributorsBefore = snContribution.contributorAddressesLength();
 
-        try snContribution.withdrawStake() {
+        try snContribution.withdrawContribution() {
             // Withdraw can succeed if we are not the operator and we had
             // contributed to the contract
             assert(snOperator != msg.sender);
             assert(contribution > 0);
-            assert(snContribution.numberContributors() == (numberContributorsBefore - 1));
+            assert(snContribution.contributorAddressesLength() == (numberContributorsBefore - 1));
         } catch {
             assert(numberContributorsBefore == 0);
             assert(contribution == 0);
@@ -223,7 +245,7 @@ contract ServiceNodeContributionEchidnaTest {
         assert(sentToken.balanceOf(msg.sender) == balanceBeforeCancel + operatorContribution);
     }
 
-    function testResetNode(uint256 _amount) public {
+    function testResetContract(uint256 _amount) public {
         if (!snContribution.finalized() || snContribution.cancelled()) {
             try snContribution.resetContract(_amount) {
                 assert(false); // Can't reset until after finalized
@@ -250,6 +272,31 @@ contract ServiceNodeContributionEchidnaTest {
         }
     }
 
+    function testRescueERC20(uint256 amount) public {
+        if (msg.sender == snOperator && snContribution.finalized() && !snContribution.cancelled()) {
+            bool fundTheContract = (amount % 2 == 0); // NOTE: 50% chance of funding
+            if (fundTheContract)
+                sentToken.transferFrom(address(0), address(snContribution), amount);
+
+            if (fundTheContract) {
+                try snContribution.rescueERC20(address(sentToken)) {
+                } catch {
+                    assert(false); // Rescue should be allowed because we just funded the contract
+                }
+            } else {
+                try snContribution.rescueERC20(address(sentToken)) {
+                    assert(false); // Can't rescue because contract was not funded
+                } catch {
+                }
+            }
+        } else {
+            try snContribution.rescueERC20(address(sentToken)) {
+                assert(false); // Contract is not finalized or it is cancelled so we can't rescue
+            } catch {
+            }
+        }
+    }
+
     function testMinimumContribution() public view returns (uint256) {
         uint256 result = snContribution.minimumContribution();
         assert(result <= STAKING_REQUIREMENT);
@@ -257,26 +304,17 @@ contract ServiceNodeContributionEchidnaTest {
     }
 
     /*
-     * @notice Fuzz all branches of `_minimumContribution`
+     * @notice Fuzz all branches of `calcMinContribution`
      */
-    function test_MinimumContribution(uint256 _contributionRemaining, uint256 _numberContributors, uint256 _maxContributors) public view returns (uint256) {
-        uint256 result = snContribution._minimumContribution(_contributionRemaining,
-                                                             _numberContributors,
-                                                             _maxContributors);
-        return result;
-    }
-
-    /*
-     * @notice Fuzz the non-reverting branch of `_minimumContribution` by
-     * sanitising inputs into the desired ranges.
-     */
-    function testFiltered_MinimumContribution(uint256 _contributionRemaining, uint256 _numberContributors, uint256 _maxContributors) public view returns (uint256) {
-        uint256 maxContributors    = (_maxContributors    % (MAX_CONTRIBUTORS + 1));
-        uint256 numberContributors = (_numberContributors % (maxContributors  + 1));
-        uint256 result             = snContribution._minimumContribution(_contributionRemaining,
-                                                                         numberContributors,
-                                                                         maxContributors);
-        assert(result <= _contributionRemaining);
-        return result;
+    function testCalcMinimumContribution(uint256 contributionRemaining, uint256 numContributors, uint256 maxNumContributors) public view {
+        if ((maxNumContributors > numContributors) && (contributionRemaining > 0)) {
+            uint256 result = snContribution.calcMinimumContribution(contributionRemaining, numContributors, maxNumContributors);
+            assert(result <= contributionRemaining);
+        } else {
+            try snContribution.calcMinimumContribution(contributionRemaining, numContributors, maxNumContributors) {
+                assert(false); // All contributors used up, the minimum contribution should revert
+            } catch {
+            }
+        }
     }
 }

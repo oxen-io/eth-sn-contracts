@@ -41,7 +41,7 @@ contract ServiceNodeContributionEchidnaTest {
 
     // TODO: Staking requirement is currently hard-coded to value in script/deploy-local-test.js
     // TODO: Immutable variables in the testing contract causes Echidna 2.2.3 to crash
-    uint256                               public STAKING_REQUIREMENT = 100000000000;
+    uint256                               public constant STAKING_REQUIREMENT = 100000000000;
     IERC20                                public sentToken;
     MockServiceNodeRewards                public snRewards;
     ServiceNodeContribution               public snContribution;

@@ -18,8 +18,8 @@ contract MockServiceNodeRewards is Ownable {
 
     uint64 public nextServiceNodeID = 1;
     uint256 public totalNodes = 0;
-    uint256 public blsNonSignerThreshold = 0;
-    uint256 private _maxContributors = 10;
+    uint256 public constant blsNonSignerThreshold = 0;
+    uint256 private constant _maxContributors = 10;
     uint256 public stakingRequirement;
 
     mapping(uint64 => IServiceNodeRewards.ServiceNode) _serviceNodes;

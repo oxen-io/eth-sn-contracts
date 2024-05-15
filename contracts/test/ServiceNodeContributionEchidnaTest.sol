@@ -39,14 +39,11 @@ import "./MockServiceNodeRewards.sol";
 
 contract ServiceNodeContributionEchidnaTest {
 
-    // TODO: Max contributors is hard-coded
     // TODO: Staking requirement is currently hard-coded to value in script/deploy-local-test.js
     // TODO: Immutable variables in the testing contract causes Echidna 2.2.3 to crash
-    uint256                               public STAKING_REQUIREMENT      = 100000000000;
-    uint256                               public MAX_CONTRIBUTORS         = 10;
-
+    uint256                               public STAKING_REQUIREMENT = 100000000000;
     IERC20                                public sentToken;
-    MockServiceNodeRewards                public stakingRewardsContract;
+    MockServiceNodeRewards                public snRewards;
     ServiceNodeContribution               public snContribution;
     IServiceNodeRewards.ServiceNodeParams public snParams;
     address                               public snOperator;
@@ -54,21 +51,21 @@ contract ServiceNodeContributionEchidnaTest {
 
 
     constructor() {
-        snOperator             = msg.sender;
-        sentToken              = new MockERC20("Session Token", "SENT", 9);
-        stakingRewardsContract = new MockServiceNodeRewards(address(sentToken), STAKING_REQUIREMENT);
+        snOperator = msg.sender;
+        sentToken  = new MockERC20("Session Token", "SENT", 9);
+        snRewards  = new MockServiceNodeRewards(address(sentToken), STAKING_REQUIREMENT);
 
         snContribution = new ServiceNodeContribution(
-            /*stakingRewardsContract*/ address(stakingRewardsContract),
-            /*maxContributors*/        MAX_CONTRIBUTORS,
-            /*blsPubkey*/              blsPubkey,
-            /*serviceNodeParams*/      snParams);
+            /*snRewards*/         address(snRewards),
+            /*maxContributors*/   snRewards.maxContributors(),
+            /*blsPubkey*/         blsPubkey,
+            /*serviceNodeParams*/ snParams);
 
-        assert(snContribution.maxContributors() == MAX_CONTRIBUTORS);
+        assert(snContribution.maxContributors() == snRewards.maxContributors());
     }
 
     function mintTokensForTesting() internal {
-        if (sentToken.allowance(msg.sender, address(stakingRewardsContract)) <= 0) {
+        if (sentToken.allowance(msg.sender, address(snRewards)) <= 0) {
             sentToken.transferFrom(address(0), msg.sender, type(uint64).max);
             sentToken.approve(address(snContribution), type(uint64).max);
         }
@@ -119,13 +116,13 @@ contract ServiceNodeContributionEchidnaTest {
 
         (uint256 blsPKeyX, uint256 blsPKeyY) = snContribution.blsPubkey();
 
-        bool result = address(stakingRewardsContract) == address(snContribution.stakingRewardsContract())          &&
-                      STAKING_REQUIREMENT             == snContribution.stakingRequirement()                       &&
-                      MAX_CONTRIBUTORS                == snContribution.maxContributors()                          &&
-                      snOperator                      == snContribution.operator()                                 &&
-                      sentToken                       == snContribution.stakingRewardsContract().designatedToken() &&
-                      blsPubkey.X                     == blsPKeyX                                                  &&
-                      blsPubkey.Y                     == blsPKeyY                                                  &&
+        bool result = address(snRewards)          == address(snContribution.stakingRewardsContract())          &&
+                      STAKING_REQUIREMENT         == snContribution.stakingRequirement()                       &&
+                      snRewards.maxContributors() == snContribution.maxContributors()                          &&
+                      snOperator                  == snContribution.operator()                                 &&
+                      sentToken                   == snContribution.stakingRewardsContract().designatedToken() &&
+                      blsPubkey.X                 == blsPKeyX                                                  &&
+                      blsPubkey.Y                 == blsPKeyY                                                  &&
                       snParamsLockedIn;
         assert(result);
         return result;
@@ -309,24 +306,15 @@ contract ServiceNodeContributionEchidnaTest {
     /*
      * @notice Fuzz all branches of `calcMinContribution`
      */
-    function test_MinimumContribution(uint256 contributionRemaining, uint256 numContributors, uint256 maxNumContributors) public view returns (uint256) {
-        uint256 result = snContribution.calcMinimumContribution(contributionRemaining,
-                                                                numContributors,
-                                                                maxNumContributors);
-        return result;
-    }
-
-    /*
-     * @notice Fuzz the non-reverting branch of `_minimumContribution` by
-     * sanitising inputs into the desired ranges.
-     */
-    function testFiltered_MinimumContribution(uint256 contributionRemaining, uint256 numContributors, uint256 maxNumContributors) public view returns (uint256) {
-        maxNumContributors = (maxNumContributors % (MAX_CONTRIBUTORS   + 1));
-        numContributors    = (numContributors    % (maxNumContributors + 1));
-        uint256 result     = snContribution.calcMinimumContribution(contributionRemaining,
-                                                                    numContributors,
-                                                                    maxNumContributors);
-        assert(result <= contributionRemaining);
-        return result;
+    function testCalcMinimumContribution(uint256 contributionRemaining, uint256 numContributors, uint256 maxNumContributors) public view {
+        if ((maxNumContributors > numContributors) && (contributionRemaining > 0)) {
+            uint256 result = snContribution.calcMinimumContribution(contributionRemaining, numContributors, maxNumContributors);
+            assert(result <= contributionRemaining);
+        } else {
+            try snContribution.calcMinimumContribution(contributionRemaining, numContributors, maxNumContributors) {
+                assert(false); // All contributors used up, the minimum contribution should revert
+            } catch {
+            }
+        }
     }
 }

@@ -411,7 +411,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
             it("Max contributors cannot be exceeded", async function () {
                 expect(await snContribution.contributorAddressesLength()).to.equal(1); // SN operator
-                expect(await snContribution.maxContributors()).to.equal(MAX_CONTRIBUTORS);
+                expect(await snContribution.maxContributors()).to.equal(await snRewards.maxContributors());
 
                 const signers         = [];
                 const maxContributors = Number(await snContribution.maxContributors()) - 1; // Remove SN operator from list

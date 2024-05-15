@@ -204,7 +204,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param contributors - optional list of contributors to the service node, first is always the operator.
     function _addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, address caller, ServiceNodeParams calldata serviceNodeParams, Contributor[] memory contributors) internal {
         if (!IsActive) revert ContractNotActive();
-        if (contributors.length > this.maxContributors()) revert MaxContributorsExceeded();
+        if (contributors.length > maxContributors()) revert MaxContributorsExceeded();
         if (contributors.length > 0) {
             uint256 totalAmount = 0;
             for (uint256 i = 0; i < contributors.length; i++) {

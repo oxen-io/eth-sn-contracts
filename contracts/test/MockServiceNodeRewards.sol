@@ -41,7 +41,7 @@ contract MockServiceNodeRewards is Ownable {
 
         // Initialize the contributors array for the service node
         uint256 contributorsLength = contributors.length;
-        require(contributorsLength <= this.maxContributors(), "Exceeds maximum contributors");
+        require(contributorsLength <= maxContributors(), "Exceeds maximum contributors");
 
         for (uint256 i = 0; i < contributorsLength; i++) {
             //_serviceNodes[nextServiceNodeID].contributors[i] = contributors[i];

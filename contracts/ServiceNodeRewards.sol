@@ -52,7 +52,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     function initialize(address token_, address foundationPool_, uint256 stakingRequirement_, uint256 maxContributors_, uint256 liquidatorRewardRatio_, uint256 poolShareOfLiquidationRatio_, uint256 recipientRatio_) initializer()  public {
         if (recipientRatio_ < 1) revert RecipientRewardsTooLow();
         IsActive                     = false;
-        nextServiceNodeID            = 1;
         totalNodes                   = 0;
         blsNonSignerThreshold        = 0;
         blsNonSignerThresholdMax     = 300;

@@ -30,7 +30,7 @@ contract MockServiceNodeRewards is Ownable {
         stakingRequirement = _stakingRequirement;
     }
 
-    function maxContributors() public view returns (uint256) {
+    function maxContributors() public pure returns (uint256) {
         return _maxContributors;
     }
 

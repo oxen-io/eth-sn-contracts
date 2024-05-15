@@ -16,7 +16,7 @@ analyze:
 	# vesting or contribution withdrawal delays). At most Arbitrum nodes can
 	# rewind time by up to 24 hours or, 1 hr into the future.
 	slither . \
-		--filter-paths node_modules\|contracts/test/TestModifierOnlyOperatorViaProxyContract.sol \
+		--filter-paths node_modules\|contracts/test \
 		--exclude timestamp
 
 fuzz:

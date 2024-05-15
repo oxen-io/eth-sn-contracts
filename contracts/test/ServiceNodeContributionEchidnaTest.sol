@@ -218,8 +218,8 @@ contract ServiceNodeContributionEchidnaTest {
         }
 
         assert(!snContribution.finalized());
-        assert(snContribution.operatorContribution() >=  0 && snContribution.operatorContribution() <= STAKING_REQUIREMENT);
-        assert(snContribution.totalContribution()    >=  0 && snContribution.totalContribution()    <= STAKING_REQUIREMENT);
+        assert(snContribution.operatorContribution() <= STAKING_REQUIREMENT);
+        assert(snContribution.totalContribution()    <= STAKING_REQUIREMENT);
 
         assert(sentToken.balanceOf(msg.sender) == balanceBeforeWithdraw + contribution);
     }

@@ -136,7 +136,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
 
         uint256 amount = balanceAfterClaiming > balanceBeforeClaiming ? balanceAfterClaiming - balanceBeforeClaiming: 0;
 
-        SENT.transfer(beneficiary, amount);
+        SENT.safeTransfer(beneficiary, amount);
     }
 
     /**

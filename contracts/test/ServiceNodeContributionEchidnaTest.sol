@@ -66,7 +66,7 @@ contract ServiceNodeContributionEchidnaTest {
 
     function mintTokensForTesting() internal {
         if (sentToken.allowance(msg.sender, address(snRewards)) <= 0) {
-            sentToken.transferFrom(address(0), msg.sender, type(uint64).max);
+            assert(sentToken.transferFrom(address(0), msg.sender, type(uint64).max));
             sentToken.approve(address(snContribution), type(uint64).max);
         }
     }
@@ -276,7 +276,7 @@ contract ServiceNodeContributionEchidnaTest {
         if (msg.sender == snOperator && snContribution.finalized() && !snContribution.cancelled()) {
             bool fundTheContract = (amount % 2 == 0); // NOTE: 50% chance of funding
             if (fundTheContract)
-                sentToken.transferFrom(address(0), address(snContribution), amount);
+                assert(sentToken.transferFrom(address(0), address(snContribution), amount));
 
             if (fundTheContract) {
                 try snContribution.rescueERC20(address(sentToken)) {

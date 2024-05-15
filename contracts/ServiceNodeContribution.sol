@@ -237,7 +237,7 @@ contract ServiceNodeContribution is Shared {
         uint256 balance = token.balanceOf(address(this));
         require(balance > 0, "Contract has no balance of the specified token.");
 
-        token.transfer(operator, balance);
+        token.safeTransfer(operator, balance);
     }
 
     /**

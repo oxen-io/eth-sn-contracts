@@ -98,8 +98,8 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     {
         uint256 stakingRequirement = stakingRewardsContract.stakingRequirement();
         uint64 serviceNodeID       = stakingRewardsContract.nextServiceNodeID();
-        SENT.approve(address(stakingRewardsContract), stakingRequirement);
         investorServiceNodes.push(ServiceNode(serviceNodeID, stakingRequirement));
+        SENT.approve(address(stakingRewardsContract), stakingRequirement);
 
         // NOTE: Pass empty array, the contract will assume sender (this contract) as operator.
         IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](0);

@@ -12,7 +12,12 @@ node:
 	anvil
 
 analyze:
-	slither . --filter-paths node_modules
+	# NOTE: (Block) timestamp comparison warnings are ignored (typically
+	# vesting or contribution withdrawal delays). At most Arbitrum nodes can
+	# rewind time by up to 24 hours or, 1 hr into the future.
+	slither . \
+		--filter-paths node_modules\|contracts/test/TestModifierOnlyOperatorViaProxyContract.sol \
+		--exclude timestamp
 
 fuzz:
 	echidna . --contract ServiceNodeContributionEchidnaTest --config echidna-local.config.yml

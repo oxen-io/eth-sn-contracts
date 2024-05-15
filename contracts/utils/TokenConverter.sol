@@ -37,15 +37,15 @@ contract TokenConverter is Ownable, ReentrancyGuard {
 
     function depositTokenB(uint256 _amount) external onlyOwner {
         require(_amount > 0, "Amount must be greater than 0");
-        tokenB.safeTransferFrom(msg.sender, address(this), _amount);
         emit TokenBDeposited(_amount);
+        tokenB.safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     function withdrawTokenB(uint256 _amount) external onlyOwner {
         require(_amount > 0, "Amount must be greater than 0");
         require(tokenB.balanceOf(address(this)) >= _amount, "Insufficient balance");
-        tokenB.safeTransfer(msg.sender, _amount);
         emit TokenBWithdrawn(_amount);
+        tokenB.safeTransfer(msg.sender, _amount);
     }
 
     function convertTokens(uint256 _amountA) external nonReentrant {

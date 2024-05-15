@@ -8,8 +8,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 contract TokenConverter is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    IERC20 public tokenA;
-    IERC20 public tokenB;
+    IERC20 public immutable tokenA;
+    IERC20 public immutable tokenB;
     uint256 public conversionRateNumerator;
     uint256 public conversionRateDenominator;
 

@@ -2,8 +2,9 @@
 #include "service_node_rewards/ec_utils.hpp"
 #include "ethyl/utils.hpp"
 
-#include <random>
 #include <algorithm>
+#include <chrono>
+#include <random>
 
 const std::string proofOfPossessionTag = "BLS_SIG_TRYANDINCREMENT_POP";
 const std::string rewardTag = "BLS_SIG_TRYANDINCREMENT_REWARD";
@@ -168,30 +169,32 @@ uint64_t ServiceNodeList::randomServiceNodeID() {
     return serviceNodeIDs[0];
 }
 
-std::pair<std::string, std::string> ServiceNodeList::liquidateNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
+std::tuple<std::string, uint64_t, std::string> ServiceNodeList::liquidateNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
     std::string pubkey = nodes[static_cast<size_t>(findNodeIndex(nodeID))].getPublicKeyHex();
     std::string fullTag = buildTag(liquidateTag, chainID, contractAddress);
-    std::string message = "0x" + fullTag + pubkey;
+    auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    std::string message = "0x" + fullTag + pubkey + utils::padTo32Bytes(utils::decimalToHex(timestamp), utils::PaddingDirection::LEFT);
     const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& service_node_id: service_node_ids) {
         aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
     }
-    return std::make_pair(pubkey, utils::SignatureToHex(aggSig));
+    return std::make_tuple(pubkey, timestamp, utils::SignatureToHex(aggSig));
 }
 
-std::pair<std::string, std::string> ServiceNodeList::removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
+std::tuple<std::string, uint64_t, std::string> ServiceNodeList::removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
     std::string pubkey = nodes[static_cast<size_t>(findNodeIndex(nodeID))].getPublicKeyHex();
     std::string fullTag = buildTag(removalTag, chainID, contractAddress);
-    std::string message = "0x" + fullTag + pubkey;
+    auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    std::string message = "0x" + fullTag + pubkey + utils::padTo32Bytes(utils::decimalToHex(timestamp), utils::PaddingDirection::LEFT);
     const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& service_node_id: service_node_ids) {
         aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
     }
-    return std::make_pair(pubkey, utils::SignatureToHex(aggSig));
+    return std::make_tuple(pubkey, timestamp, utils::SignatureToHex(aggSig));
 }
 
 std::string ServiceNodeList::updateRewardsBalance(const std::string& address, const uint64_t amount, const uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {

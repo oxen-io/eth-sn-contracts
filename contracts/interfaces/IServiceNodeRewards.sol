@@ -66,9 +66,9 @@ interface IServiceNodeRewards {
     function claimRewards() external;
     function addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, ServiceNodeParams calldata serviceNodeParams, Contributor[] calldata contributors) external;
     function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external;
-    function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external;
+    function removeBLSPublicKeyWithSignature(BN256G1.G1Point calldata blsPubkey, uint256 timestamp, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external;
     function removeBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external;
-    function liquidateBLSPublicKeyWithSignature(uint64 serviceNodeID, BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external;
+    function liquidateBLSPublicKeyWithSignature(BN256G1.G1Point calldata blsPubkey, uint256 timestamp, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external;
     function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) external;
     function serviceNodesLength() external view returns (uint256 count);
     function updateServiceNodesLength() external;

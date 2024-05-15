@@ -50,10 +50,10 @@ public:
     bls::PublicKey      aggregatePubkey();
     Recipient           viewRecipientData(const std::string& address);
 
-    Transaction liquidateBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& pubkey, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
+    Transaction liquidateBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
     Transaction initiateRemoveBLSPublicKey(const uint64_t service_node_id);
     Transaction removeBLSPublicKeyAfterWaitTime(const uint64_t service_node_id);
-    Transaction removeBLSPublicKeyWithSignature(const uint64_t service_node_id, const std::string& pubkey, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
+    Transaction removeBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
     Transaction updateRewardsBalance(const std::string& address, const uint64_t amount, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
     Transaction claimRewards();
     Transaction start();

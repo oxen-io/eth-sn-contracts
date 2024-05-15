@@ -96,9 +96,8 @@ contract TokenVestingNoStaking is ITokenVestingNoStaking, Shared {
 
         revoked = true;
 
-        token.safeTransfer(revoker, refund);
-
         emit TokenVestingRevoked(token, refund);
+        token.safeTransfer(revoker, refund);
     }
 
     /**

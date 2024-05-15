@@ -166,16 +166,13 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     function revoke(IERC20 token) external override onlyRevoker notRevoked {
         require(block.timestamp <= end, "Vesting: vesting expired");
 
-        uint256 balance = token.balanceOf(address(this));
-
+        uint256 balance    = token.balanceOf(address(this));
         uint256 unreleased = _releasableAmount(token);
-        uint256 refund = balance - unreleased;
-
-        revoked = true;
-
-        token.safeTransfer(revoker, refund);
+        uint256 refund     = balance - unreleased;
+        revoked            = true;
 
         emit TokenVestingRevoked(token, refund);
+        token.safeTransfer(revoker, refund);
     }
 
     /**

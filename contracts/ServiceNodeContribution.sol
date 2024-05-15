@@ -148,9 +148,9 @@ contract ServiceNodeContribution is Shared {
         // NOTE: Update the amount contributed and transfer the tokens
         contributions[msg.sender] += amount;
         contributionTimestamp[msg.sender] = block.timestamp;
-        SENT.safeTransferFrom(msg.sender, address(this), amount);
-
         emit NewContribution(msg.sender, amount);
+
+        SENT.safeTransferFrom(msg.sender, address(this), amount);
 
         // NOTE: Finalize the node if the staking requirement is met
         if (totalContribution() == stakingRequirement) {
@@ -172,6 +172,8 @@ contract ServiceNodeContribution is Shared {
         // NOTE: Finalise the contract and setup the contributors for the
         // `stakingRewardsContract`
         finalized = true;
+        emit Finalized(serviceNodeParams.serviceNodePubkey);
+
         IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](contributorAddresses.length);
         uint256 arrayLength                                   = contributorAddresses.length;
         for (uint256 i = 0; i < arrayLength; i++) {
@@ -183,7 +185,6 @@ contract ServiceNodeContribution is Shared {
         // `stakingRewardsContract`
         SENT.approve(address(stakingRewardsContract), stakingRequirement);
         stakingRewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
-        emit Finalized(serviceNodeParams.serviceNodePubkey);
     }
 
     /**

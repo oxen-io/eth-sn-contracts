@@ -52,9 +52,9 @@ contract TokenConverter is Ownable, ReentrancyGuard {
         require(_amountA > 0, "Amount must be greater than 0");
         uint256 amountB = (_amountA * conversionRateNumerator) / conversionRateDenominator;
         require(tokenB.balanceOf(address(this)) >= amountB, "Insufficient Token B in contract");
+        emit Conversion(msg.sender, _amountA, amountB);
         tokenA.safeTransferFrom(msg.sender, address(this), _amountA);
         tokenB.safeTransfer(msg.sender, amountB);
-        emit Conversion(msg.sender, _amountA, amountB);
     }
 }
 

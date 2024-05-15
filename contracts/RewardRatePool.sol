@@ -52,8 +52,8 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
         uint256 released         = newTotalPaidOut - totalPaidOut;
         totalPaidOut             = newTotalPaidOut;
         lastPaidOutTime          = block.timestamp;
-        SENT.safeTransfer(beneficiary, released);
         emit FundsReleased(released);
+        SENT.safeTransfer(beneficiary, released);
     }
 
     /// @notice Setter function for beneficiary, only callable by owner

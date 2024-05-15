@@ -163,11 +163,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param claimingAddress The address claiming the rewards.
     function _claimRewards(address claimingAddress) internal {
         uint256 claimedRewards = recipients[claimingAddress].claimed;
-        uint256 totalRewards = recipients[claimingAddress].rewards;
+        uint256 totalRewards   = recipients[claimingAddress].rewards;
         uint256 amountToRedeem = totalRewards - claimedRewards;
+
         recipients[claimingAddress].claimed = totalRewards;
-        SafeERC20.safeTransfer(designatedToken, claimingAddress, amountToRedeem);
         emit RewardsClaimed(claimingAddress, amountToRedeem);
+
+        SafeERC20.safeTransfer(designatedToken, claimingAddress, amountToRedeem);
     }
 
     /// @notice Allows users to claim their rewards. Main entry point for users claiming. Should be called after first updating rewards

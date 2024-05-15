@@ -11,6 +11,9 @@ node:
 	#npx hardhat node
 	anvil
 
+analyze:
+	slither . --filter-paths node_modules
+
 fuzz:
 	echidna . --contract ServiceNodeContributionEchidnaTest --config echidna-local.config.yml
 

@@ -79,3 +79,11 @@ We run Echidna in `assertion` testing mode which allows echidna to simulate
 multiple senders (because our contracts can potentially use multiple wallets).
 `property` testing mode simulates the transactions as if they were originating
 from the smart contract which is not as useful for testing our contracts.
+
+### Slither
+
+You can run `slither` a static analyzer separately from Echidna by executing:
+
+```
+make analyze
+```

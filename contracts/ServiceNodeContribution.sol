@@ -173,7 +173,8 @@ contract ServiceNodeContribution is Shared {
         // `stakingRewardsContract`
         finalized = true;
         IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](contributorAddresses.length);
-        for (uint256 i = 0; i < contributorAddresses.length; i++) {
+        uint256 arrayLength                                   = contributorAddresses.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address contributorAddress = contributorAddresses[i];
             contributors[i]            = IServiceNodeRewards.Contributor(contributorAddress, contributions[contributorAddress]);
         }
@@ -206,7 +207,8 @@ contract ServiceNodeContribution is Shared {
         require(finalized, "You cannot reset a contract that hasn't been finalised yet");
 
         // NOTE: Zero out all addresses in `contributions`
-        for (uint256 i = 0; i < contributorAddresses.length; i++) {
+        uint256 arrayLength = contributorAddresses.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address toRemove        = contributorAddresses[i];
             contributions[toRemove] = 0;
         }
@@ -302,9 +304,10 @@ contract ServiceNodeContribution is Shared {
         contributions[toRemove] = 0;
 
         // 2) Removing their address from the contribution array
-        for (uint256 index = 0; index < contributorAddresses.length; index++) {
+        uint256 arrayLength = contributorAddresses.length;
+        for (uint256 index = 0; index < arrayLength; index++) {
             if (toRemove == contributorAddresses[index]) {
-                contributorAddresses[index] = contributorAddresses[contributorAddresses.length - 1];
+                contributorAddresses[index] = contributorAddresses[arrayLength - 1];
                 contributorAddresses.pop();
                 break;
             }
@@ -405,7 +408,8 @@ contract ServiceNodeContribution is Shared {
      * @notice Sum up all the contributions recorded in the contributors list
      */
     function totalContribution() public view returns (uint256 result) {
-        for (uint256 i = 0; i < contributorAddresses.length; i++) {
+        uint256 arrayLength = contributorAddresses.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address entry  = contributorAddresses[i];
             result        += contributions[entry];
         }

@@ -152,32 +152,35 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     ///    and the recipient structure is updated with the amount of tokens they are allowed to claim.
     /// 3) User will call `claimRewards` which will pay out their balance in the recipients struct.
 
-	/// @notice Updates the rewards balance for a given recipient, requires a BLS signature from the network
-	/// @param recipientAddress The address of the recipient.
-	/// @param recipientRewards The amount of rewards the recipient is allowed to claim.
+    /// @notice Updates the rewards balance for a given recipient, requires a BLS signature from the network
+    /// @param recipientAddress The address of the recipient.
+    /// @param recipientRewards The amount of rewards the recipient is allowed to claim.
     /// @param blsSignature - 128 byte bls proof of possession signature
     /// @param ids An array of service node IDs that did not sign and to be excluded from aggregation.
-	function updateRewardsBalance( address recipientAddress, uint256 recipientRewards, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external
-            whenNotPaused
-            whenStarted
-            hasEnoughSigners(ids.length)
-        {
-        if (recipientAddress == address(0)) revert NullRecipient();
-        if (recipients[recipientAddress].rewards >= recipientRewards) revert RecipientRewardsTooLow();
-		BN256G1.G1Point memory pubkey;
-		for(uint256 i = 0; i < ids.length; i++) {
-			pubkey = BN256G1.add(pubkey, _serviceNodes[ids[i]].pubkey);
-		}
-		pubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(pubkey));
-        BN256G2.G2Point memory signature = BN256G2.G2Point([blsSignature.sigs1,blsSignature.sigs0],[blsSignature.sigs3,blsSignature.sigs2]);
-		bytes memory encodedMessage = abi.encodePacked(rewardTag, recipientAddress, recipientRewards);
-		BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
-		if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
+    function updateRewardsBalance( address recipientAddress, uint256 recipientRewards, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external
+        whenNotPaused
+        whenStarted
+        hasEnoughSigners(ids.length)
+    {
+        if (recipientAddress == address(0)) {
+            revert NullRecipient();
+        }
 
-		uint256 previousBalance = recipients[recipientAddress].rewards;
-		recipients[recipientAddress].rewards = recipientRewards;
-		emit RewardsBalanceUpdated(recipientAddress, recipientRewards, previousBalance);
-	}
+        if (recipients[recipientAddress].rewards >= recipientRewards) {
+            revert RecipientRewardsTooLow();
+        }
+
+        // NOTE: Validate signature
+        {
+            bytes memory encodedMessage = abi.encodePacked(rewardTag, recipientAddress, recipientRewards);
+            BN256G2.G2Point memory Hm   = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            validateSignatureOrRevert(ids, blsSignature, Hm);
+        }
+
+        uint256 previousBalance              = recipients[recipientAddress].rewards;
+        recipients[recipientAddress].rewards = recipientRewards;
+        emit RewardsBalanceUpdated(recipientAddress, recipientRewards, previousBalance);
+    }
 
     /// @dev Internal function to handle reward claims. Will transfer the available rewards worth of our token to claimingAddress
     /// @param claimingAddress The address claiming the rewards.
@@ -269,7 +272,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     function initiateRemoveBLSPublicKey(uint64 serviceNodeID) public whenNotPaused {
         _initiateRemoveBLSPublicKey(serviceNodeID, msg.sender);
     }
-        
+
     /// @notice Initiates the removal of a BLS public key.
     /// @param serviceNodeID The ID of the service node.
     /// @param caller The address of a contributor associated with the service node.
@@ -305,15 +308,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
 
         if (blsPubkey.X != _serviceNodes[serviceNodeID].pubkey.X || blsPubkey.Y != _serviceNodes[serviceNodeID].pubkey.Y) revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
-        //Validating signature
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(removalTag, blsPubkey.X, blsPubkey.Y, timestamp))));
-        BN256G1.G1Point memory pubkey;
-        for(uint256 i = 0; i < ids.length; i++) {
-            pubkey = BN256G1.add(pubkey, _serviceNodes[ids[i]].pubkey);
+
+        // NOTE: Validate signature
+        {
+            bytes memory encodedMessage = abi.encodePacked(removalTag, blsPubkey.X, blsPubkey.Y, timestamp);
+            BN256G2.G2Point memory Hm   = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            validateSignatureOrRevert(ids, blsSignature, Hm);
         }
-        pubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(pubkey));
-        BN256G2.G2Point memory signature = BN256G2.G2Point([blsSignature.sigs1,blsSignature.sigs0],[blsSignature.sigs3,blsSignature.sigs2]);
-        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
 
         _removeBLSPublicKey(serviceNodeID, _serviceNodes[serviceNodeID].deposit);
     }
@@ -357,18 +358,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         ServiceNode memory node = _serviceNodes[serviceNodeID];
         if (blsPubkey.X != node.pubkey.X || blsPubkey.Y != node.pubkey.Y) revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
 
-        //Validating signature
+        // NOTE: Validate signature
         {
-            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(abi.encodePacked(liquidateTag, blsPubkey.X, blsPubkey.Y, timestamp))));
-            BN256G1.G1Point memory pubkey;
-            for(uint256 i = 0; i < ids.length; i++) {
-                pubkey = BN256G1.add(pubkey, _serviceNodes[ids[i]].pubkey);
-            }
-            pubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(pubkey));
-            BN256G2.G2Point memory signature = BN256G2.G2Point([blsSignature.sigs1,blsSignature.sigs0],[blsSignature.sigs3,blsSignature.sigs2]);
-            if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), Hm)) revert InvalidBLSSignature();
+            bytes memory encodedMessage = abi.encodePacked(liquidateTag, blsPubkey.X, blsPubkey.Y, timestamp);
+            BN256G2.G2Point memory Hm   = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            validateSignatureOrRevert(ids, blsSignature, Hm);
         }
-
 
         // Calculating how much liquidator is paid out
         uint256 ratioSum = _poolShareOfLiquidationRatio + _liquidatorRewardRatio + _recipientRatio;
@@ -544,6 +539,29 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     //                Non-state-changing functions              //
     //                                                          //
     //////////////////////////////////////////////////////////////
+
+    /// @notice Validate the signature against `hashToVerify` by negating the
+    /// list of non-signers from the aggregate BLS public key stored on the
+    /// smart contract.
+    ///
+    /// This function reverts if the signature can not be verified against
+    /// `hashToVerify`.
+    function validateSignatureOrRevert(uint64[] memory listOfNonSigners,
+                                       BLSSignatureParams memory blsSignature,
+                                       BN256G2.G2Point memory hashToVerify) private {
+        BN256G1.G1Point memory pubkey;
+        for(uint256 i = 0; i < listOfNonSigners.length; i++) {
+            uint64 serviceNodeID = listOfNonSigners[i];
+            pubkey               = BN256G1.add(pubkey, _serviceNodes[serviceNodeID].pubkey);
+        }
+
+        pubkey                           = BN256G1.add(_aggregatePubkey, BN256G1.negate(pubkey));
+        BN256G2.G2Point memory signature = BN256G2.G2Point([blsSignature.sigs1,blsSignature.sigs0],[blsSignature.sigs3,blsSignature.sigs2]);
+
+        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), hashToVerify)) {
+            revert InvalidBLSSignature();
+        }
+    }
 
     /// @notice Verify that time-since the timestamp has not exceeded the expiry
     /// threshold `signatureExpiry`.

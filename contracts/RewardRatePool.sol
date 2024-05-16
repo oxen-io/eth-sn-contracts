@@ -20,13 +20,13 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     uint256 public lastPaidOutTime;
     uint64 public constant ANNUAL_INTEREST_RATE = 145; // 14.5% in tenths of a percent
     uint64 public constant BASIS_POINTS = 1000; // Basis points for percentage calculation
-    
+
     /**
      * @dev Sets the initial beneficiary and SENT token address.
      * @param _beneficiary Address that will receive the interest payouts.
      * @param _sent Address of the SENT ERC20 token contract.
      */
-    function initialize(address _beneficiary, address _sent) initializer()  public {
+    function initialize(address _beneficiary, address _sent) public initializer {
         beneficiary = _beneficiary;
         lastPaidOutTime = block.timestamp;
         SENT = IERC20(_sent);
@@ -48,10 +48,10 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
      * Updates the total paid out and the last payout time.
      */
     function payoutReleased() public {
-        uint256 newTotalPaidOut  = calculateReleasedAmount(block.timestamp);
-        uint256 released         = newTotalPaidOut - totalPaidOut;
-        totalPaidOut             = newTotalPaidOut;
-        lastPaidOutTime          = block.timestamp;
+        uint256 newTotalPaidOut = calculateReleasedAmount(block.timestamp);
+        uint256 released = newTotalPaidOut - totalPaidOut;
+        totalPaidOut = newTotalPaidOut;
+        lastPaidOutTime = block.timestamp;
         emit FundsReleased(released);
         SENT.safeTransfer(beneficiary, released);
     }
@@ -105,7 +105,6 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
      * @return The calculated interest amount.
      */
     function calculateInterestAmount(uint256 balance, uint256 timeElapsed) public pure returns (uint256) {
-        return balance * ANNUAL_INTEREST_RATE * timeElapsed / (BASIS_POINTS * 365 days);
+        return (balance * ANNUAL_INTEREST_RATE * timeElapsed) / (BASIS_POINTS * 365 days);
     }
 }
-

@@ -12,11 +12,7 @@ contract SENT is ERC20, Shared {
     constructor(
         uint256 totalSupply_,
         address receiverGenesisAddress
-    )
-        ERC20("Session", "SENT")
-        nzAddr(receiverGenesisAddress)
-        nzUint(totalSupply_)
-    {
+    ) ERC20("Session", "SENT") nzAddr(receiverGenesisAddress) nzUint(totalSupply_) {
         _mint(receiverGenesisAddress, totalSupply_);
     }
 

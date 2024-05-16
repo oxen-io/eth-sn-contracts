@@ -23,4 +23,3 @@ contract TestModifierOnlyOperatorViaProxyContract {
         snContributionContract.cancelNode();
     }
 }
-

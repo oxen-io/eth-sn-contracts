@@ -27,8 +27,7 @@ library BN256G1 {
 
     /// @return r the negation of p, i.e. p.add(p.negate()) should be zero.
     function negate(G1Point memory p) internal pure returns (G1Point memory r) {
-        if (p.X == 0 && p.Y == 0)
-            return G1Point(0, 0);
+        if (p.X == 0 && p.Y == 0) return G1Point(0, 0);
         return G1Point(p.X, FIELD_MODULUS - (p.Y % FIELD_MODULUS));
     }
 

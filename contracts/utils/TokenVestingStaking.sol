@@ -89,15 +89,13 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
      * @param blsSignature - 128 byte signature
      * @param serviceNodeParams - Service node public key, signature proving ownership of public key and fee that operator is charging
      */
-    function addBLSPublicKey(BN256G1.G1Point calldata blsPubkey,
-                             IServiceNodeRewards.BLSSignatureParams calldata blsSignature,
-                             IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams) external
-        onlyBeneficiary
-        notRevoked
-        afterStart
-    {
+    function addBLSPublicKey(
+        BN256G1.G1Point calldata blsPubkey,
+        IServiceNodeRewards.BLSSignatureParams calldata blsSignature,
+        IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams
+    ) external onlyBeneficiary notRevoked afterStart {
         uint256 stakingRequirement = stakingRewardsContract.stakingRequirement();
-        uint64 serviceNodeID       = stakingRewardsContract.nextServiceNodeID();
+        uint64 serviceNodeID = stakingRewardsContract.nextServiceNodeID();
         investorServiceNodes.push(ServiceNode(serviceNodeID, stakingRequirement));
         SENT.approve(address(stakingRewardsContract), stakingRequirement);
 
@@ -121,7 +119,9 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         uint256 unstaked = 0;
         uint256 length = investorServiceNodes.length;
         for (uint256 i = 1; i < length + 1; i++) {
-            IServiceNodeRewards.ServiceNode memory sn = stakingRewardsContract.serviceNodes(investorServiceNodes[i - 1].serviceNodeID);
+            IServiceNodeRewards.ServiceNode memory sn = stakingRewardsContract.serviceNodes(
+                investorServiceNodes[i - 1].serviceNodeID
+            );
             if (sn.deposit == 0) {
                 unstaked += investorServiceNodes[i - 1].deposit;
 
@@ -139,7 +139,9 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         stakingRewardsContract.claimRewards();
         uint256 balanceAfterClaiming = SENT.balanceOf(address(this)) - unstaked;
 
-        uint256 amount = balanceAfterClaiming > balanceBeforeClaiming ? balanceAfterClaiming - balanceBeforeClaiming: 0;
+        uint256 amount = balanceAfterClaiming > balanceBeforeClaiming
+            ? balanceAfterClaiming - balanceBeforeClaiming
+            : 0;
 
         SENT.safeTransfer(beneficiary, amount);
     }
@@ -166,10 +168,10 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     function revoke(IERC20 token) external override onlyRevoker notRevoked {
         require(block.timestamp <= end, "Vesting: vesting expired");
 
-        uint256 balance    = token.balanceOf(address(this));
+        uint256 balance = token.balanceOf(address(this));
         uint256 unreleased = _releasableAmount(token);
-        uint256 refund     = balance - unreleased;
-        revoked            = true;
+        uint256 refund = balance - unreleased;
+        revoked = true;
 
         emit TokenVestingRevoked(token, refund);
         token.safeTransfer(revoker, refund);

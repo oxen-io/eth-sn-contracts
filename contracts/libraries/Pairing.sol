@@ -14,8 +14,7 @@ library Pairing {
         uint inputSize = elements * 6;
         uint[] memory input = new uint[](inputSize);
 
-        for (uint i = 0; i < elements; i++)
-        {
+        for (uint i = 0; i < elements; i++) {
             input[i * 6 + 0] = p1[i].X;
             input[i * 6 + 1] = p1[i].Y;
             input[i * 6 + 2] = p2[i].X[0];
@@ -35,7 +34,12 @@ library Pairing {
     }
 
     /// Convenience method for a pairing check for two pairs.
-    function pairing2(BN256G1.G1Point memory a1, BN256G2.G2Point memory a2, BN256G1.G1Point memory b1, BN256G2.G2Point memory b2) internal returns (bool) {
+    function pairing2(
+        BN256G1.G1Point memory a1,
+        BN256G2.G2Point memory a2,
+        BN256G1.G1Point memory b1,
+        BN256G2.G2Point memory b2
+    ) internal returns (bool) {
         BN256G1.G1Point[] memory p1 = new BN256G1.G1Point[](2);
         BN256G2.G2Point[] memory p2 = new BN256G2.G2Point[](2);
         p1[0] = a1;

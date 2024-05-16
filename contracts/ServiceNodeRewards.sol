@@ -21,10 +21,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     IERC20 public designatedToken;
     IERC20 public foundationPool;
 
-    uint64 public constant LIST_SENTINEL                       = 0;
+    uint64 public constant LIST_SENTINEL = 0;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
 
-    uint64  public nextServiceNodeID;
+    uint64 public nextServiceNodeID;
     uint256 public totalNodes;
     uint256 public blsNonSignerThreshold;
     uint256 public blsNonSignerThresholdMax;
@@ -49,34 +49,34 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param liquidatorRewardRatio_ The reward ratio for liquidators
     /// @param poolShareOfLiquidationRatio_ The pool share ratio during liquidation
     /// @param recipientRatio_ The recipient ratio for rewards
-    function initialize(address token_,
-                        address foundationPool_,
-                        uint256 stakingRequirement_,
-                        uint256 maxContributors_,
-                        uint256 liquidatorRewardRatio_,
-                        uint256 poolShareOfLiquidationRatio_,
-                        uint256 recipientRatio_) public
-        initializer()
-    {
+    function initialize(
+        address token_,
+        address foundationPool_,
+        uint256 stakingRequirement_,
+        uint256 maxContributors_,
+        uint256 liquidatorRewardRatio_,
+        uint256 poolShareOfLiquidationRatio_,
+        uint256 recipientRatio_
+    ) public initializer {
         if (recipientRatio_ < 1) revert RecipientRewardsTooLow();
-        isStarted                    = false;
-        totalNodes                   = 0;
-        blsNonSignerThreshold        = 0;
-        blsNonSignerThresholdMax     = 300;
-        proofOfPossessionTag         = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
-        rewardTag                    = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
-        removalTag                   = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
-        liquidateTag                 = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
-        signatureExpiry              = 10 minutes;
+        isStarted = false;
+        totalNodes = 0;
+        blsNonSignerThreshold = 0;
+        blsNonSignerThresholdMax = 300;
+        proofOfPossessionTag = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
+        rewardTag = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
+        removalTag = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
+        liquidateTag = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
+        signatureExpiry = 10 minutes;
 
-        designatedToken              = IERC20(token_);
-        foundationPool               = IERC20(foundationPool_);
-        _stakingRequirement          = stakingRequirement_;
-        _maxContributors             = maxContributors_;
-        _liquidatorRewardRatio       = liquidatorRewardRatio_;
+        designatedToken = IERC20(token_);
+        foundationPool = IERC20(foundationPool_);
+        _stakingRequirement = stakingRequirement_;
+        _maxContributors = maxContributors_;
+        _liquidatorRewardRatio = liquidatorRewardRatio_;
         _poolShareOfLiquidationRatio = poolShareOfLiquidationRatio_;
-        _recipientRatio              = recipientRatio_;
-        nextServiceNodeID            = LIST_SENTINEL + 1;
+        _recipientRatio = recipientRatio_;
+        nextServiceNodeID = LIST_SENTINEL + 1;
 
         // Doubly-linked list with sentinel that points to itself.
         //
@@ -107,21 +107,33 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     modifier hasEnoughSigners(uint256 numberOfNonSigningServiceNodes) {
         if (numberOfNonSigningServiceNodes > blsNonSignerThreshold) {
             uint256 numberOfServiceNodes = serviceNodesLength();
-            revert InsufficientBLSSignatures(numberOfServiceNodes - numberOfNonSigningServiceNodes,
-                                             numberOfServiceNodes - blsNonSignerThreshold);
+            revert InsufficientBLSSignatures(
+                numberOfServiceNodes - numberOfNonSigningServiceNodes,
+                numberOfServiceNodes - blsNonSignerThreshold
+            );
         }
         _;
     }
 
-
     // EVENTS
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);
-    event NewServiceNode( uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey, ServiceNodeParams serviceNode, Contributor[] contributors);
+    event NewServiceNode(
+        uint64 indexed serviceNodeID,
+        address recipient,
+        BN256G1.G1Point pubkey,
+        ServiceNodeParams serviceNode,
+        Contributor[] contributors
+    );
     event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
     event BLSNonSignerThresholdMaxUpdated(uint256 newMax);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
-    event ServiceNodeRemoval(uint64 indexed serviceNodeID, address recipient, uint256 returnedAmount, BN256G1.G1Point pubkey);
+    event ServiceNodeRemoval(
+        uint64 indexed serviceNodeID,
+        address recipient,
+        uint256 returnedAmount,
+        BN256G1.G1Point pubkey
+    );
     event ServiceNodeRemovalRequest(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
     event StakingRequirementUpdated(uint256 newRequirement);
     event SignatureExpiryUpdated(uint256 newExpiry);
@@ -177,11 +189,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// over the tag, `recipientAddress` and `recipientRewards`.
     /// @param ids Array of service node IDs that didn't sign the signature
     /// and are to be excluded from verification.
-    function updateRewardsBalance( address recipientAddress, uint256 recipientRewards, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external
-        whenNotPaused
-        whenStarted
-        hasEnoughSigners(ids.length)
-    {
+    function updateRewardsBalance(
+        address recipientAddress,
+        uint256 recipientRewards,
+        BLSSignatureParams calldata blsSignature,
+        uint64[] memory ids
+    ) external whenNotPaused whenStarted hasEnoughSigners(ids.length) {
         if (recipientAddress == address(0)) {
             revert NullRecipient();
         }
@@ -193,11 +206,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // NOTE: Validate signature
         {
             bytes memory encodedMessage = abi.encodePacked(rewardTag, recipientAddress, recipientRewards);
-            BN256G2.G2Point memory Hm   = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
             validateSignatureOrRevert(ids, blsSignature, Hm);
         }
 
-        uint256 previousBalance              = recipients[recipientAddress].rewards;
+        uint256 previousBalance = recipients[recipientAddress].rewards;
         recipients[recipientAddress].rewards = recipientRewards;
         emit RewardsBalanceUpdated(recipientAddress, recipientRewards, previousBalance);
     }
@@ -207,7 +220,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param claimingAddress The address claiming the rewards.
     function _claimRewards(address claimingAddress) internal {
         uint256 claimedRewards = recipients[claimingAddress].claimed;
-        uint256 totalRewards   = recipients[claimingAddress].rewards;
+        uint256 totalRewards = recipients[claimingAddress].rewards;
         uint256 amountToRedeem = totalRewards - claimedRewards;
 
         recipients[claimingAddress].claimed = totalRewards;
@@ -257,7 +270,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     ///
     /// If this list of empty, it is assumed that the service node is ran in
     /// a solo configuration under the current interacting wallet.
-    function addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, ServiceNodeParams calldata serviceNodeParams, Contributor[] calldata contributors) external whenNotPaused {
+    function addBLSPublicKey(
+        BN256G1.G1Point calldata blsPubkey,
+        BLSSignatureParams calldata blsSignature,
+        ServiceNodeParams calldata serviceNodeParams,
+        Contributor[] calldata contributors
+    ) external whenNotPaused {
         _addBLSPublicKey(blsPubkey, blsSignature, msg.sender, serviceNodeParams, contributors);
     }
 
@@ -271,20 +289,20 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// ownership of public key and fee that operator is charging
     /// @param contributors An optional list of contributors to the service
     /// node, first is always the operator.
-    function _addBLSPublicKey(BN256G1.G1Point calldata blsPubkey,
-                              BLSSignatureParams calldata blsSignature,
-                              address caller,
-                              ServiceNodeParams calldata serviceNodeParams,
-                              Contributor[] memory contributors) internal
-      whenStarted
-    {
+    function _addBLSPublicKey(
+        BN256G1.G1Point calldata blsPubkey,
+        BLSSignatureParams calldata blsSignature,
+        address caller,
+        ServiceNodeParams calldata serviceNodeParams,
+        Contributor[] memory contributors
+    ) internal whenStarted {
         if (contributors.length > maxContributors()) revert MaxContributorsExceeded();
         if (contributors.length > 0) {
             uint256 totalAmount = 0;
             for (uint256 i = 0; i < contributors.length; i++) {
                 totalAmount += contributors[i].stakedAmount;
             }
-            if (totalAmount != _stakingRequirement)  revert ContributionTotalMismatch(_stakingRequirement, totalAmount);
+            if (totalAmount != _stakingRequirement) revert ContributionTotalMismatch(_stakingRequirement, totalAmount);
         } else {
             contributors = new Contributor[](1);
             contributors[0] = Contributor(caller, _stakingRequirement);
@@ -293,13 +311,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         if (serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
         validateProofOfPossession(blsPubkey, blsSignature, caller, serviceNodeParams.serviceNodePubkey);
 
-        uint64 allocID                      = serviceNodeAdd(blsPubkey);
-        _serviceNodes[allocID].operator     = contributors[0].addr;
-        for(uint256 i = 0; i < contributors.length; i++) {
+        uint64 allocID = serviceNodeAdd(blsPubkey);
+        _serviceNodes[allocID].operator = contributors[0].addr;
+        for (uint256 i = 0; i < contributors.length; i++) {
             _serviceNodes[allocID].contributors.push(contributors[i]);
         }
-        _serviceNodes[allocID].deposit      = _stakingRequirement;
-
+        _serviceNodes[allocID].deposit = _stakingRequirement;
 
         updateBLSNonSignerThreshold();
         emit NewServiceNode(allocID, caller, blsPubkey, serviceNodeParams, contributors);
@@ -312,11 +329,25 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// proves ownership of the `blsPubkey`.
     /// @param caller The address calling the `addBLSPublicKey` function
     /// @param serviceNodePubkey Service node's 32 byte public key.
-    function validateProofOfPossession(BN256G1.G1Point memory blsPubkey, BLSSignatureParams calldata blsSignature, address caller, uint256 serviceNodePubkey) internal {
-        bytes memory encodedMessage      = abi.encodePacked(proofOfPossessionTag, blsPubkey.X, blsPubkey.Y, caller, serviceNodePubkey);
-        BN256G2.G2Point memory Hm        = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+    function validateProofOfPossession(
+        BN256G1.G1Point memory blsPubkey,
+        BLSSignatureParams calldata blsSignature,
+        address caller,
+        uint256 serviceNodePubkey
+    ) internal {
+        bytes memory encodedMessage = abi.encodePacked(
+            proofOfPossessionTag,
+            blsPubkey.X,
+            blsPubkey.Y,
+            caller,
+            serviceNodePubkey
+        );
+        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
 
-        BN256G2.G2Point memory signature = BN256G2.G2Point([blsSignature.sigs1,blsSignature.sigs0],[blsSignature.sigs3,blsSignature.sigs2]);
+        BN256G2.G2Point memory signature = BN256G2.G2Point(
+            [blsSignature.sigs1, blsSignature.sigs0],
+            [blsSignature.sigs3, blsSignature.sigs2]
+        );
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(blsPubkey), Hm)) {
             revert InvalidBLSProofOfPossession();
         }
@@ -350,7 +381,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
         if (!isContributor) revert CallerNotContributor(serviceNodeID, caller);
 
-        if(_serviceNodes[serviceNodeID].leaveRequestTimestamp != 0) revert EarlierLeaveRequestMade(serviceNodeID, caller);
+        if (_serviceNodes[serviceNodeID].leaveRequestTimestamp != 0)
+            revert EarlierLeaveRequestMade(serviceNodeID, caller);
         _serviceNodes[serviceNodeID].leaveRequestTimestamp = block.timestamp;
         emit ServiceNodeRemovalRequest(serviceNodeID, caller, _serviceNodes[serviceNodeID].pubkey);
     }
@@ -370,23 +402,26 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// `blsPubkey` is to be removed.
     /// @param ids Array of service node IDs that didn't sign the signature
     /// and are to be excluded from verification.
-    function removeBLSPublicKeyWithSignature(BN256G1.G1Point calldata blsPubkey, uint256 timestamp, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external
-        whenNotPaused
-        whenStarted
-        hasEnoughSigners(ids.length)
-    {
+    function removeBLSPublicKeyWithSignature(
+        BN256G1.G1Point calldata blsPubkey,
+        uint256 timestamp,
+        BLSSignatureParams calldata blsSignature,
+        uint64[] memory ids
+    ) external whenNotPaused whenStarted hasEnoughSigners(ids.length) {
         bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
-        uint64 serviceNodeID     = serviceNodeIDs[pubkeyBytes];
+        uint64 serviceNodeID = serviceNodeIDs[pubkeyBytes];
         if (signatureTimestampHasExpired(timestamp)) {
             revert SignatureExpired(serviceNodeID, timestamp, block.timestamp);
         }
 
-        if (blsPubkey.X != _serviceNodes[serviceNodeID].pubkey.X || blsPubkey.Y != _serviceNodes[serviceNodeID].pubkey.Y) revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
+        if (
+            blsPubkey.X != _serviceNodes[serviceNodeID].pubkey.X || blsPubkey.Y != _serviceNodes[serviceNodeID].pubkey.Y
+        ) revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
 
         // NOTE: Validate signature
         {
             bytes memory encodedMessage = abi.encodePacked(removalTag, blsPubkey.X, blsPubkey.Y, timestamp);
-            BN256G2.G2Point memory Hm   = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
             validateSignatureOrRevert(ids, blsSignature, Hm);
         }
 
@@ -402,7 +437,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param serviceNodeID The ID of the service node to be removed..
     function removeBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external whenNotPaused whenStarted {
         uint256 leaveRequestTimestamp = _serviceNodes[serviceNodeID].leaveRequestTimestamp;
-        if(leaveRequestTimestamp == 0) {
+        if (leaveRequestTimestamp == 0) {
             revert LeaveRequestTooEarly(serviceNodeID, leaveRequestTimestamp, block.timestamp);
         }
 
@@ -420,7 +455,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     ///
     /// @param serviceNodeID The ID of the service node to be removed.
     function _removeBLSPublicKey(uint64 serviceNodeID, uint256 returnedAmount) internal {
-        address         operator      = _serviceNodes[serviceNodeID].operator;
+        address operator = _serviceNodes[serviceNodeID].operator;
         BN256G1.G1Point memory pubkey = _serviceNodes[serviceNodeID].pubkey;
         serviceNodeDelete(serviceNodeID);
 
@@ -444,13 +479,14 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// `blsPubkey` is to be liquidated.
     /// @param ids Array of service node IDs that didn't sign the signature
     /// and are to be excluded from verification.
-    function liquidateBLSPublicKeyWithSignature(BN256G1.G1Point calldata blsPubkey, uint256 timestamp, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external
-        whenNotPaused
-        whenStarted
-        hasEnoughSigners(ids.length)
-    {
+    function liquidateBLSPublicKeyWithSignature(
+        BN256G1.G1Point calldata blsPubkey,
+        uint256 timestamp,
+        BLSSignatureParams calldata blsSignature,
+        uint64[] memory ids
+    ) external whenNotPaused whenStarted hasEnoughSigners(ids.length) {
         bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
-        uint64 serviceNodeID     = serviceNodeIDs[pubkeyBytes];
+        uint64 serviceNodeID = serviceNodeIDs[pubkeyBytes];
         if (signatureTimestampHasExpired(timestamp)) {
             revert SignatureExpired(serviceNodeID, timestamp, block.timestamp);
         }
@@ -463,22 +499,23 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // NOTE: Validate signature
         {
             bytes memory encodedMessage = abi.encodePacked(liquidateTag, blsPubkey.X, blsPubkey.Y, timestamp);
-            BN256G2.G2Point memory Hm   = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
             validateSignatureOrRevert(ids, blsSignature, Hm);
         }
 
         // Calculating how much liquidator is paid out
         emit ServiceNodeLiquidated(serviceNodeID, node.operator, node.pubkey);
-        uint256 ratioSum         = _poolShareOfLiquidationRatio + _liquidatorRewardRatio + _recipientRatio;
-        uint256 deposit          = node.deposit;
-        uint256 liquidatorAmount = deposit * _liquidatorRewardRatio / ratioSum;
-        uint256 poolAmount       = deposit * _poolShareOfLiquidationRatio == 0 ? 0 : (_poolShareOfLiquidationRatio - 1) / ratioSum + 1;
+        uint256 ratioSum = _poolShareOfLiquidationRatio + _liquidatorRewardRatio + _recipientRatio;
+        uint256 deposit = node.deposit;
+        uint256 liquidatorAmount = (deposit * _liquidatorRewardRatio) / ratioSum;
+        uint256 poolAmount = deposit * _poolShareOfLiquidationRatio == 0
+            ? 0
+            : (_poolShareOfLiquidationRatio - 1) / ratioSum + 1;
 
         _removeBLSPublicKey(serviceNodeID, deposit - liquidatorAmount - poolAmount);
 
         // Transfer funds to pool and liquidator
-        if (_liquidatorRewardRatio > 0)
-            SafeERC20.safeTransfer(designatedToken, msg.sender, liquidatorAmount);
+        if (_liquidatorRewardRatio > 0) SafeERC20.safeTransfer(designatedToken, msg.sender, liquidatorAmount);
         if (_poolShareOfLiquidationRatio > 0)
             SafeERC20.safeTransfer(designatedToken, address(foundationPool), poolAmount);
     }
@@ -492,14 +529,18 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param pkY Array of Y-coordinates for the public keys.
     /// @param amounts Array of amounts that the service node has staked,
     /// associated with each public key.
-    function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) external onlyOwner {
+    function seedPublicKeyList(
+        uint256[] calldata pkX,
+        uint256[] calldata pkY,
+        uint256[] calldata amounts
+    ) external onlyOwner {
         if (pkX.length != pkY.length || pkX.length != amounts.length) {
             revert ArrayLengthMismatch();
         }
 
         for (uint256 i = 0; i < pkX.length; i++) {
-            BN256G1.G1Point memory pubkey  = BN256G1.G1Point(pkX[i], pkY[i]);
-            uint64 allocID                 = serviceNodeAdd(pubkey);
+            BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX[i], pkY[i]);
+            uint64 allocID = serviceNodeAdd(pubkey);
             _serviceNodes[allocID].deposit = amounts[i];
             emit NewSeededServiceNode(allocID, pubkey);
         }
@@ -515,12 +556,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // NOTE: Check if the service node already exists
         // (e.g. <BLS Key> -> <SN> mapping)
         bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(pubkey);
-        if (serviceNodeIDs[pubkeyBytes] != LIST_SENTINEL)
-            revert BLSPubkeyAlreadyExists(serviceNodeIDs[pubkeyBytes]);
+        if (serviceNodeIDs[pubkeyBytes] != LIST_SENTINEL) revert BLSPubkeyAlreadyExists(serviceNodeIDs[pubkeyBytes]);
 
-        result             = nextServiceNodeID;
+        result = nextServiceNodeID;
         nextServiceNodeID += 1;
-        totalNodes        += 1;
+        totalNodes += 1;
 
         // NOTE: Create service node slot and patch up the slot links.
         //
@@ -533,13 +573,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // node->next->prev = node;
         // node->prev->next = node;
         // ```
-        _serviceNodes[result].next                     = LIST_SENTINEL;
-        _serviceNodes[result].prev                     = _serviceNodes[LIST_SENTINEL].prev;
+        _serviceNodes[result].next = LIST_SENTINEL;
+        _serviceNodes[result].prev = _serviceNodes[LIST_SENTINEL].prev;
         _serviceNodes[_serviceNodes[result].next].prev = result;
         _serviceNodes[_serviceNodes[result].prev].next = result;
 
         // NOTE: Assign BLS pubkey
-        _serviceNodes[result].pubkey                   = pubkey;
+        _serviceNodes[result].pubkey = pubkey;
 
         // NOTE: Create mapping from <BLS Key> -> <SN Linked List Index>
         serviceNodeIDs[pubkeyBytes] = result;
@@ -556,8 +596,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param nodeID The ID of the service node to delete
     function serviceNodeDelete(uint64 nodeID) internal {
         require(totalNodes > 0);
-        if (nodeID == LIST_SENTINEL)
-            revert DeleteSentinelNodeNotAllowed();
+        if (nodeID == LIST_SENTINEL) revert DeleteSentinelNodeNotAllowed();
 
         ServiceNode memory node = _serviceNodes[nodeID];
 
@@ -597,7 +636,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// aggregate signature can contain before being invalid
     function updateBLSNonSignerThreshold() internal {
         uint256 oneThirdOfNodes = totalNodes / 3;
-        blsNonSignerThreshold   = oneThirdOfNodes > blsNonSignerThresholdMax ? blsNonSignerThresholdMax : oneThirdOfNodes;
+        blsNonSignerThreshold = oneThirdOfNodes > blsNonSignerThresholdMax ? blsNonSignerThresholdMax : oneThirdOfNodes;
     }
 
     /// @notice Contract begins locked and owner can start after nodes have been
@@ -611,7 +650,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     function pause() public onlyOwner {
         _pause();
     }
-
 
     /// @notice Unpause will allow all functions to work as usual
     function unpause() public onlyOwner {
@@ -656,18 +694,23 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     ///
     /// This function reverts if the signature can not be verified against
     /// `hashToVerify`.
-    function validateSignatureOrRevert(uint64[] memory listOfNonSigners,
-                                       BLSSignatureParams memory blsSignature,
-                                       BN256G2.G2Point memory hashToVerify) private {
+    function validateSignatureOrRevert(
+        uint64[] memory listOfNonSigners,
+        BLSSignatureParams memory blsSignature,
+        BN256G2.G2Point memory hashToVerify
+    ) private {
         BN256G1.G1Point memory pubkey;
         uint256 listOfNonSignersLength = listOfNonSigners.length;
-        for(uint256 i = 0; i < listOfNonSignersLength; i++) {
+        for (uint256 i = 0; i < listOfNonSignersLength; i++) {
             uint64 serviceNodeID = listOfNonSigners[i];
-            pubkey               = BN256G1.add(pubkey, _serviceNodes[serviceNodeID].pubkey);
+            pubkey = BN256G1.add(pubkey, _serviceNodes[serviceNodeID].pubkey);
         }
 
-        pubkey                           = BN256G1.add(_aggregatePubkey, BN256G1.negate(pubkey));
-        BN256G2.G2Point memory signature = BN256G2.G2Point([blsSignature.sigs1,blsSignature.sigs0],[blsSignature.sigs3,blsSignature.sigs2]);
+        pubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(pubkey));
+        BN256G2.G2Point memory signature = BN256G2.G2Point(
+            [blsSignature.sigs1, blsSignature.sigs0],
+            [blsSignature.sigs3, blsSignature.sigs2]
+        );
 
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), hashToVerify)) {
             revert InvalidBLSSignature();

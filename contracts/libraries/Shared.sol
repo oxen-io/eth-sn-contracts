@@ -10,7 +10,7 @@ pragma solidity ^0.8.20;
 
 abstract contract Shared {
     address internal constant _ZERO_ADDR = address(0);
-    bytes32 internal constant _NULL      = "";
+    bytes32 internal constant _NULL = "";
 
     /// @dev    Checks that a uint isn't zero/empty
     modifier nzUint(uint256 u) {

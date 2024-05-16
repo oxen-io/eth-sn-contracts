@@ -45,7 +45,7 @@ interface IServiceNodeRewards {
     function blsNonSignerThreshold() external view returns (uint256);
     function designatedToken() external view returns (IERC20);
     function foundationPool() external view returns (IERC20);
-    function IsActive() external view returns (bool);
+    function isStarted() external view returns (bool);
     function liquidateTag() external view returns (bytes32);
     function liquidatorRewardRatio() external view returns (uint256);
     function maxContributors() external view returns (uint256);

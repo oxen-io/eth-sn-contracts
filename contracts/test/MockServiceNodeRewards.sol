@@ -34,7 +34,12 @@ contract MockServiceNodeRewards is Ownable {
         return _maxContributors;
     }
 
-    function addBLSPublicKey(BN256G1.G1Point calldata pubkey, IServiceNodeRewards.BLSSignatureParams calldata, IServiceNodeRewards.ServiceNodeParams calldata, IServiceNodeRewards.Contributor[] calldata contributors) public {
+    function addBLSPublicKey(
+        BN256G1.G1Point calldata pubkey,
+        IServiceNodeRewards.BLSSignatureParams calldata,
+        IServiceNodeRewards.ServiceNodeParams calldata,
+        IServiceNodeRewards.Contributor[] calldata contributors
+    ) public {
         _serviceNodes[nextServiceNodeID].operator = msg.sender;
         _serviceNodes[nextServiceNodeID].deposit = stakingRequirement;
         _serviceNodes[nextServiceNodeID].pubkey = pubkey;
@@ -49,7 +54,9 @@ contract MockServiceNodeRewards is Ownable {
         }
         if (contributorsLength == 0) {
             //_serviceNodes[nextServiceNodeID].contributors[0] = IServiceNodeRewards.Contributor(msg.sender, stakingRequirement);
-            _serviceNodes[nextServiceNodeID].contributors.push(IServiceNodeRewards.Contributor(msg.sender,stakingRequirement));
+            _serviceNodes[nextServiceNodeID].contributors.push(
+                IServiceNodeRewards.Contributor(msg.sender, stakingRequirement)
+            );
         }
 
         nextServiceNodeID++;
@@ -57,7 +64,16 @@ contract MockServiceNodeRewards is Ownable {
         designatedToken.safeTransferFrom(msg.sender, address(this), stakingRequirement);
     }
 
-    function removeBLSPublicKeyWithSignature(uint64 serviceNodeID, uint256, uint256, uint256, uint256, uint256, uint256, uint64[] memory) external {
+    function removeBLSPublicKeyWithSignature(
+        uint64 serviceNodeID,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint64[] memory
+    ) external {
         recipients[_serviceNodes[serviceNodeID].operator].rewards += _serviceNodes[serviceNodeID].deposit;
         delete _serviceNodes[serviceNodeID];
         totalNodes--;
@@ -74,6 +90,4 @@ contract MockServiceNodeRewards is Ownable {
     function serviceNodes(uint64 serviceNodeID) external view returns (IServiceNodeRewards.ServiceNode memory) {
         return _serviceNodes[serviceNodeID];
     }
-
 }
-

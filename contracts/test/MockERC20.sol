@@ -13,4 +13,3 @@ contract MockERC20 is ERC20 {
         return d;
     }
 }
-

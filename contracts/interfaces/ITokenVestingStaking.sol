@@ -18,7 +18,11 @@ interface ITokenVestingStaking {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    function addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, IServiceNodeRewards.BLSSignatureParams calldata blsSignature, IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams) external;
+    function addBLSPublicKey(
+        BN256G1.G1Point calldata blsPubkey,
+        IServiceNodeRewards.BLSSignatureParams calldata blsSignature,
+        IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams
+    ) external;
 
     function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external;
 

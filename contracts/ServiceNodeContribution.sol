@@ -25,25 +25,25 @@ contract ServiceNodeContribution is Shared {
 
     // Staking
     // solhint-disable-next-line var-name-mixedcase
-    IERC20                                 public immutable SENT;
-    IServiceNodeRewards                    public immutable stakingRewardsContract;
-    uint256                                public immutable stakingRequirement;
+    IERC20 public immutable SENT;
+    IServiceNodeRewards public immutable stakingRewardsContract;
+    uint256 public immutable stakingRequirement;
 
     // Service Node
-    BN256G1.G1Point                        public           blsPubkey;
-    IServiceNodeRewards.ServiceNodeParams  public           serviceNodeParams;
-    IServiceNodeRewards.BLSSignatureParams public           blsSignature;
+    BN256G1.G1Point public blsPubkey;
+    IServiceNodeRewards.ServiceNodeParams public serviceNodeParams;
+    IServiceNodeRewards.BLSSignatureParams public blsSignature;
 
     // Contributions
-    address                                public immutable operator;
-    mapping(address => uint256)            public           contributions;
-    mapping(address => uint256)            public           contributionTimestamp;
-    address[]                              public           contributorAddresses;
-    uint256                                public immutable maxContributors;
+    address public immutable operator;
+    mapping(address => uint256) public contributions;
+    mapping(address => uint256) public contributionTimestamp;
+    address[] public contributorAddresses;
+    uint256 public immutable maxContributors;
 
     // Smart Contract
-    bool                                   public           finalized = false;
-    bool                                   public           cancelled = false;
+    bool public finalized = false;
+    bool public cancelled = false;
 
     uint64 public constant WITHDRAWAL_DELAY = 1 days;
 
@@ -54,9 +54,9 @@ contract ServiceNodeContribution is Shared {
     }
 
     // EVENTS
-    event Cancelled           (uint256 indexed serviceNodePubkey);
-    event Finalized           (uint256 indexed serviceNodePubkey);
-    event NewContribution     (address indexed contributor, uint256 amount);
+    event Cancelled(uint256 indexed serviceNodePubkey);
+    event Finalized(uint256 indexed serviceNodePubkey);
+    event NewContribution(address indexed contributor, uint256 amount);
     event WithdrawContribution(address indexed contributor, uint256 amount);
 
     /**
@@ -72,18 +72,20 @@ contract ServiceNodeContribution is Shared {
      * @param _serviceNodeParams Service node public key and signature proving
      * ownership of the public key and the fee the operator is charging.
      */
-    constructor(address _stakingRewardsContract, uint256 _maxContributors, BN256G1.G1Point memory _blsPubkey, IServiceNodeRewards.ServiceNodeParams memory _serviceNodeParams)
-        nzAddr(_stakingRewardsContract)
-        nzUint(_maxContributors)
-    {
+    constructor(
+        address _stakingRewardsContract,
+        uint256 _maxContributors,
+        BN256G1.G1Point memory _blsPubkey,
+        IServiceNodeRewards.ServiceNodeParams memory _serviceNodeParams
+    ) nzAddr(_stakingRewardsContract) nzUint(_maxContributors) {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
-        stakingRequirement     = stakingRewardsContract.stakingRequirement();
-        SENT                   = IERC20(stakingRewardsContract.designatedToken());
+        stakingRequirement = stakingRewardsContract.stakingRequirement();
+        SENT = IERC20(stakingRewardsContract.designatedToken());
 
-        maxContributors        = _maxContributors;
-        operator               = tx.origin; // NOTE: Creation is delegated by operator through factory
-        blsPubkey              = _blsPubkey;
-        serviceNodeParams      = _serviceNodeParams;
+        maxContributors = _maxContributors;
+        operator = tx.origin; // NOTE: Creation is delegated by operator through factory
+        blsPubkey = _blsPubkey;
+        serviceNodeParams = _serviceNodeParams;
     }
 
     //////////////////////////////////////////////////////////////
@@ -107,10 +109,13 @@ contract ServiceNodeContribution is Shared {
      * @param _blsSignature 128 byte BLS proof of possession signature that
      * proves ownership of the `blsPubkey`.
      */
-    function contributeOperatorFunds(uint256 amount, IServiceNodeRewards.BLSSignatureParams memory _blsSignature) public onlyOperator {
+    function contributeOperatorFunds(
+        uint256 amount,
+        IServiceNodeRewards.BLSSignatureParams memory _blsSignature
+    ) public onlyOperator {
         require(contributorAddresses.length == 0, "Operator already contributed funds");
-        require(!cancelled,                       "Node has been cancelled.");
-        require(amount >= minimumContribution(),  "Contribution is below minimum requirement");
+        require(!cancelled, "Node has been cancelled.");
+        require(amount >= minimumContribution(), "Contribution is below minimum requirement");
         blsSignature = _blsSignature;
         contributeFunds(amount);
     }
@@ -129,16 +134,19 @@ contract ServiceNodeContribution is Shared {
     function contributeFunds(uint256 amount) public {
         // NOTE: Check if we are allowed to call contribute funds
         if (msg.sender == operator) {
-            require(blsSignatureIsInit(blsSignature), "Operator must initially contribute via `contributOperatorFunds`");
+            require(
+                blsSignatureIsInit(blsSignature),
+                "Operator must initially contribute via `contributOperatorFunds`"
+            );
         } else {
             // NOTE: Operator must have contributed first before the public can contribute
             require(contributorAddresses.length > 0, "Operator has not contributed funds");
         }
 
-        require(amount >= minimumContribution(),                    "Contribution is below the minimum requirement.");
+        require(amount >= minimumContribution(), "Contribution is below the minimum requirement.");
         require(totalContribution() + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
-        require(!finalized,                                         "Node has already been finalized.");
-        require(!cancelled,                                         "Node has been cancelled.");
+        require(!finalized, "Node has already been finalized.");
+        require(!cancelled, "Node has been cancelled.");
 
         // NOTE: Add the contributor to the contract
         if (contributions[msg.sender] == 0) {
@@ -166,19 +174,21 @@ contract ServiceNodeContribution is Shared {
      */
     function finalizeNode() internal {
         require(totalContribution() == stakingRequirement, "Funding goal has not been met.");
-        require(!finalized,                                "Node has already been finalized.");
-        require(!cancelled,                                "Node has been cancelled.");
+        require(!finalized, "Node has already been finalized.");
+        require(!cancelled, "Node has been cancelled.");
 
         // NOTE: Finalise the contract and setup the contributors for the
         // `stakingRewardsContract`
         finalized = true;
         emit Finalized(serviceNodeParams.serviceNodePubkey);
 
-        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](contributorAddresses.length);
-        uint256 arrayLength                                   = contributorAddresses.length;
+        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](
+            contributorAddresses.length
+        );
+        uint256 arrayLength = contributorAddresses.length;
         for (uint256 i = 0; i < arrayLength; i++) {
             address contributorAddress = contributorAddresses[i];
-            contributors[i]            = IServiceNodeRewards.Contributor(contributorAddress, contributions[contributorAddress]);
+            contributors[i] = IServiceNodeRewards.Contributor(contributorAddress, contributions[contributorAddress]);
         }
 
         // NOTE: Transfer SENT and register the service node to the
@@ -210,7 +220,7 @@ contract ServiceNodeContribution is Shared {
         // NOTE: Zero out all addresses in `contributions`
         uint256 arrayLength = contributorAddresses.length;
         for (uint256 i = 0; i < arrayLength; i++) {
-            address toRemove        = contributorAddresses[i];
+            address toRemove = contributorAddresses[i];
             contributions[toRemove] = 0;
         }
 
@@ -233,10 +243,10 @@ contract ServiceNodeContribution is Shared {
      * @param tokenAddress The ERC20 token to rescue from the contract.
      */
     function rescueERC20(address tokenAddress) external onlyOperator {
-        require(finalized,  "Contract has not been finalized yet.");
+        require(finalized, "Contract has not been finalized yet.");
         require(!cancelled, "Contract has been cancelled.");
 
-        IERC20 token    = IERC20(tokenAddress);
+        IERC20 token = IERC20(tokenAddress);
         uint256 balance = token.balanceOf(address(this));
         require(balance > 0, "Contract has no balance of the specified token.");
 
@@ -253,14 +263,17 @@ contract ServiceNodeContribution is Shared {
      */
     function withdrawContribution() public {
         require(contributions[msg.sender] > 0, "You have not contributed.");
-        require(!finalized,                    "Node has already been finalized.");
-        require(msg.sender != operator,        "Operator cannot withdraw");
+        require(!finalized, "Node has already been finalized.");
+        require(msg.sender != operator, "Operator cannot withdraw");
 
         // NOTE: We permit a withdraw if the contract has been cancelled (as the
         // contract is killed and can no-longer be interacted with except
         // removal of funds), a withdrawal delay is no longer required.
         if (!cancelled) {
-            require(block.timestamp - contributionTimestamp[msg.sender] > WITHDRAWAL_DELAY, "Withdrawal unavailable: 24 hours have not passed");
+            require(
+                block.timestamp - contributionTimestamp[msg.sender] > WITHDRAWAL_DELAY,
+                "Withdrawal unavailable: 24 hours have not passed"
+            );
         }
 
         uint256 refundAmount = removeAndRefundContributor(msg.sender);
@@ -298,8 +311,7 @@ contract ServiceNodeContribution is Shared {
      */
     function removeAndRefundContributor(address toRemove) private returns (uint256 result) {
         result = contributions[toRemove];
-        if (result == 0)
-            return result;
+        if (result == 0) return result;
 
         // 1) Removing contributor from contribution mapping
         contributions[toRemove] = 0;
@@ -331,7 +343,9 @@ contract ServiceNodeContribution is Shared {
      * directly before calling `contributeOperatorFunds` otherwise an operator
      * could fund a node without setting the BLS proof-of-possession signature.
      */
-    function blsSignatureIsInit(IServiceNodeRewards.BLSSignatureParams memory params) private pure returns (bool result) {
+    function blsSignatureIsInit(
+        IServiceNodeRewards.BLSSignatureParams memory params
+    ) private pure returns (bool result) {
         result = params.sigs0 > 0 || params.sigs1 > 0 || params.sigs2 > 0 || params.sigs3 > 0;
         return result;
     }
@@ -347,9 +361,11 @@ contract ServiceNodeContribution is Shared {
      * @return result The minimum contribution amount.
      */
     function minimumContribution() public view returns (uint256 result) {
-        result = calcMinimumContribution(stakingRequirement - totalContribution(),
-                                         contributorAddresses.length,
-                                         maxContributors);
+        result = calcMinimumContribution(
+            stakingRequirement - totalContribution(),
+            contributorAddresses.length,
+            maxContributors
+        );
         return result;
     }
 
@@ -367,13 +383,17 @@ contract ServiceNodeContribution is Shared {
      * @param maxNumContributors The maximum number of contributors allowed to
      * contribute to this contract.
      */
-    function calcMinimumContribution(uint256 contributionRemaining, uint256 numContributors, uint256 maxNumContributors) public pure returns (uint256 result) {
+    function calcMinimumContribution(
+        uint256 contributionRemaining,
+        uint256 numContributors,
+        uint256 maxNumContributors
+    ) public pure returns (uint256 result) {
         require(maxNumContributors > numContributors, "Contributors exceed permitted maximum number of contributors");
         if (numContributors == 0) {
             result = ((contributionRemaining - 1) / 4) + 1; // math.ceilDiv(25% of requirement)
         } else {
             uint256 slotsRemaining = maxNumContributors - numContributors;
-            result                 = (contributionRemaining - 1) / slotsRemaining + 1;
+            result = (contributionRemaining - 1) / slotsRemaining + 1;
         }
         return result;
     }
@@ -411,8 +431,8 @@ contract ServiceNodeContribution is Shared {
     function totalContribution() public view returns (uint256 result) {
         uint256 arrayLength = contributorAddresses.length;
         for (uint256 i = 0; i < arrayLength; i++) {
-            address entry  = contributorAddresses[i];
-            result        += contributions[entry];
+            address entry = contributorAddresses[i];
+            result += contributions[entry];
         }
         return result;
     }

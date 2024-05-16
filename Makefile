@@ -8,8 +8,8 @@ build:
 	npx hardhat compile
 
 node:
-	#npx hardhat node
-	anvil
+	npx hardhat node
+	#anvil
 
 analyze:
 	# NOTE: (Block) timestamp comparison warnings are ignored (typically
@@ -30,4 +30,7 @@ deploy-sepolia:
 
 otterscan:
 	docker run --rm -p 5100:80 --name otterscan --env ERIGON_URL="http://127.0.0.1:8545" otterscan/otterscan:latest
+
+format-sol:
+	npx prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol'
 

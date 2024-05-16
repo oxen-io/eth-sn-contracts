@@ -38,7 +38,7 @@ interface IServiceNodeRewards {
         uint256 serviceNodePubkey;
         uint256 serviceNodeSignature1;
         uint256 serviceNodeSignature2;
-        uint16  fee;
+        uint16 fee;
     }
     // Public Variables
     function aggregatePubkey() external view returns (BN256G1.G1Point memory);
@@ -62,16 +62,35 @@ interface IServiceNodeRewards {
     function totalNodes() external view returns (uint256);
 
     // Function Signatures
-	function updateRewardsBalance( address recipientAddress, uint256 recipientRewards, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external;
+    function updateRewardsBalance(
+        address recipientAddress,
+        uint256 recipientRewards,
+        BLSSignatureParams calldata blsSignature,
+        uint64[] memory ids
+    ) external;
     function claimRewards() external;
-    function addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, ServiceNodeParams calldata serviceNodeParams, Contributor[] calldata contributors) external;
+    function addBLSPublicKey(
+        BN256G1.G1Point calldata blsPubkey,
+        BLSSignatureParams calldata blsSignature,
+        ServiceNodeParams calldata serviceNodeParams,
+        Contributor[] calldata contributors
+    ) external;
     function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external;
-    function removeBLSPublicKeyWithSignature(BN256G1.G1Point calldata blsPubkey, uint256 timestamp, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external;
+    function removeBLSPublicKeyWithSignature(
+        BN256G1.G1Point calldata blsPubkey,
+        uint256 timestamp,
+        BLSSignatureParams calldata blsSignature,
+        uint64[] memory ids
+    ) external;
     function removeBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external;
-    function liquidateBLSPublicKeyWithSignature(BN256G1.G1Point calldata blsPubkey, uint256 timestamp, BLSSignatureParams calldata blsSignature, uint64[] memory ids) external;
+    function liquidateBLSPublicKeyWithSignature(
+        BN256G1.G1Point calldata blsPubkey,
+        uint256 timestamp,
+        BLSSignatureParams calldata blsSignature,
+        uint64[] memory ids
+    ) external;
     function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) external;
     function serviceNodesLength() external view returns (uint256 count);
     function updateServiceNodesLength() external;
     function start() external;
 }
-

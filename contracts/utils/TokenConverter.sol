@@ -18,7 +18,12 @@ contract TokenConverter is Ownable, ReentrancyGuard {
     event TokenBDeposited(uint256 amount);
     event TokenBWithdrawn(uint256 amount);
 
-    constructor(address _tokenA, address _tokenB, uint256 _initialNumerator, uint256 _initialDenominator) Ownable(msg.sender) {
+    constructor(
+        address _tokenA,
+        address _tokenB,
+        uint256 _initialNumerator,
+        uint256 _initialDenominator
+    ) Ownable(msg.sender) {
         require(_tokenA != address(0) && _tokenB != address(0), "Invalid token address");
         require(_initialNumerator > 0 && _initialDenominator > 0, "Conversion rate must be greater than 0");
 
@@ -57,4 +62,3 @@ contract TokenConverter is Ownable, ReentrancyGuard {
         tokenB.safeTransfer(msg.sender, amountB);
     }
 }
-

@@ -660,7 +660,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
                                        BLSSignatureParams memory blsSignature,
                                        BN256G2.G2Point memory hashToVerify) private {
         BN256G1.G1Point memory pubkey;
-        for(uint256 i = 0; i < listOfNonSigners.length; i++) {
+        uint256 listOfNonSignersLength = listOfNonSigners.length;
+        for(uint256 i = 0; i < listOfNonSignersLength; i++) {
             uint64 serviceNodeID = listOfNonSigners[i];
             pubkey               = BN256G1.add(pubkey, _serviceNodes[serviceNodeID].pubkey);
         }

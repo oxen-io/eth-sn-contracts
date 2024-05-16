@@ -8,13 +8,19 @@
 
 class ERC20Contract {
 public:
-    ERC20Contract(const std::string& contractAddress, std::shared_ptr<Provider> provider);
-
     // Function to call the 'approve' method of the ERC20 token contract
     Transaction approve(const std::string& spender, uint64_t amount);
     uint64_t balanceOf(const std::string& address);
 
-private:
+    /// Address of the ERC20 contract that must be set to the address of the
+    /// contract on the blockchain for the functions to succeed. If the contract
+    /// is not set, the functions that communicate with the provider will send
+    /// to the 0 address.
     std::string contractAddress;
-    std::shared_ptr<Provider> provider;
+
+    /// Provider must be set with an RPC client configure to allow the contract
+    /// to communicate with the blockchain. If the provider is not setup, the
+    /// functions that require a provider will throw.
+    ethyl::Provider provider;
+
 };

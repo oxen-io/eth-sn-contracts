@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "../libraries/Shared.sol";
 import "../interfaces/ITokenVestingStaking.sol";
@@ -89,13 +89,20 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
      * @param blsSignature - 128 byte signature
      * @param serviceNodeParams - Service node public key, signature proving ownership of public key and fee that operator is charging
      */
-    function addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, IServiceNodeRewards.BLSSignatureParams calldata blsSignature, IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams) external onlyBeneficiary notRevoked afterStart {
+    function addBLSPublicKey(BN256G1.G1Point calldata blsPubkey,
+                             IServiceNodeRewards.BLSSignatureParams calldata blsSignature,
+                             IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams) external
+        onlyBeneficiary
+        notRevoked
+        afterStart
+    {
         uint256 stakingRequirement = stakingRewardsContract.stakingRequirement();
-        uint64 serviceNodeID = stakingRewardsContract.nextServiceNodeID();
-        SENT.approve(address(stakingRewardsContract), stakingRequirement);
+        uint64 serviceNodeID       = stakingRewardsContract.nextServiceNodeID();
         investorServiceNodes.push(ServiceNode(serviceNodeID, stakingRequirement));
-        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](1);
-        contributors[0] = IServiceNodeRewards.Contributor(address(this), stakingRequirement);
+        SENT.approve(address(stakingRewardsContract), stakingRequirement);
+
+        // NOTE: Pass empty array, the contract will assume sender (this contract) as operator.
+        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](0);
         stakingRewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
     }
 
@@ -111,19 +118,17 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
      * @notice Gets rewards from staking and transfers to beneficiary
      */
     function claimRewards() external onlyBeneficiary notRevoked afterStart {
-        uint256 unstaked;
-
+        uint256 unstaked = 0;
         uint256 length = investorServiceNodes.length;
-
         for (uint256 i = 1; i < length + 1; i++) {
             IServiceNodeRewards.ServiceNode memory sn = stakingRewardsContract.serviceNodes(investorServiceNodes[i - 1].serviceNodeID);
             if (sn.deposit == 0) {
                 unstaked += investorServiceNodes[i - 1].deposit;
-                
+
                 // Remove service node from the array by swapping it with the last element and then popping the array
                 investorServiceNodes[i - 1] = investorServiceNodes[length - 1];
                 investorServiceNodes.pop();
-                
+
                 // Adjust loop variables since we modified the array
                 i--;
                 length--;
@@ -136,7 +141,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
 
         uint256 amount = balanceAfterClaiming > balanceBeforeClaiming ? balanceAfterClaiming - balanceBeforeClaiming: 0;
 
-        SENT.transfer(beneficiary, amount);
+        SENT.safeTransfer(beneficiary, amount);
     }
 
     /**
@@ -161,16 +166,13 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     function revoke(IERC20 token) external override onlyRevoker notRevoked {
         require(block.timestamp <= end, "Vesting: vesting expired");
 
-        uint256 balance = token.balanceOf(address(this));
-
+        uint256 balance    = token.balanceOf(address(this));
         uint256 unreleased = _releasableAmount(token);
-        uint256 refund = balance - unreleased;
-
-        revoked = true;
-
-        token.safeTransfer(revoker, refund);
+        uint256 refund     = balance - unreleased;
+        revoked            = true;
 
         emit TokenVestingRevoked(token, refund);
+        token.safeTransfer(revoker, refund);
     }
 
     /**

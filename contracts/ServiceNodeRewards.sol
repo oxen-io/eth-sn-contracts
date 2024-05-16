@@ -6,7 +6,6 @@ import "./interfaces/IServiceNodeRewards.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "./libraries/Pairing.sol";
 
@@ -52,7 +51,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     function initialize(address token_, address foundationPool_, uint256 stakingRequirement_, uint256 maxContributors_, uint256 liquidatorRewardRatio_, uint256 poolShareOfLiquidationRatio_, uint256 recipientRatio_) initializer()  public {
         if (recipientRatio_ < 1) revert RecipientRewardsTooLow();
         IsActive                     = false;
-        nextServiceNodeID            = 1;
         totalNodes                   = 0;
         blsNonSignerThreshold        = 0;
         blsNonSignerThresholdMax     = 300;
@@ -165,11 +163,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param claimingAddress The address claiming the rewards.
     function _claimRewards(address claimingAddress) internal {
         uint256 claimedRewards = recipients[claimingAddress].claimed;
-        uint256 totalRewards = recipients[claimingAddress].rewards;
+        uint256 totalRewards   = recipients[claimingAddress].rewards;
         uint256 amountToRedeem = totalRewards - claimedRewards;
+
         recipients[claimingAddress].claimed = totalRewards;
-        SafeERC20.safeTransfer(designatedToken, claimingAddress, amountToRedeem);
         emit RewardsClaimed(claimingAddress, amountToRedeem);
+
+        SafeERC20.safeTransfer(designatedToken, claimingAddress, amountToRedeem);
     }
 
     /// @notice Allows users to claim their rewards. Main entry point for users claiming. Should be called after first updating rewards
@@ -206,7 +206,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param contributors - optional list of contributors to the service node, first is always the operator.
     function _addBLSPublicKey(BN256G1.G1Point calldata blsPubkey, BLSSignatureParams calldata blsSignature, address caller, ServiceNodeParams calldata serviceNodeParams, Contributor[] memory contributors) internal {
         if (!IsActive) revert ContractNotActive();
-        if (contributors.length > this.maxContributors()) revert MaxContributorsExceeded();
+        if (contributors.length > maxContributors()) revert MaxContributorsExceeded();
         if (contributors.length > 0) {
             uint256 totalAmount = 0;
             for (uint256 i = 0; i < contributors.length; i++) {

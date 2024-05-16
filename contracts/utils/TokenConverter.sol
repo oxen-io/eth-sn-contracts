@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -8,8 +8,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 contract TokenConverter is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    IERC20 public tokenA;
-    IERC20 public tokenB;
+    IERC20 public immutable tokenA;
+    IERC20 public immutable tokenB;
     uint256 public conversionRateNumerator;
     uint256 public conversionRateDenominator;
 
@@ -37,24 +37,24 @@ contract TokenConverter is Ownable, ReentrancyGuard {
 
     function depositTokenB(uint256 _amount) external onlyOwner {
         require(_amount > 0, "Amount must be greater than 0");
-        tokenB.safeTransferFrom(msg.sender, address(this), _amount);
         emit TokenBDeposited(_amount);
+        tokenB.safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     function withdrawTokenB(uint256 _amount) external onlyOwner {
         require(_amount > 0, "Amount must be greater than 0");
         require(tokenB.balanceOf(address(this)) >= _amount, "Insufficient balance");
-        tokenB.safeTransfer(msg.sender, _amount);
         emit TokenBWithdrawn(_amount);
+        tokenB.safeTransfer(msg.sender, _amount);
     }
 
     function convertTokens(uint256 _amountA) external nonReentrant {
         require(_amountA > 0, "Amount must be greater than 0");
         uint256 amountB = (_amountA * conversionRateNumerator) / conversionRateDenominator;
         require(tokenB.balanceOf(address(this)) >= amountB, "Insufficient Token B in contract");
+        emit Conversion(msg.sender, _amountA, amountB);
         tokenA.safeTransferFrom(msg.sender, address(this), _amountA);
         tokenB.safeTransfer(msg.sender, amountB);
-        emit Conversion(msg.sender, _amountA, amountB);
     }
 }
 

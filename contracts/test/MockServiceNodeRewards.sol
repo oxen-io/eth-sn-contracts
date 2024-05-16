@@ -14,13 +14,13 @@ import "../libraries/Pairing.sol";
 contract MockServiceNodeRewards is Ownable {
     using SafeERC20 for IERC20;
 
-    IERC20 public designatedToken;
+    IERC20 public immutable designatedToken;
 
     uint64 public nextServiceNodeID = 1;
     uint256 public totalNodes = 0;
-    uint256 public blsNonSignerThreshold = 0;
-    uint256 private _maxContributors = 10;
-    uint256 public stakingRequirement;
+    uint256 public constant blsNonSignerThreshold = 0;
+    uint256 private constant _maxContributors = 10;
+    uint256 public immutable stakingRequirement;
 
     mapping(uint64 => IServiceNodeRewards.ServiceNode) _serviceNodes;
     mapping(address => IServiceNodeRewards.Recipient) public recipients;
@@ -30,7 +30,7 @@ contract MockServiceNodeRewards is Ownable {
         stakingRequirement = _stakingRequirement;
     }
 
-    function maxContributors() public view returns (uint256) {
+    function maxContributors() public pure returns (uint256) {
         return _maxContributors;
     }
 
@@ -41,7 +41,7 @@ contract MockServiceNodeRewards is Ownable {
 
         // Initialize the contributors array for the service node
         uint256 contributorsLength = contributors.length;
-        require(contributorsLength <= this.maxContributors(), "Exceeds maximum contributors");
+        require(contributorsLength <= maxContributors(), "Exceeds maximum contributors");
 
         for (uint256 i = 0; i < contributorsLength; i++) {
             //_serviceNodes[nextServiceNodeID].contributors[i] = contributors[i];

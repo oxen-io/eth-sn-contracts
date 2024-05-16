@@ -41,7 +41,7 @@ contract ServiceNodeContributionEchidnaTest {
 
     // TODO: Staking requirement is currently hard-coded to value in script/deploy-local-test.js
     // TODO: Immutable variables in the testing contract causes Echidna 2.2.3 to crash
-    uint256                               public STAKING_REQUIREMENT = 100000000000;
+    uint256                               public constant STAKING_REQUIREMENT = 1e11;
     IERC20                                public sentToken;
     MockServiceNodeRewards                public snRewards;
     ServiceNodeContribution               public snContribution;
@@ -51,9 +51,17 @@ contract ServiceNodeContributionEchidnaTest {
 
 
     constructor() {
-        snOperator = msg.sender;
-        sentToken  = new MockERC20("Session Token", "SENT", 9);
-        snRewards  = new MockServiceNodeRewards(address(sentToken), STAKING_REQUIREMENT);
+        snOperator                     = msg.sender;
+        sentToken                      = new MockERC20("Session Token", "SENT", 9);
+        snRewards                      = new MockServiceNodeRewards(address(sentToken), STAKING_REQUIREMENT);
+
+        snParams.serviceNodePubkey     = 1;
+        snParams.serviceNodeSignature1 = 2;
+        snParams.serviceNodeSignature2 = 3;
+        snParams.fee                   = 4;
+
+        blsPubkey.X                    = 5;
+        blsPubkey.Y                    = 6;
 
         snContribution = new ServiceNodeContribution(
             /*snRewards*/         address(snRewards),
@@ -66,7 +74,7 @@ contract ServiceNodeContributionEchidnaTest {
 
     function mintTokensForTesting() internal {
         if (sentToken.allowance(msg.sender, address(snRewards)) <= 0) {
-            sentToken.transferFrom(address(0), msg.sender, type(uint64).max);
+            assert(sentToken.transferFrom(address(0), msg.sender, type(uint64).max));
             sentToken.approve(address(snContribution), type(uint64).max);
         }
     }
@@ -210,8 +218,8 @@ contract ServiceNodeContributionEchidnaTest {
         }
 
         assert(!snContribution.finalized());
-        assert(snContribution.operatorContribution() >=  0 && snContribution.operatorContribution() <= STAKING_REQUIREMENT);
-        assert(snContribution.totalContribution()    >=  0 && snContribution.totalContribution()    <= STAKING_REQUIREMENT);
+        assert(snContribution.operatorContribution() <= STAKING_REQUIREMENT);
+        assert(snContribution.totalContribution()    <= STAKING_REQUIREMENT);
 
         assert(sentToken.balanceOf(msg.sender) == balanceBeforeWithdraw + contribution);
     }
@@ -276,7 +284,7 @@ contract ServiceNodeContributionEchidnaTest {
         if (msg.sender == snOperator && snContribution.finalized() && !snContribution.cancelled()) {
             bool fundTheContract = (amount % 2 == 0); // NOTE: 50% chance of funding
             if (fundTheContract)
-                sentToken.transferFrom(address(0), address(snContribution), amount);
+                assert(sentToken.transferFrom(address(0), address(snContribution), amount));
 
             if (fundTheContract) {
                 try snContribution.rescueERC20(address(sentToken)) {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 /**
  * @title    Shared contract
@@ -9,11 +9,8 @@ pragma solidity ^0.8.0;
  */
 
 abstract contract Shared {
-    /// @dev The address used to indicate whether transfer should send native or a token
-    address internal constant _NATIVE_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     address internal constant _ZERO_ADDR = address(0);
-    bytes32 internal constant _NULL = "";
-    uint256 internal constant _E_18 = 1e18;
+    bytes32 internal constant _NULL      = "";
 
     /// @dev    Checks that a uint isn't zero/empty
     modifier nzUint(uint256 u) {

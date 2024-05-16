@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "../libraries/Shared.sol";
 import "../interfaces/ITokenVestingNoStaking.sol";
@@ -96,9 +96,8 @@ contract TokenVestingNoStaking is ITokenVestingNoStaking, Shared {
 
         revoked = true;
 
-        token.safeTransfer(revoker, refund);
-
         emit TokenVestingRevoked(token, refund);
+        token.safeTransfer(revoker, refund);
     }
 
     /**

@@ -664,8 +664,8 @@ library BN256G2 {
         // Define the G2Point coordinates
         uint256 x1 = h;
         uint256 x2 = 0;
-        uint256 y1;
-        uint256 y2;
+        uint256 y1 = 0;
+        uint256 y2 = 0;
 
         bool foundValidPoint = false;
 

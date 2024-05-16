@@ -148,9 +148,9 @@ contract ServiceNodeContribution is Shared {
         // NOTE: Update the amount contributed and transfer the tokens
         contributions[msg.sender] += amount;
         contributionTimestamp[msg.sender] = block.timestamp;
-        SENT.safeTransferFrom(msg.sender, address(this), amount);
-
         emit NewContribution(msg.sender, amount);
+
+        SENT.safeTransferFrom(msg.sender, address(this), amount);
 
         // NOTE: Finalize the node if the staking requirement is met
         if (totalContribution() == stakingRequirement) {
@@ -172,8 +172,11 @@ contract ServiceNodeContribution is Shared {
         // NOTE: Finalise the contract and setup the contributors for the
         // `stakingRewardsContract`
         finalized = true;
+        emit Finalized(serviceNodeParams.serviceNodePubkey);
+
         IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](contributorAddresses.length);
-        for (uint256 i = 0; i < contributorAddresses.length; i++) {
+        uint256 arrayLength                                   = contributorAddresses.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address contributorAddress = contributorAddresses[i];
             contributors[i]            = IServiceNodeRewards.Contributor(contributorAddress, contributions[contributorAddress]);
         }
@@ -182,7 +185,6 @@ contract ServiceNodeContribution is Shared {
         // `stakingRewardsContract`
         SENT.approve(address(stakingRewardsContract), stakingRequirement);
         stakingRewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
-        emit Finalized(serviceNodeParams.serviceNodePubkey);
     }
 
     /**
@@ -206,7 +208,8 @@ contract ServiceNodeContribution is Shared {
         require(finalized, "You cannot reset a contract that hasn't been finalised yet");
 
         // NOTE: Zero out all addresses in `contributions`
-        for (uint256 i = 0; i < contributorAddresses.length; i++) {
+        uint256 arrayLength = contributorAddresses.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address toRemove        = contributorAddresses[i];
             contributions[toRemove] = 0;
         }
@@ -237,7 +240,7 @@ contract ServiceNodeContribution is Shared {
         uint256 balance = token.balanceOf(address(this));
         require(balance > 0, "Contract has no balance of the specified token.");
 
-        token.transfer(operator, balance);
+        token.safeTransfer(operator, balance);
     }
 
     /**
@@ -302,9 +305,10 @@ contract ServiceNodeContribution is Shared {
         contributions[toRemove] = 0;
 
         // 2) Removing their address from the contribution array
-        for (uint256 index = 0; index < contributorAddresses.length; index++) {
+        uint256 arrayLength = contributorAddresses.length;
+        for (uint256 index = 0; index < arrayLength; index++) {
             if (toRemove == contributorAddresses[index]) {
-                contributorAddresses[index] = contributorAddresses[contributorAddresses.length - 1];
+                contributorAddresses[index] = contributorAddresses[arrayLength - 1];
                 contributorAddresses.pop();
                 break;
             }
@@ -405,7 +409,8 @@ contract ServiceNodeContribution is Shared {
      * @notice Sum up all the contributions recorded in the contributors list
      */
     function totalContribution() public view returns (uint256 result) {
-        for (uint256 i = 0; i < contributorAddresses.length; i++) {
+        uint256 arrayLength = contributorAddresses.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address entry  = contributorAddresses[i];
             result        += contributions[entry];
         }

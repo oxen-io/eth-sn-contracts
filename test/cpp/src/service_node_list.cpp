@@ -112,7 +112,7 @@ std::string ServiceNodeList::aggregatePubkeyHex() {
 }
 
 std::string ServiceNodeList::aggregateSignatures(const std::string& bytes) {
-    const std::array<unsigned char, 32> hash = ethyl::utils::hash_(bytes); // Get the hash of the input
+    const std::array<unsigned char, 32> hash = ethyl::utils::hashBytes(bytes); // Get the hash of the input
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& node : nodes) {
@@ -122,7 +122,7 @@ std::string ServiceNodeList::aggregateSignatures(const std::string& bytes) {
 }
 
 std::string ServiceNodeList::aggregateSignaturesFromIndices(const std::string& bytes, const std::vector<int64_t>& indices) {
-    const std::array<unsigned char, 32> hash = ethyl::utils::hash_(bytes); // Get the hash of the input
+    const std::array<unsigned char, 32> hash = ethyl::utils::hashBytes(bytes); // Get the hash of the input
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& index : indices) {

@@ -8,7 +8,7 @@ ethyl::Transaction ERC20Contract::approve(const std::string& spender, uint64_t a
     assert(contractAddress.size());
 
     ethyl::Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = ethyl::utils::getFunctionSignature("approve(address,uint256)");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("approve(address,uint256)");
 
     std::string contractAddressOutput = spender;
     if (contractAddressOutput.substr(0, 2) == "0x")
@@ -30,7 +30,7 @@ uint64_t ERC20Contract::balanceOf(const std::string& address) {
     ethyl::ReadCallData callData;
     callData.contractAddress = contractAddress;
 
-    std::string functionSelector = ethyl::utils::getFunctionSignature("balanceOf(address)");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("balanceOf(address)");
 
     std::string addressOutput = address;
     if (addressOutput.substr(0, 2) == "0x") {

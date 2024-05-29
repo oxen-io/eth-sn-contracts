@@ -4,7 +4,7 @@
 
 ethyl::Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string& publicKey, const std::string& sig, const std::string& serviceNodePubkey, const std::string& serviceNodeSignature, const uint64_t fee) {
     ethyl::Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = ethyl::utils::getFunctionSignature("addBLSPublicKey((uint256,uint256),(uint256,uint256,uint256,uint256),(uint256,uint256,uint256,uint16),(address,uint256)[])");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("addBLSPublicKey((uint256,uint256),(uint256,uint256,uint256,uint256),(uint256,uint256,uint256,uint16),(address,uint256)[])");
 
     std::string serviceNodePubkeyHex = oxenc::to_hex(serviceNodePubkey.begin(), serviceNodePubkey.end());
     std::string serviceNodeSignatureHex = oxenc::to_hex(serviceNodeSignature.begin(), serviceNodeSignature.end());
@@ -27,7 +27,7 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
     ethyl::ReadCallData callData            = {};
     std::string  indexABI            = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(index), ethyl::utils::PaddingDirection::LEFT);
     callData.contractAddress         = contractAddress;
-    callData.data                    = ethyl::utils::getFunctionSignature("serviceNodes(uint64)") + indexABI;
+    callData.data                    = ethyl::utils::toEthFunctionSignature("serviceNodes(uint64)") + indexABI;
     nlohmann::json     callResult    = provider.callReadFunctionJSON(callData);
     const std::string& callResultHex = callResult.get_ref<nlohmann::json::string_t&>();
     std::string_view   callResultIt  = ethyl::utils::trimPrefix(callResultHex, "0x");
@@ -57,15 +57,15 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
         assert(addressBytes.size() == result.contributors[i].address.max_size());
         std::memcpy(result.contributors[i].address.data(), addressBytes.data(), addressBytes.size());
 
-        result.contributors[i].amount = ethyl::utils::fromHexStringToUint64(contributorAmountHex);
+        result.contributors[i].amount = ethyl::utils::hexStringToU64(contributorAmountHex);
         if (walkIt >= callResultIt.size()) break;
     }
     
     assert(walkIt == callResultIt.size());
 
     // NOTE: Deserialize linked list
-    result.next                = ethyl::utils::fromHexStringToUint64(nextHex);
-    result.prev                = ethyl::utils::fromHexStringToUint64(prevHex);
+    result.next                = ethyl::utils::hexStringToU64(nextHex);
+    result.prev                = ethyl::utils::hexStringToU64(prevHex);
 
     // NOTE: Deserialise recipient
     std::vector<unsigned char> recipientBytes = ethyl::utils::fromHexString(recipientHex.substr(recipientHex.size() - ETH_ADDRESS_HEX_SIZE, ETH_ADDRESS_HEX_SIZE));
@@ -76,7 +76,7 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
     result.pubkey = utils::HexToBLSPublicKey(pubkeyHex);
 
     // NOTE: Deserialise metadata
-    result.leaveRequestTimestamp = ethyl::utils::fromHexStringToUint64(leaveRequestTimestampHex);
+    result.leaveRequestTimestamp = ethyl::utils::hexStringToU64(leaveRequestTimestampHex);
     result.deposit               = depositHex;
     return result;
 }
@@ -85,7 +85,7 @@ uint64_t ServiceNodeRewardsContract::serviceNodeIDs(const bls::PublicKey& pKey)
 {
     // NOTE: Generate the ABI caller data
     std::string pKeyABI             = utils::BLSPublicKeyToHex(pKey);
-    std::string methodABI           = ethyl::utils::getFunctionSignature("serviceNodeIDs(bytes)");
+    std::string methodABI           = ethyl::utils::toEthFunctionSignature("serviceNodeIDs(bytes)");
     std::string offsetToPKeyDataABI = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(32) /*offset includes the 32 byte offset itself*/, ethyl::utils::PaddingDirection::LEFT);
     std::string bytesSizeABI        = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(pKeyABI.size() / 2), ethyl::utils::PaddingDirection::LEFT);
 
@@ -103,16 +103,16 @@ uint64_t ServiceNodeRewardsContract::serviceNodeIDs(const bls::PublicKey& pKey)
     // NOTE: Call function
     nlohmann::json     callResult = provider.callReadFunctionJSON(callData);
     const std::string& resultHex  = callResult.get_ref<nlohmann::json::string_t&>();
-    uint64_t           result     = ethyl::utils::fromHexStringToUint64(resultHex);
+    uint64_t           result     = ethyl::utils::hexStringToU64(resultHex);
     return result;
 }
 
 uint64_t ServiceNodeRewardsContract::serviceNodesLength() {
     ethyl::ReadCallData callData;
     callData.contractAddress = contractAddress;
-    callData.data = ethyl::utils::getFunctionSignature("serviceNodesLength()");
+    callData.data = ethyl::utils::toEthFunctionSignature("serviceNodesLength()");
     std::string result = provider.callReadFunction(callData);
-    return ethyl::utils::fromHexStringToUint64(result);
+    return ethyl::utils::hexStringToU64(result);
 }
 
 uint64_t ServiceNodeRewardsContract::maxPermittedPubkeyAggregations() {
@@ -126,14 +126,14 @@ uint64_t ServiceNodeRewardsContract::maxPermittedPubkeyAggregations() {
 std::string ServiceNodeRewardsContract::designatedToken() {
     ethyl::ReadCallData callData;
     callData.contractAddress = contractAddress;
-    callData.data = ethyl::utils::getFunctionSignature("designatedToken()");
+    callData.data = ethyl::utils::toEthFunctionSignature("designatedToken()");
     return provider.callReadFunction(callData);
 }
 
 std::string ServiceNodeRewardsContract::aggregatePubkeyString() {
     ethyl::ReadCallData callData    = {};
     callData.contractAddress = contractAddress;
-    callData.data            = ethyl::utils::getFunctionSignature("aggregatePubkey()");
+    callData.data            = ethyl::utils::toEthFunctionSignature("aggregatePubkey()");
     return provider.callReadFunction(callData);
 }
 
@@ -151,7 +151,7 @@ Recipient ServiceNodeRewardsContract::viewRecipientData(const std::string& addre
     if (rewardAddressOutput.substr(0, 2) == "0x")
         rewardAddressOutput = rewardAddressOutput.substr(2);  // remove "0x"
     rewardAddressOutput = ethyl::utils::padTo32Bytes(rewardAddressOutput, ethyl::utils::PaddingDirection::LEFT);
-    callData.data = ethyl::utils::getFunctionSignature("recipients(address)") + rewardAddressOutput;
+    callData.data = ethyl::utils::toEthFunctionSignature("recipients(address)") + rewardAddressOutput;
 
     std::string result = provider.callReadFunction(callData);
 
@@ -168,7 +168,7 @@ Recipient ServiceNodeRewardsContract::viewRecipientData(const std::string& addre
 
 ethyl::Transaction ServiceNodeRewardsContract::liquidateBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
     ethyl::Transaction tx(contractAddress, 0, 30000000);
-    std::string functionSelector = ethyl::utils::getFunctionSignature("liquidateBLSPublicKeyWithSignature((uint256,uint256),uint256,(uint256,uint256,uint256,uint256),uint64[])");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("liquidateBLSPublicKeyWithSignature((uint256,uint256),uint256,(uint256,uint256,uint256,uint256),uint64[])");
     std::string timestamp_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(timestamp), ethyl::utils::PaddingDirection::LEFT);
     // 8 Params: timestamp, 2x pubkey, 4x sig, pointer to array
     std::string indices_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(8*32), ethyl::utils::PaddingDirection::LEFT);
@@ -183,7 +183,7 @@ ethyl::Transaction ServiceNodeRewardsContract::liquidateBLSPublicKeyWithSignatur
 
 ethyl::Transaction ServiceNodeRewardsContract::removeBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
     ethyl::Transaction tx(contractAddress, 0, 30000000);
-    std::string functionSelector = ethyl::utils::getFunctionSignature("removeBLSPublicKeyWithSignature((uint256,uint256),uint256,(uint256,uint256,uint256,uint256),uint64[])");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("removeBLSPublicKeyWithSignature((uint256,uint256),uint256,(uint256,uint256,uint256,uint256),uint64[])");
     std::string timestamp_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(timestamp), ethyl::utils::PaddingDirection::LEFT);
     // 8 Params: timestamp, 2x pubkey, 4x sig, pointer to array
     std::string indices_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(8*32), ethyl::utils::PaddingDirection::LEFT);
@@ -198,7 +198,7 @@ ethyl::Transaction ServiceNodeRewardsContract::removeBLSPublicKeyWithSignature(c
 
 ethyl::Transaction ServiceNodeRewardsContract::initiateRemoveBLSPublicKey(const uint64_t service_node_id) {
     ethyl::Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = ethyl::utils::getFunctionSignature("initiateRemoveBLSPublicKey(uint64)");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("initiateRemoveBLSPublicKey(uint64)");
     std::string node_id_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(service_node_id), ethyl::utils::PaddingDirection::LEFT);
     tx.data = functionSelector + node_id_padded;
     return tx;
@@ -206,7 +206,7 @@ ethyl::Transaction ServiceNodeRewardsContract::initiateRemoveBLSPublicKey(const 
 
 ethyl::Transaction ServiceNodeRewardsContract::removeBLSPublicKeyAfterWaitTime(const uint64_t service_node_id) {
     ethyl::Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = ethyl::utils::getFunctionSignature("removeBLSPublicKeyAfterWaitTime(uint64)");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("removeBLSPublicKeyAfterWaitTime(uint64)");
     std::string node_id_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(service_node_id), ethyl::utils::PaddingDirection::LEFT);
     tx.data = functionSelector + node_id_padded;
     return tx;
@@ -214,7 +214,7 @@ ethyl::Transaction ServiceNodeRewardsContract::removeBLSPublicKeyAfterWaitTime(c
 
 ethyl::Transaction ServiceNodeRewardsContract::updateRewardsBalance(const std::string& address, const uint64_t amount, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
     ethyl::Transaction tx(contractAddress, 0, 30000000);
-    std::string functionSelector = ethyl::utils::getFunctionSignature("updateRewardsBalance(address,uint256,(uint256,uint256,uint256,uint256),uint64[])");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("updateRewardsBalance(address,uint256,(uint256,uint256,uint256,uint256),uint64[])");
     std::string rewardAddressOutput = address;
     if (rewardAddressOutput.substr(0, 2) == "0x")
         rewardAddressOutput = rewardAddressOutput.substr(2);  // remove "0x"
@@ -233,14 +233,14 @@ ethyl::Transaction ServiceNodeRewardsContract::updateRewardsBalance(const std::s
 
 ethyl::Transaction ServiceNodeRewardsContract::claimRewards() {
     ethyl::Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = ethyl::utils::getFunctionSignature("claimRewards()");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("claimRewards()");
     tx.data = functionSelector;
     return tx;
 }
 
 ethyl::Transaction ServiceNodeRewardsContract::start() {
     ethyl::Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = ethyl::utils::getFunctionSignature("start()");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("start()");
     tx.data = functionSelector;
     return tx;
 }

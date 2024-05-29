@@ -129,7 +129,7 @@ bls::PublicKey utils::HexToBLSPublicKey(std::string_view hex) {
 }
 
 std::array<unsigned char, 32> utils::HashModulus(std::string message) {
-    std::array<unsigned char, 32> hash = ethyl::utils::hash_(message);
+    std::array<unsigned char, 32> hash = ethyl::utils::hashBytes(message);
     mcl::bn::Fp x;
     x.clear();
     x.setArrayMask(hash.data(), hash.size());

@@ -59,6 +59,7 @@ int main(int argc, char *argv[]) {
 static void resetContractToSnapshot()
 {
     REQUIRE(defaultProvider.evm_revert(snapshot_id));
+    snapshot_id = defaultProvider.evm_snapshot();
 }
 
 // Given the service node list and the state of the list derived in C++, verify
@@ -128,25 +129,17 @@ static void verifyEVMServiceNodesAgainstCPPState(const ServiceNodeList& snl)
 }
 
 TEST_CASE( "Rewards Contract", "[ethereum]" ) {
-    bool success_resetting_to_snapshot = defaultProvider.evm_revert(snapshot_id);
-    snapshot_id = defaultProvider.evm_snapshot();
-    printf("A\n");
-    fflush(stdout);
-    REQUIRE(success_resetting_to_snapshot);
+    resetContractToSnapshot();
 
     // Check rewards contract is responding and set to zero
     REQUIRE(rewards_contract.serviceNodesLength() == 0);
     REQUIRE(contract_address != "");
-    printf("B\n");
-    fflush(stdout);
 
     // Approve our contract and make sure it was successful
     auto tx = erc20_contract.approve(contract_address, std::numeric_limits<std::uint64_t>::max());;
     auto hash = signer.sendTransaction(tx, seckey);
     REQUIRE(hash != "");
     REQUIRE(defaultProvider.transactionSuccessful(hash));
-    printf("C\n");
-    fflush(stdout);
 
     // Start our contract
     tx = rewards_contract.start();;

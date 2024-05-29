@@ -43,12 +43,12 @@ int main(int argc, char *argv[]) {
     rewards_contract.provider.clients = defaultProvider.clients;
 
     // NOTE: Setup keys
-    seckey        = utils::fromHexString(std::string(config.PRIVATE_KEY));
+    seckey        = ethyl::utils::fromHexString(std::string(config.PRIVATE_KEY));
     senderAddress = signer.secretKeyToAddressString(seckey);
 
     // NOTE: Configure the contracts
     rewards_contract.contractAddress = contract_address;
-    erc20_address                    = utils::trimAddress(rewards_contract.designatedToken());
+    erc20_address                    = ethyl::utils::trimAddress(rewards_contract.designatedToken());
     erc20_contract.contractAddress   = erc20_address;
 
     snapshot_id = defaultProvider.evm_snapshot();
@@ -83,7 +83,7 @@ static void verifyEVMServiceNodesAgainstCPPState(const ServiceNodeList& snl)
     const ServiceNode sentinelCppNode = {};
     REQUIRE(1 /*sentinel*/ + snl.nodes.size() == snInContract.size());
 
-    std::string const STAKING_REQUIREMENT_HEX = utils::padTo32Bytes(utils::decimalToHex(ServiceNodeRewardsContract::STAKING_REQUIREMENT));
+    std::string const STAKING_REQUIREMENT_HEX = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(ServiceNodeRewardsContract::STAKING_REQUIREMENT));
 
     for (size_t index = 0; index < snl.nodes.size(); index++) {
         const ServiceNode&         cppNode = snl.nodes[index];
@@ -130,17 +130,23 @@ static void verifyEVMServiceNodesAgainstCPPState(const ServiceNodeList& snl)
 TEST_CASE( "Rewards Contract", "[ethereum]" ) {
     bool success_resetting_to_snapshot = defaultProvider.evm_revert(snapshot_id);
     snapshot_id = defaultProvider.evm_snapshot();
+    printf("A\n");
+    fflush(stdout);
     REQUIRE(success_resetting_to_snapshot);
 
     // Check rewards contract is responding and set to zero
     REQUIRE(rewards_contract.serviceNodesLength() == 0);
     REQUIRE(contract_address != "");
+    printf("B\n");
+    fflush(stdout);
 
     // Approve our contract and make sure it was successful
     auto tx = erc20_contract.approve(contract_address, std::numeric_limits<std::uint64_t>::max());;
     auto hash = signer.sendTransaction(tx, seckey);
     REQUIRE(hash != "");
     REQUIRE(defaultProvider.transactionSuccessful(hash));
+    printf("C\n");
+    fflush(stdout);
 
     // Start our contract
     tx = rewards_contract.start();;
@@ -284,7 +290,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         }
         const uint64_t service_node_to_remove = snl.randomServiceNodeID();
         tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
-        std::vector<unsigned char> badseckey = utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
+        std::vector<unsigned char> badseckey = ethyl::utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
         REQUIRE_THROWS(signer.sendTransaction(tx, badseckey));
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
 
@@ -464,7 +470,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
-        std::vector<unsigned char> secondseckey = utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
+        std::vector<unsigned char> secondseckey = ethyl::utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
         const std::string recipientAddress = signer.secretKeyToAddressString(secondseckey);
         const uint64_t recipientAmount = 1;
         const auto signers = snl.randomSigners(snl.nodes.size() - 1);
@@ -504,7 +510,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 2000);
-        std::vector<unsigned char> secondseckey = utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
+        std::vector<unsigned char> secondseckey = ethyl::utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
         const std::string recipientAddress = signer.secretKeyToAddressString(secondseckey);
         const uint64_t recipientAmount = 1;
         const auto signers = snl.randomSigners(snl.nodes.size() - 299);

@@ -9,7 +9,7 @@
 class ERC20Contract {
 public:
     // Function to call the 'approve' method of the ERC20 token contract
-    Transaction approve(const std::string& spender, uint64_t amount);
+    ethyl::Transaction approve(const std::string& spender, uint64_t amount);
     uint64_t balanceOf(const std::string& address);
 
     /// Address of the ERC20 contract that must be set to the address of the

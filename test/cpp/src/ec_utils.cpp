@@ -24,7 +24,9 @@ std::string utils::SignatureToHex(bls::Signature sig) {
         throw std::runtime_error("size of y.a is zero");
     if (g2Point2.y.b.serialize(dst + serializedSignatureSize * 3, serializedSignatureSize, mcl::IoSerialize | mcl::IoBigEndian) == 0)
         throw std::runtime_error("size of y.b is zero");
-    return utils::toHexString(serialized_signature);
+
+    std::string result = oxenc::to_hex(serialized_signature.begin(), serialized_signature.end());
+    return result;
 }
 
 std::string utils::BLSPublicKeyToHex(const bls::PublicKey& publicKey) {
@@ -51,14 +53,14 @@ std::string utils::BLSPublicKeyToHex(const bls::PublicKey& publicKey) {
     if (g1Point.y.serialize(dst + KEY_SIZE, KEY_SIZE, mcl::IoSerialize | mcl::IoBigEndian) == 0)
         throw std::runtime_error("size of y is zero");
 
-    std::string result = utils::toHexString(serializedKeyHex);
+    std::string result = oxenc::to_hex(serializedKeyHex.begin(), serializedKeyHex.end());
     return result;
 }
 
 bls::PublicKey utils::HexToBLSPublicKey(std::string_view hex) {
     const size_t BLS_PKEY_COMPONENT_HEX_SIZE = 32 * 2;
     const size_t BLS_PKEY_HEX_SIZE           = BLS_PKEY_COMPONENT_HEX_SIZE * 2;
-    hex                                      = utils::trimPrefix(hex, "0x");
+    hex                                      = ethyl::utils::trimPrefix(hex, "0x");
 
     if (hex.size() != BLS_PKEY_HEX_SIZE) {
         std::stringstream stream;
@@ -69,8 +71,8 @@ bls::PublicKey utils::HexToBLSPublicKey(std::string_view hex) {
     // NOTE: Divide the 2 keys into the X,Y component
     std::string_view              pkeyXHex = hex.substr(0,                           BLS_PKEY_COMPONENT_HEX_SIZE);
     std::string_view              pkeyYHex = hex.substr(BLS_PKEY_COMPONENT_HEX_SIZE, BLS_PKEY_COMPONENT_HEX_SIZE);
-    std::array<unsigned char, 32> pkeyX    = utils::fromHexString32Byte(pkeyXHex);
-    std::array<unsigned char, 32> pkeyY    = utils::fromHexString32Byte(pkeyYHex);
+    std::array<unsigned char, 32> pkeyX    = ethyl::utils::fromHexString32Byte(pkeyXHex);
+    std::array<unsigned char, 32> pkeyY    = ethyl::utils::fromHexString32Byte(pkeyYHex);
 
     // NOTE: In `PublicKeyToHex` before we serialize the G1 point, we normalize
     // the point which divides X, Y by the Z component. This transformation then
@@ -127,7 +129,7 @@ bls::PublicKey utils::HexToBLSPublicKey(std::string_view hex) {
 }
 
 std::array<unsigned char, 32> utils::HashModulus(std::string message) {
-    std::array<unsigned char, 32> hash = utils::hash(message);
+    std::array<unsigned char, 32> hash = ethyl::utils::hash_(message);
     mcl::bn::Fp x;
     x.clear();
     x.setArrayMask(hash.data(), hash.size());

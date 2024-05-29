@@ -4,18 +4,18 @@
 #include "ethyl/utils.hpp"
 
 // Function to call 'approve' method of ERC20 token contract
-Transaction ERC20Contract::approve(const std::string& spender, uint64_t amount) {
+ethyl::Transaction ERC20Contract::approve(const std::string& spender, uint64_t amount) {
     assert(contractAddress.size());
 
-    Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = utils::getFunctionSignature("approve(address,uint256)");
+    ethyl::Transaction tx(contractAddress, 0, 3000000);
+    std::string functionSelector = ethyl::utils::getFunctionSignature("approve(address,uint256)");
 
     std::string contractAddressOutput = spender;
     if (contractAddressOutput.substr(0, 2) == "0x")
         contractAddressOutput = contractAddressOutput.substr(2);  // remove "0x"
     // Convert spender address and amount to appropriate format
-    std::string spender_padded = utils::padTo32Bytes(contractAddressOutput, utils::PaddingDirection::LEFT);
-    std::string amount_padded = utils::padTo32Bytes(utils::decimalToHex(amount), utils::PaddingDirection::LEFT);
+    std::string spender_padded = ethyl::utils::padTo32Bytes(contractAddressOutput, ethyl::utils::PaddingDirection::LEFT);
+    std::string amount_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(amount), ethyl::utils::PaddingDirection::LEFT);
 
 
     // Construct the data payload for the transaction
@@ -30,13 +30,13 @@ uint64_t ERC20Contract::balanceOf(const std::string& address) {
     ethyl::ReadCallData callData;
     callData.contractAddress = contractAddress;
 
-    std::string functionSelector = utils::getFunctionSignature("balanceOf(address)");
+    std::string functionSelector = ethyl::utils::getFunctionSignature("balanceOf(address)");
 
     std::string addressOutput = address;
     if (addressOutput.substr(0, 2) == "0x") {
         addressOutput = addressOutput.substr(2);  // remove "0x" prefix if present
     }
-    std::string address_padded = utils::padTo32Bytes(addressOutput, utils::PaddingDirection::LEFT);
+    std::string address_padded = ethyl::utils::padTo32Bytes(addressOutput, ethyl::utils::PaddingDirection::LEFT);
     callData.data = functionSelector + address_padded;
     std::string result = provider.callReadFunction(callData);
 

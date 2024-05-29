@@ -37,7 +37,7 @@ public:
     static constexpr inline uint64_t STAKING_REQUIREMENT = 120'000'000'000;
 
     // Method for creating a transaction to add a public key
-    Transaction addBLSPublicKey(const std::string& publicKey, const std::string& sig, const std::string& serviceNodePubkey, const std::string& serviceNodeSignature, uint64_t fee);
+    ethyl::Transaction addBLSPublicKey(const std::string& publicKey, const std::string& sig, const std::string& serviceNodePubkey, const std::string& serviceNodeSignature, uint64_t fee);
 
     ContractServiceNode serviceNodes(uint64_t index);
     uint64_t            serviceNodeIDs(const bls::PublicKey& pKey);
@@ -48,13 +48,13 @@ public:
     bls::PublicKey      aggregatePubkey();
     Recipient           viewRecipientData(const std::string& address);
 
-    Transaction liquidateBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
-    Transaction initiateRemoveBLSPublicKey(const uint64_t service_node_id);
-    Transaction removeBLSPublicKeyAfterWaitTime(const uint64_t service_node_id);
-    Transaction removeBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
-    Transaction updateRewardsBalance(const std::string& address, const uint64_t amount, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
-    Transaction claimRewards();
-    Transaction start();
+    ethyl::Transaction liquidateBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
+    ethyl::Transaction initiateRemoveBLSPublicKey(const uint64_t service_node_id);
+    ethyl::Transaction removeBLSPublicKeyAfterWaitTime(const uint64_t service_node_id);
+    ethyl::Transaction removeBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
+    ethyl::Transaction updateRewardsBalance(const std::string& address, const uint64_t amount, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
+    ethyl::Transaction claimRewards();
+    ethyl::Transaction start();
 
     /// Address of the ERC20 contract that must be set to the address of the
     /// contract on the blockchain for the functions to succeed. If the contract

@@ -34,7 +34,7 @@ struct ContractServiceNode {
 class ServiceNodeRewardsContract {
 public:
     // TODO: Taken from scripts/deploy-local-test.js and hardcoded
-    static constexpr inline uint64_t STAKING_REQUIREMENT = 100'000'000'000;
+    static constexpr inline uint64_t STAKING_REQUIREMENT = 120'000'000'000;
 
     // Method for creating a transaction to add a public key
     Transaction addBLSPublicKey(const std::string& publicKey, const std::string& sig, const std::string& serviceNodePubkey, const std::string& serviceNodeSignature, uint64_t fee);

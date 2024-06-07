@@ -33,7 +33,7 @@ async function main() {
     serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,[
         await mockERC20.getAddress(),              // token address
         await rewardRatePool.getAddress(),         // foundation pool address
-        100000000000,                              // staking requirement
+        120_000_000_000,                           // staking requirement
         10,                                        // max contributors
         0,                                         // liquidator reward ratio
         0,                                         // pool share of liquidation ratio

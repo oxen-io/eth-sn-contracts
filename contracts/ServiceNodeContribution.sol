@@ -174,8 +174,6 @@ contract ServiceNodeContribution is Shared {
      */
     function finalizeNode() internal {
         require(totalContribution() == stakingRequirement, "Funding goal has not been met.");
-        require(!finalized, "Node has already been finalized.");
-        require(!cancelled, "Node has been cancelled.");
 
         // NOTE: Finalise the contract and setup the contributors for the
         // `stakingRewardsContract`

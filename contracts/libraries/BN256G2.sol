@@ -52,84 +52,6 @@ library BN256G2 {
     uint256 constant FROBENIUS_COEFF_Y_0 = 2821565182194536844548159561693502659359617185244120367078079554186484126554;
     uint256 constant FROBENIUS_COEFF_Y_1 = 3505843767911556378687030309984248845540243509899259641013678093033130930403;
 
-    /**
-     * @notice Add two twist points
-     * @param pt1xx Coefficient 1 of x on point 1
-     * @param pt1xy Coefficient 2 of x on point 1
-     * @param pt1yx Coefficient 1 of y on point 1
-     * @param pt1yy Coefficient 2 of y on point 1
-     * @param pt2xx Coefficient 1 of x on point 2
-     * @param pt2xy Coefficient 2 of x on point 2
-     * @param pt2yx Coefficient 1 of y on point 2
-     * @param pt2yy Coefficient 2 of y on point 2
-     * @return (pt3xx, pt3xy, pt3yx, pt3yy)
-     */
-    function ECTwistAdd(
-        uint256 pt1xx,
-        uint256 pt1xy,
-        uint256 pt1yx,
-        uint256 pt1yy,
-        uint256 pt2xx,
-        uint256 pt2xy,
-        uint256 pt2yx,
-        uint256 pt2yy
-    ) internal view returns (uint256, uint256, uint256, uint256) {
-        if (pt1xx == 0 && pt1xy == 0 && pt1yx == 0 && pt1yy == 0) {
-            if (!(pt2xx == 0 && pt2xy == 0 && pt2yx == 0 && pt2yy == 0)) {
-                assert(_isOnCurve(pt2xx, pt2xy, pt2yx, pt2yy));
-            }
-            return (pt2xx, pt2xy, pt2yx, pt2yy);
-        } else if (pt2xx == 0 && pt2xy == 0 && pt2yx == 0 && pt2yy == 0) {
-            assert(_isOnCurve(pt1xx, pt1xy, pt1yx, pt1yy));
-            return (pt1xx, pt1xy, pt1yx, pt1yy);
-        }
-
-        assert(_isOnCurve(pt1xx, pt1xy, pt1yx, pt1yy));
-        assert(_isOnCurve(pt2xx, pt2xy, pt2yx, pt2yy));
-
-        uint256[6] memory pt3 = _ECTwistAddJacobian(pt1xx, pt1xy, pt1yx, pt1yy, 1, 0, pt2xx, pt2xy, pt2yx, pt2yy, 1, 0);
-
-        return _fromJacobian(pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]);
-    }
-
-    /**
-     * @notice Multiply a twist point by a scalar
-     * @param s     Scalar to multiply by
-     * @param pt1xx Coefficient 1 of x
-     * @param pt1xy Coefficient 2 of x
-     * @param pt1yx Coefficient 1 of y
-     * @param pt1yy Coefficient 2 of y
-     * @return (pt2xx, pt2xy, pt2yx, pt2yy)
-     */
-    function ECTwistMul(
-        uint256 s,
-        uint256 pt1xx,
-        uint256 pt1xy,
-        uint256 pt1yx,
-        uint256 pt1yy
-    ) internal view returns (uint256, uint256, uint256, uint256) {
-        uint256 pt1zx = 1;
-        if (pt1xx == 0 && pt1xy == 0 && pt1yx == 0 && pt1yy == 0) {
-            pt1xx = 1;
-            pt1yx = 1;
-            pt1zx = 0;
-        } else {
-            assert(_isOnCurve(pt1xx, pt1xy, pt1yx, pt1yy));
-        }
-
-        uint256[6] memory pt2 = _ECTwistMulJacobian(s, pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, 0);
-
-        return _fromJacobian(pt2[PTXX], pt2[PTXY], pt2[PTYX], pt2[PTYY], pt2[PTZX], pt2[PTZY]);
-    }
-
-    /**
-     * @notice Get the field modulus
-     * @return The field modulus
-     */
-    function GetFieldModulus() internal pure returns (uint256) {
-        return FIELD_MODULUS;
-    }
-
     function submod(uint256 a, uint256 b, uint256 n) internal pure returns (uint256) {
         return addmod(a, n - b, n);
     }
@@ -153,33 +75,12 @@ library BN256G2 {
         return (submod(xx, yx, FIELD_MODULUS), submod(xy, yy, FIELD_MODULUS));
     }
 
-    function _FQ2Div(uint256 xx, uint256 xy, uint256 yx, uint256 yy) internal view returns (uint256, uint256) {
-        (yx, yy) = _FQ2Inv(yx, yy);
-        return _FQ2Mul(xx, xy, yx, yy);
-    }
-
     function _FQ2Inv(uint256 x, uint256 y) internal view returns (uint256, uint256) {
         uint256 inv = _modInv(
             addmod(mulmod(y, y, FIELD_MODULUS), mulmod(x, x, FIELD_MODULUS), FIELD_MODULUS),
             FIELD_MODULUS
         );
         return (mulmod(x, inv, FIELD_MODULUS), FIELD_MODULUS - mulmod(y, inv, FIELD_MODULUS));
-    }
-
-    function _FQ2Pow(uint256 basex, uint256 basey, uint256 exponent) internal pure returns (uint256, uint256) {
-        uint256 resultx = 1;
-        uint256 resulty = 0; // Start with 1 + 0i in Fp2
-        while (exponent > 0) {
-            if (exponent % 2 != 0) {
-                // Multiply result by base in Fp2
-                (resultx, resulty) = _FQ2Mul(resultx, resulty, basex, basey);
-            }
-            // Square the base in Fp2
-            (basex, basey) = _FQ2Mul(basex, basey, basex, basey);
-            // Move to the next bit in the exponent
-            exponent /= 2;
-        }
-        return (resultx, resulty);
     }
 
     function _isOnCurve(uint256 xx, uint256 xy, uint256 yx, uint256 yy) internal pure returns (bool) {
@@ -646,10 +547,6 @@ library BN256G2 {
         return (G2Point([x2, x1], [y2, y1]));
     }
 
-    function getWeierstrass(uint256 x, uint256 y) internal pure returns (uint256, uint256) {
-        return Get_yy_coordinate(x, y);
-    }
-
     function convertArrayAsLE(bytes32 src) internal pure returns (bytes32) {
         bytes32 dst;
         for (uint256 i = 0; i < 32; i++) {
@@ -679,26 +576,7 @@ library BN256G2 {
         return swapped;
     }
 
-    function calcField(uint256 pkX, uint256 pkY) internal pure returns (uint256) {
-        return hashToField(string(abi.encodePacked(pkX, pkY)));
-    }
-
     function hashToField(string memory message) internal pure returns (uint256) {
         return byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(bytes(message))))));
-    }
-
-    /// @return the generator of G2
-    function P2() internal pure returns (G2Point memory) {
-        return
-            G2Point(
-                [
-                    11559732032986387107991004021392285783925812861821192530917403151452391805634,
-                    10857046999023057135944570762232829481370756359578518086990519993285655852781
-                ],
-                [
-                    4082367875863433681332203403145435568316851327593401208105741076214120093531,
-                    8495653923123431417604973247489272438418190587263600148770280649306958101930
-                ]
-            );
     }
 }

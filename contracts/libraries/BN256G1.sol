@@ -40,7 +40,7 @@ library BN256G1 {
         input[3] = p2.Y;
         bool success;
         assembly {
-            success := staticcall(sub(gas(), 2000), 6, input, 0xc0, r, 0x60)
+            success := staticcall(sub(gas(), 2000), 6, input, 0x80, r, 0x40)
         }
         require(success, "Call to precompiled contract for add failed");
     }
@@ -54,7 +54,7 @@ library BN256G1 {
         input[2] = s;
         bool success;
         assembly {
-            success := staticcall(sub(gas(), 2000), 7, input, 0x80, r, 0x60)
+            success := staticcall(sub(gas(), 2000), 7, input, 0x60, r, 0x40)
         }
         require(success, "Call to precompiled contract for mul failed");
     }

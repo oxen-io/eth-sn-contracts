@@ -87,9 +87,9 @@ library BN256G2 {
         assert(_isOnCurve(pt1xx, pt1xy, pt1yx, pt1yy));
         assert(_isOnCurve(pt2xx, pt2xy, pt2yx, pt2yy));
 
-        uint256[6] memory pt3 = _ECTwistAddJacobian(pt1xx, pt1xy, pt1yx, pt1yy, 1, 0, pt2xx, pt2xy, pt2yx, pt2yy, 1, 0);
+        uint256[6] memory pt3 = _ECTwistAddProjective(pt1xx, pt1xy, pt1yx, pt1yy, 1, 0, pt2xx, pt2xy, pt2yx, pt2yy, 1, 0);
 
-        return _fromJacobian(pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]);
+        return _fromProjective(pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]);
     }
 
     /**
@@ -117,9 +117,9 @@ library BN256G2 {
             assert(_isOnCurve(pt1xx, pt1xy, pt1yx, pt1yy));
         }
 
-        uint256[6] memory pt2 = _ECTwistMulJacobian(s, pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, 0);
+        uint256[6] memory pt2 = _ECTwistMulProjective(s, pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, 0);
 
-        return _fromJacobian(pt2[PTXX], pt2[PTXY], pt2[PTYX], pt2[PTYY], pt2[PTZX], pt2[PTZY]);
+        return _fromProjective(pt2[PTXX], pt2[PTXY], pt2[PTYX], pt2[PTYY], pt2[PTZX], pt2[PTZY]);
     }
 
     /**
@@ -215,7 +215,7 @@ library BN256G2 {
         require(success);
     }
 
-    function _fromJacobian(
+    function _fromProjective(
         uint256 pt1xx,
         uint256 pt1xy,
         uint256 pt1yx,
@@ -230,7 +230,31 @@ library BN256G2 {
         (pt2yx, pt2yy) = _FQ2Mul(pt1yx, pt1yy, invzx, invzy);
     }
 
-    function _ECTwistAddJacobian(
+     /**
+     * @notice Adds two points on a twisted elliptic curve in projective coordinates.
+     * @dev This function implements the addition formula for elliptic curves in projective coordinates
+     * based on formula (3) in section 2.2 from the paper
+     * Cohen, H., Miyaji, A., Ono, T. (1998). Efficient Elliptic Curve Exponentiation Using Mixed Coordinates.
+     * In: Ohta, K., Pei, D. (eds) Advances in Cryptology — ASIACRYPT’98. ASIACRYPT 1998.
+     * Lecture Notes in Computer Science, vol 1514. Springer, Berlin, Heidelberg. https://doi.org/10.1007/3-540-49649-1_6
+     * also available at: https://link.springer.com/chapter/10.1007/3-540-49649-1_6.
+     * This elliptic curve is twisted and each coordinate has both real and imaginary parts.
+     * 
+     * @param pt1xx The real part of the x-coordinate of the first point.
+     * @param pt1xy The imaginary part of the x-coordinate of the first point.
+     * @param pt1yx The real part of the y-coordinate of the first point.
+     * @param pt1yy The imaginary part of the y-coordinate of the first point.
+     * @param pt1zx The real part of the z-coordinate of the first point.
+     * @param pt1zy The imaginary part of the z-coordinate of the first point.
+     * @param pt2xx The real part of the x-coordinate of the second point.
+     * @param pt2xy The imaginary part of the x-coordinate of the second point.
+     * @param pt2yx The real part of the y-coordinate of the second point.
+     * @param pt2yy The imaginary part of the y-coordinate of the second point.
+     * @param pt2zx The real part of the z-coordinate of the second point.
+     * @param pt2zy The imaginary part of the z-coordinate of the second point.
+     * @return pt3 The resulting point of the addition in projective coordinates, including both real and imaginary parts for x, y, and z coordinates.
+     */
+    function _ECTwistAddProjective(
         uint256 pt1xx,
         uint256 pt1xy,
         uint256 pt1yx,
@@ -266,14 +290,14 @@ library BN256G2 {
             return pt3;
         }
 
-        (pt2yx, pt2yy) = _FQ2Mul(pt2yx, pt2yy, pt1zx, pt1zy); // U1 = y2 * z1
-        (pt3[PTYX], pt3[PTYY]) = _FQ2Mul(pt1yx, pt1yy, pt2zx, pt2zy); // U2 = y1 * z2
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1zx, pt1zy); // V1 = x2 * z1
-        (pt3[PTZX], pt3[PTZY]) = _FQ2Mul(pt1xx, pt1xy, pt2zx, pt2zy); // V2 = x1 * z2
+        (pt2yx,     pt2yy)     = _FQ2Mul(pt2yx, pt2yy, pt1zx, pt1zy); // Y₂Z₁ = Y₂ * Z₁
+        (pt3[PTYX], pt3[PTYY]) = _FQ2Mul(pt1yx, pt1yy, pt2zx, pt2zy); // Y₁Z₂ = Y₁ * Z₂
+        (pt2xx,     pt2xy)     = _FQ2Mul(pt2xx, pt2xy, pt1zx, pt1zy); // X₂Z₁ = X₂ * Z₁
+        (pt3[PTZX], pt3[PTZY]) = _FQ2Mul(pt1xx, pt1xy, pt2zx, pt2zy); // X₁Z₂ = X₁ * Z₂
 
         if (pt2xx == pt3[PTZX] && pt2xy == pt3[PTZY]) {
             if (pt2yx == pt3[PTYX] && pt2yy == pt3[PTYY]) {
-                (pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]) = _ECTwistDoubleJacobian(
+                (pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]) = _ECTwistDoubleProjective(
                     pt1xx,
                     pt1xy,
                     pt1yx,
@@ -287,26 +311,49 @@ library BN256G2 {
             return pt3;
         }
 
-        (pt2zx, pt2zy) = _FQ2Mul(pt1zx, pt1zy, pt2zx, pt2zy); // W = z1 * z2
-        (pt1xx, pt1xy) = _FQ2Sub(pt2yx, pt2yy, pt3[PTYX], pt3[PTYY]); // U = U1 - U2
-        (pt1yx, pt1yy) = _FQ2Sub(pt2xx, pt2xy, pt3[PTZX], pt3[PTZY]); // V = V1 - V2
-        (pt1zx, pt1zy) = _FQ2Mul(pt1yx, pt1yy, pt1yx, pt1yy); // V_squared = V * V
-        (pt2yx, pt2yy) = _FQ2Mul(pt1zx, pt1zy, pt3[PTZX], pt3[PTZY]); // V_squared_times_V2 = V_squared * V2
-        (pt1zx, pt1zy) = _FQ2Mul(pt1zx, pt1zy, pt1yx, pt1yy); // V_cubed = V * V_squared
-        (pt3[PTZX], pt3[PTZY]) = _FQ2Mul(pt1zx, pt1zy, pt2zx, pt2zy); // newz = V_cubed * W
-        (pt2xx, pt2xy) = _FQ2Mul(pt1xx, pt1xy, pt1xx, pt1xy); // U * U
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt2zx, pt2zy); // U * U * W
-        (pt2xx, pt2xy) = _FQ2Sub(pt2xx, pt2xy, pt1zx, pt1zy); // U * U * W - V_cubed
-        (pt2zx, pt2zy) = _FQ2Muc(pt2yx, pt2yy, 2); // 2 * V_squared_times_V2
-        (pt2xx, pt2xy) = _FQ2Sub(pt2xx, pt2xy, pt2zx, pt2zy); // A = U * U * W - V_cubed - 2 * V_squared_times_V2
-        (pt3[PTXX], pt3[PTXY]) = _FQ2Mul(pt1yx, pt1yy, pt2xx, pt2xy); // newx = V * A
-        (pt1yx, pt1yy) = _FQ2Sub(pt2yx, pt2yy, pt2xx, pt2xy); // V_squared_times_V2 - A
-        (pt1yx, pt1yy) = _FQ2Mul(pt1xx, pt1xy, pt1yx, pt1yy); // U * (V_squared_times_V2 - A)
-        (pt1xx, pt1xy) = _FQ2Mul(pt1zx, pt1zy, pt3[PTYX], pt3[PTYY]); // V_cubed * U2
-        (pt3[PTYX], pt3[PTYY]) = _FQ2Sub(pt1yx, pt1yy, pt1xx, pt1xy); // newy = U * (V_squared_times_V2 - A) - V_cubed * U2
+        (pt2zx,     pt2zy)     = _FQ2Mul(pt1zx, pt1zy, pt2zx,     pt2zy);     // Z₁Z₂        = Z₁ * Z₂
+        (pt1xx,     pt1xy)     = _FQ2Sub(pt2yx, pt2yy, pt3[PTYX], pt3[PTYY]); // u           = Y₂Z₁ - Y₁Z₂
+        (pt1yx,     pt1yy)     = _FQ2Sub(pt2xx, pt2xy, pt3[PTZX], pt3[PTZY]); // v           = X₂Z₁ - X₁Z₂
+        (pt1zx,     pt1zy)     = _FQ2Mul(pt1yx, pt1yy, pt1yx,     pt1yy);     // v²          = v * v
+        (pt2yx,     pt2yy)     = _FQ2Mul(pt1zx, pt1zy, pt3[PTZX], pt3[PTZY]); // v²X₁Z₂      = v² * X₁Z₂
+        (pt1zx,     pt1zy)     = _FQ2Mul(pt1zx, pt1zy, pt1yx,     pt1yy);     // v³          = v² * v
+        (pt3[PTZX], pt3[PTZY]) = _FQ2Mul(pt1zx, pt1zy, pt2zx,     pt2zy);     // Z₃          = v³ * Z₁Z₂
+        (pt2xx,     pt2xy)     = _FQ2Mul(pt1xx, pt1xy, pt1xx,     pt1xy);     // u²          = u * u
+        (pt2xx,     pt2xy)     = _FQ2Mul(pt2xx, pt2xy, pt2zx,     pt2zy);     // u²Z₁Z₂      = u² * Z₁Z₂
+        (pt2xx,     pt2xy)     = _FQ2Sub(pt2xx, pt2xy, pt1zx,     pt1zy);     //             = u²Z₁Z₂ - v³
+        (pt2zx,     pt2zy)     = _FQ2Muc(pt2yx, pt2yy, 2);                    // 2v²X₁Z₂     = v²X₁Z₂ * 2
+        (pt2xx,     pt2xy)     = _FQ2Sub(pt2xx, pt2xy, pt2zx,     pt2zy);     // A           = (u²Z₁Z₂ - v³) - 2v²X₁Z₂
+        (pt3[PTXX], pt3[PTXY]) = _FQ2Mul(pt1yx, pt1yy, pt2xx,     pt2xy);     // X₃          = v * A
+        (pt1yx,     pt1yy)     = _FQ2Sub(pt2yx, pt2yy, pt2xx,     pt2xy);     //             = v²X₁Z₂ - A
+        (pt1yx,     pt1yy)     = _FQ2Mul(pt1xx, pt1xy, pt1yx,     pt1yy);     // uv²X₁Z₂ - A = u * (v²X₁Z₂ - A)
+        (pt1xx,     pt1xy)     = _FQ2Mul(pt1zx, pt1zy, pt3[PTYX], pt3[PTYY]); // v³Y₁Z₂      = v³ * Y₁Z₂
+        (pt3[PTYX], pt3[PTYY]) = _FQ2Sub(pt1yx, pt1yy, pt1xx,     pt1xy);     // Y₃          = (u * (v²X₁Z₂ - A)) - v³Y₁Z₂
     }
 
-    function _ECTwistDoubleJacobian(
+    /**
+     * @notice Doubles a point on a twisted elliptic curve in projective coordinates.
+     * @dev This function implements the doubling formula for elliptic curves in projective coordinates
+     * based on formula (4) in section 2.2 from the paper
+     * Cohen, H., Miyaji, A., Ono, T. (1998). Efficient Elliptic Curve Exponentiation Using Mixed Coordinates.
+     * In: Ohta, K., Pei, D. (eds) Advances in Cryptology — ASIACRYPT’98. ASIACRYPT 1998.
+     * Lecture Notes in Computer Science, vol 1514. Springer, Berlin, Heidelberg. https://doi.org/10.1007/3-540-49649-1_6
+     * also available at: https://link.springer.com/chapter/10.1007/3-540-49649-1_6.
+     * This elliptic curve is twisted and each coordinate has both real and imaginary parts.
+     *
+     * @param pt1xx The real part of the x-coordinate of the point.
+     * @param pt1xy The imaginary part of the x-coordinate of the point.
+     * @param pt1yx The real part of the y-coordinate of the point.
+     * @param pt1yy The imaginary part of the y-coordinate of the point.
+     * @param pt1zx The real part of the z-coordinate of the point.
+     * @param pt1zy The imaginary part of the z-coordinate of the point.
+     * @return pt2xx The real part of the x-coordinate of the resulting point.
+     * @return pt2xy The imaginary part of the x-coordinate of the resulting point.
+     * @return pt2yx The real part of the y-coordinate of the resulting point.
+     * @return pt2yy The imaginary part of the y-coordinate of the resulting point.
+     * @return pt2zx The real part of the z-coordinate of the resulting point.
+     * @return pt2zy The imaginary part of the z-coordinate of the resulting point.
+     */
+    function _ECTwistDoubleProjective(
         uint256 pt1xx,
         uint256 pt1xy,
         uint256 pt1yx,
@@ -314,29 +361,33 @@ library BN256G2 {
         uint256 pt1zx,
         uint256 pt1zy
     ) internal pure returns (uint256 pt2xx, uint256 pt2xy, uint256 pt2yx, uint256 pt2yy, uint256 pt2zx, uint256 pt2zy) {
-        (pt2xx, pt2xy) = _FQ2Muc(pt1xx, pt1xy, 3); // 3 * x
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1xx, pt1xy); // W = 3 * x * x
-        (pt1zx, pt1zy) = _FQ2Mul(pt1yx, pt1yy, pt1zx, pt1zy); // S = y * z
-        (pt2yx, pt2yy) = _FQ2Mul(pt1xx, pt1xy, pt1yx, pt1yy); // x * y
-        (pt2yx, pt2yy) = _FQ2Mul(pt2yx, pt2yy, pt1zx, pt1zy); // B = x * y * S
-        (pt1xx, pt1xy) = _FQ2Mul(pt2xx, pt2xy, pt2xx, pt2xy); // W * W
-        (pt2zx, pt2zy) = _FQ2Muc(pt2yx, pt2yy, 8); // 8 * B
-        (pt1xx, pt1xy) = _FQ2Sub(pt1xx, pt1xy, pt2zx, pt2zy); // H = W * W - 8 * B
-        (pt2zx, pt2zy) = _FQ2Mul(pt1zx, pt1zy, pt1zx, pt1zy); // S_squared = S * S
-        (pt2yx, pt2yy) = _FQ2Muc(pt2yx, pt2yy, 4); // 4 * B
-        (pt2yx, pt2yy) = _FQ2Sub(pt2yx, pt2yy, pt1xx, pt1xy); // 4 * B - H
-        (pt2yx, pt2yy) = _FQ2Mul(pt2yx, pt2yy, pt2xx, pt2xy); // W * (4 * B - H)
-        (pt2xx, pt2xy) = _FQ2Muc(pt1yx, pt1yy, 8); // 8 * y
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1yx, pt1yy); // 8 * y * y
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt2zx, pt2zy); // 8 * y * y * S_squared
-        (pt2yx, pt2yy) = _FQ2Sub(pt2yx, pt2yy, pt2xx, pt2xy); // newy = W * (4 * B - H) - 8 * y * y * S_squared
-        (pt2xx, pt2xy) = _FQ2Muc(pt1xx, pt1xy, 2); // 2 * H
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1zx, pt1zy); // newx = 2 * H * S
-        (pt2zx, pt2zy) = _FQ2Mul(pt1zx, pt1zy, pt2zx, pt2zy); // S * S_squared
-        (pt2zx, pt2zy) = _FQ2Muc(pt2zx, pt2zy, 8); // newz = 8 * S * S_squared
+        (pt2xx, pt2xy) = _FQ2Muc(pt1xx, pt1xy, 3);            // 3X₁          = 3 * X₁
+        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1xx, pt1xy); // 3X₁²         = 3X₁ * X₁ = w
+        (pt1zx, pt1zy) = _FQ2Mul(pt1yx, pt1yy, pt1zx, pt1zy); // s            = Y₁Z₁
+        (pt2yx, pt2yy) = _FQ2Mul(pt1xx, pt1xy, pt1yx, pt1yy); // X₁Y₁         = X₁ * Y₁
+        (pt2yx, pt2yy) = _FQ2Mul(pt2yx, pt2yy, pt1zx, pt1zy); // B            = X₁Y₁ * s
+        (pt1xx, pt1xy) = _FQ2Mul(pt2xx, pt2xy, pt2xx, pt2xy); // w²           = w * w [^Computes (3X₁²)² instead of (aZ₁² + 3X₁²)²]
+        (pt2zx, pt2zy) = _FQ2Muc(pt2yx, pt2yy, 8);            // 8B           = B * 8
+        (pt1xx, pt1xy) = _FQ2Sub(pt1xx, pt1xy, pt2zx, pt2zy); // h            = w² - 8B
+        (pt2zx, pt2zy) = _FQ2Mul(pt1zx, pt1zy, pt1zx, pt1zy); // s²           = s * s
+        (pt2yx, pt2yy) = _FQ2Muc(pt2yx, pt2yy, 4);            // 4B           = B * 4
+        (pt2yx, pt2yy) = _FQ2Sub(pt2yx, pt2yy, pt1xx, pt1xy); //              = 4B - h
+        (pt2yx, pt2yy) = _FQ2Mul(pt2yx, pt2yy, pt2xx, pt2xy); // w * (4B - H) = (4B - H) * w
+        (pt2xx, pt2xy) = _FQ2Muc(pt1yx, pt1yy, 8);            // 8Y₁          = Y₁ * 8
+        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1yx, pt1yy); // 8Y₁²         = 8Y₁ * Y₁
+        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt2zx, pt2zy); // 8Y₁²s²       = 8Y₁² * s²
+        (pt2yx, pt2yy) = _FQ2Sub(pt2yx, pt2yy, pt2xx, pt2xy); // Y₃           = (w * (4B - H)) - 8Y₁²s²
+        (pt2xx, pt2xy) = _FQ2Muc(pt1xx, pt1xy, 2);            // 2h           = h * 2
+        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1zx, pt1zy); // X₃           = 2h * s
+        (pt2zx, pt2zy) = _FQ2Mul(pt1zx, pt1zy, pt2zx, pt2zy); // s³           = s * s²
+        (pt2zx, pt2zy) = _FQ2Muc(pt2zx, pt2zy, 8);            // Z₃           = s³ * 8
+
+        // ^In Section 2.2 formula (4) it is assumed that `a` is 0 which cancels
+        //  out the LHS term of (aZ₁² + 3X₁²)² to (3X₁²)² for BN128/256 which is
+        //  defined by `Y² = X³ + 3` where `a = 0` and `b = 3`.
     }
 
-    function _ECTwistMulJacobian(
+    function _ECTwistMulProjective(
         uint256 d,
         uint256 pt1xx,
         uint256 pt1xy,
@@ -347,7 +398,7 @@ library BN256G2 {
     ) internal pure returns (uint256[6] memory pt2) {
         while (d != 0) {
             if ((d & 1) != 0) {
-                pt2 = _ECTwistAddJacobian(
+                pt2 = _ECTwistAddProjective(
                     pt2[PTXX],
                     pt2[PTXY],
                     pt2[PTYX],
@@ -362,7 +413,7 @@ library BN256G2 {
                     pt1zy
                 );
             }
-            (pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, pt1zy) = _ECTwistDoubleJacobian(
+            (pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, pt1zy) = _ECTwistDoubleProjective(
                 pt1xx,
                 pt1xy,
                 pt1yx,
@@ -495,24 +546,46 @@ library BN256G2 {
         assert(_isOnCurve(Pxx, Pxy, Pyx, Pyy));
         uint256[6] memory Q = [Pxx, Pxy, Pyx, Pyy, 1, 0];
 
-        Q = _ECTwistMulByCofactorJacobian(Q);
+        Q = _ECTwistMulByCofactorProjective(Q);
 
-        return _fromJacobian(Q[PTXX], Q[PTXY], Q[PTYX], Q[PTYY], Q[PTZX], Q[PTZY]);
+        return _fromProjective(Q[PTXX], Q[PTXY], Q[PTYX], Q[PTYY], Q[PTZX], Q[PTZY]);
     }
 
-    function _ECTwistMulByCofactorJacobian(uint256[6] memory P) internal pure returns (uint256[6] memory Q) {
+    /**
+     * @notice Multiplies a point on a twisted elliptic curve by the cofactor in projective coordinates.
+     * @dev This function implements the algorithm described in the paper "Faster Hashing to G2" by 
+     * Laura Fuentes-Castaneda, Edward Knapp, and Francisco Rodriguez-Henriquez, available at: 
+     * https://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf. The elliptic curve is twisted and 
+     * each coordinate has both real and imaginary parts.
+     * 
+     * @param P The input point in projective coordinates as an array of six uint256 values:
+     * - P[0] (PTXX): The real part of the x-coordinate of the point.
+     * - P[1] (PTXY): The imaginary part of the x-coordinate of the point.
+     * - P[2] (PTYX): The real part of the y-coordinate of the point.
+     * - P[3] (PTYY): The imaginary part of the y-coordinate of the point.
+     * - P[4] (PTZX): The real part of the z-coordinate of the point.
+     * - P[5] (PTZY): The imaginary part of the z-coordinate of the point.
+     * @return Q The resulting point in projective coordinates as an array of six uint256 values:
+     * - Q[0] (PTXX): The real part of the x-coordinate of the resulting point.
+     * - Q[1] (PTXY): The imaginary part of the x-coordinate of the resulting point.
+     * - Q[2] (PTYX): The real part of the y-coordinate of the resulting point.
+     * - Q[3] (PTYY): The imaginary part of the y-coordinate of the resulting point.
+     * - Q[4] (PTZX): The real part of the z-coordinate of the resulting point.
+     * - Q[5] (PTZY): The imaginary part of the z-coordinate of the resulting point.
+     */
+    function _ECTwistMulByCofactorProjective(uint256[6] memory P) internal pure returns (uint256[6] memory Q) {
         uint256[6] memory T0;
         uint256[6] memory T1;
         uint256[6] memory T2;
 
         // T0 = CURVE_ORDER_FACTOR * P
-        T0 = _ECTwistMulJacobian(CURVE_ORDER_FACTOR, P[PTXX], P[PTXY], P[PTYX], P[PTYY], P[PTZX], P[PTZY]);
+        T0 = _ECTwistMulProjective(CURVE_ORDER_FACTOR, P[PTXX], P[PTXY], P[PTYX], P[PTYY], P[PTZX], P[PTZY]);
 
         // T1 = 2 * T0
-        T1 = _ECTwistMulJacobian(2, T0[PTXX], T0[PTXY], T0[PTYX], T0[PTYY], T0[PTZX], T0[PTZY]);
+        T1 = _ECTwistMulProjective(2, T0[PTXX], T0[PTXY], T0[PTYX], T0[PTYY], T0[PTZX], T0[PTZY]);
 
         // T1 = T1 + T0
-        T1 = _ECTwistAddJacobian(
+        T1 = _ECTwistAddProjective(
             T0[PTXX],
             T0[PTXY],
             T0[PTYX],
@@ -528,14 +601,14 @@ library BN256G2 {
         );
 
         // T1 = Frobenius(T1)
-        T1 = _ECTwistFrobeniusJacobian(T1);
+        T1 = _ECTwistFrobeniusProjective(T1);
 
         // T2 = Frobenius^2(T0)
-        T2 = _ECTwistFrobeniusJacobian(T0);
-        T2 = _ECTwistFrobeniusJacobian(T2);
+        T2 = _ECTwistFrobeniusProjective(T0);
+        T2 = _ECTwistFrobeniusProjective(T2);
 
         // T0 = T0 + T1 + T2
-        T0 = _ECTwistAddJacobian(
+        T0 = _ECTwistAddProjective(
             T0[PTXX],
             T0[PTXY],
             T0[PTYX],
@@ -549,7 +622,7 @@ library BN256G2 {
             T1[PTZX],
             T1[PTZY]
         );
-        T0 = _ECTwistAddJacobian(
+        T0 = _ECTwistAddProjective(
             T0[PTXX],
             T0[PTXY],
             T0[PTYX],
@@ -565,13 +638,13 @@ library BN256G2 {
         );
 
         // T2 = Frobenius^3(P)
-        T2 = _ECTwistFrobeniusJacobian(P);
-        T2 = _ECTwistFrobeniusJacobian(T2);
-        T2 = _ECTwistFrobeniusJacobian(T2);
+        T2 = _ECTwistFrobeniusProjective(P);
+        T2 = _ECTwistFrobeniusProjective(T2);
+        T2 = _ECTwistFrobeniusProjective(T2);
 
         // Q = T0 + T2
         return
-            _ECTwistAddJacobian(
+            _ECTwistAddProjective(
                 T0[PTXX],
                 T0[PTXY],
                 T0[PTYX],
@@ -587,7 +660,7 @@ library BN256G2 {
             );
     }
 
-    function _ECTwistFrobeniusJacobian(uint256[6] memory pt1) internal pure returns (uint256[6] memory pt2) {
+    function _ECTwistFrobeniusProjective(uint256[6] memory pt1) internal pure returns (uint256[6] memory pt2) {
         // Apply Frobenius map to each component
         (pt2[PTXX], pt2[PTXY]) = _FQ2Frobenius(pt1[PTXX], pt1[PTXY]);
         (pt2[PTYX], pt2[PTYY]) = _FQ2Frobenius(pt1[PTYX], pt1[PTYY]);

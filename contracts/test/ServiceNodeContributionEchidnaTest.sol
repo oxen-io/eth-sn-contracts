@@ -62,7 +62,6 @@ contract ServiceNodeContributionEchidnaTest {
 
         snContribution = new ServiceNodeContribution(
             /*snRewards*/ address(snRewards),
-            /*maxContributors*/ snRewards.maxContributors(),
             /*blsPubkey*/ blsPubkey,
             /*serviceNodeParams*/ snParams
         );

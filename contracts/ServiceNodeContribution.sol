@@ -27,7 +27,7 @@ contract ServiceNodeContribution is Shared {
     // solhint-disable-next-line var-name-mixedcase
     IERC20 public immutable SENT;
     IServiceNodeRewards public immutable stakingRewardsContract;
-    uint256 public immutable stakingRequirement;
+    uint256 public stakingRequirement;
 
     // Service Node
     BN256G1.G1Point public blsPubkey;
@@ -39,7 +39,7 @@ contract ServiceNodeContribution is Shared {
     mapping(address => uint256) public contributions;
     mapping(address => uint256) public contributionTimestamp;
     address[] public contributorAddresses;
-    uint256 public immutable maxContributors;
+    uint256 public maxContributors;
 
     // Smart Contract
     bool public finalized = false;
@@ -67,22 +67,20 @@ contract ServiceNodeContribution is Shared {
      * contribution factory `ServiceNodeContributionFactory`.
      *
      * @param _stakingRewardsContract Address of the staking rewards contract.
-     * @param _maxContributors Maximum number of contributors allowed.
      * @param _blsPubkey 64 byte BLS public key for the service node.
      * @param _serviceNodeParams Service node public key and signature proving
      * ownership of the public key and the fee the operator is charging.
      */
     constructor(
         address _stakingRewardsContract,
-        uint256 _maxContributors,
         BN256G1.G1Point memory _blsPubkey,
         IServiceNodeRewards.ServiceNodeParams memory _serviceNodeParams
-    ) nzAddr(_stakingRewardsContract) nzUint(_maxContributors) {
+    ) nzAddr(_stakingRewardsContract) {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
         stakingRequirement = stakingRewardsContract.stakingRequirement();
+        maxContributors = stakingRewardsContract.maxContributors();
         SENT = IERC20(stakingRewardsContract.designatedToken());
 
-        maxContributors = _maxContributors;
         operator = tx.origin; // NOTE: Creation is delegated by operator through factory
         blsPubkey = _blsPubkey;
         serviceNodeParams = _serviceNodeParams;
@@ -143,6 +141,8 @@ contract ServiceNodeContribution is Shared {
             require(contributorAddresses.length > 0, "Operator has not contributed funds");
         }
 
+        maxContributors = stakingRewardsContract.maxContributors();
+        stakingRequirement = stakingRewardsContract.stakingRequirement();
         require(amount >= minimumContribution(), "Contribution is below the minimum requirement.");
         require(totalContribution() + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
         require(!finalized, "Node has already been finalized.");
@@ -229,6 +229,8 @@ contract ServiceNodeContribution is Shared {
 
         // NOTE: Re-init the contract with the operator contribution.
         finalized = false;
+        maxContributors = stakingRewardsContract.maxContributors();
+        stakingRequirement = stakingRewardsContract.stakingRequirement();
         contributeOperatorFunds(amount, blsSignature);
     }
 

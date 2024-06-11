@@ -489,9 +489,6 @@ library BN256G2 {
             if (has_root) {
                 return (t1, 0); // y.a = t1, y.b = 0
             } else {
-                // Fp::squareRoot(t1, -x.a)
-                (t1, has_root) = _sqrt(FIELD_MODULUS - x1); // -x.a under modulo FIELD_MODULUS
-                assert(has_root); // assert(b)
                 return (0, t1); // y.a = 0, y.b = t1
             }
         }

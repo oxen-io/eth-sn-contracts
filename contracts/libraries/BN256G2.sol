@@ -87,9 +87,9 @@ library BN256G2 {
         assert(_isOnCurve(pt1xx, pt1xy, pt1yx, pt1yy));
         assert(_isOnCurve(pt2xx, pt2xy, pt2yx, pt2yy));
 
-        uint256[6] memory pt3 = _ECTwistAddJacobian(pt1xx, pt1xy, pt1yx, pt1yy, 1, 0, pt2xx, pt2xy, pt2yx, pt2yy, 1, 0);
+        uint256[6] memory pt3 = _ECTwistAddProjective(pt1xx, pt1xy, pt1yx, pt1yy, 1, 0, pt2xx, pt2xy, pt2yx, pt2yy, 1, 0);
 
-        return _fromJacobian(pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]);
+        return _fromProjective(pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]);
     }
 
     /**
@@ -117,9 +117,9 @@ library BN256G2 {
             assert(_isOnCurve(pt1xx, pt1xy, pt1yx, pt1yy));
         }
 
-        uint256[6] memory pt2 = _ECTwistMulJacobian(s, pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, 0);
+        uint256[6] memory pt2 = _ECTwistMulProjective(s, pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, 0);
 
-        return _fromJacobian(pt2[PTXX], pt2[PTXY], pt2[PTYX], pt2[PTYY], pt2[PTZX], pt2[PTZY]);
+        return _fromProjective(pt2[PTXX], pt2[PTXY], pt2[PTYX], pt2[PTYY], pt2[PTZX], pt2[PTZY]);
     }
 
     /**
@@ -215,7 +215,7 @@ library BN256G2 {
         require(success);
     }
 
-    function _fromJacobian(
+    function _fromProjective(
         uint256 pt1xx,
         uint256 pt1xy,
         uint256 pt1yx,
@@ -230,7 +230,31 @@ library BN256G2 {
         (pt2yx, pt2yy) = _FQ2Mul(pt1yx, pt1yy, invzx, invzy);
     }
 
-    function _ECTwistAddJacobian(
+     /**
+     * @notice Adds two points on a twisted elliptic curve in projective coordinates.
+     * @dev This function implements the addition formula for elliptic curves in projective coordinates
+     * based on formula (3) in section 2.2 from the paper
+     * Cohen, H., Miyaji, A., Ono, T. (1998). Efficient Elliptic Curve Exponentiation Using Mixed Coordinates.
+     * In: Ohta, K., Pei, D. (eds) Advances in Cryptology — ASIACRYPT’98. ASIACRYPT 1998.
+     * Lecture Notes in Computer Science, vol 1514. Springer, Berlin, Heidelberg. https://doi.org/10.1007/3-540-49649-1_6
+     * also available at: https://link.springer.com/chapter/10.1007/3-540-49649-1_6.
+     * This elliptic curve is twisted and each coordinate has both real and imaginary parts.
+     * 
+     * @param pt1xx The real part of the x-coordinate of the first point.
+     * @param pt1xy The imaginary part of the x-coordinate of the first point.
+     * @param pt1yx The real part of the y-coordinate of the first point.
+     * @param pt1yy The imaginary part of the y-coordinate of the first point.
+     * @param pt1zx The real part of the z-coordinate of the first point.
+     * @param pt1zy The imaginary part of the z-coordinate of the first point.
+     * @param pt2xx The real part of the x-coordinate of the second point.
+     * @param pt2xy The imaginary part of the x-coordinate of the second point.
+     * @param pt2yx The real part of the y-coordinate of the second point.
+     * @param pt2yy The imaginary part of the y-coordinate of the second point.
+     * @param pt2zx The real part of the z-coordinate of the second point.
+     * @param pt2zy The imaginary part of the z-coordinate of the second point.
+     * @return pt3 The resulting point of the addition in projective coordinates, including both real and imaginary parts for x, y, and z coordinates.
+     */
+    function _ECTwistAddProjective(
         uint256 pt1xx,
         uint256 pt1xy,
         uint256 pt1yx,
@@ -273,7 +297,7 @@ library BN256G2 {
 
         if (pt2xx == pt3[PTZX] && pt2xy == pt3[PTZY]) {
             if (pt2yx == pt3[PTYX] && pt2yy == pt3[PTYY]) {
-                (pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]) = _ECTwistDoubleJacobian(
+                (pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]) = _ECTwistDoubleProjective(
                     pt1xx,
                     pt1xy,
                     pt1yx,
@@ -306,7 +330,30 @@ library BN256G2 {
         (pt3[PTYX], pt3[PTYY]) = _FQ2Sub(pt1yx, pt1yy, pt1xx, pt1xy); // newy = U * (V_squared_times_V2 - A) - V_cubed * U2
     }
 
-    function _ECTwistDoubleJacobian(
+    /**
+     * @notice Doubles a point on a twisted elliptic curve in projective coordinates.
+     * @dev This function implements the doubling formula for elliptic curves in projective coordinates
+     * based on formula (4) in section 2.2 from the paper 
+     * Cohen, H., Miyaji, A., Ono, T. (1998). Efficient Elliptic Curve Exponentiation Using Mixed Coordinates.
+     * In: Ohta, K., Pei, D. (eds) Advances in Cryptology — ASIACRYPT’98. ASIACRYPT 1998.
+     * Lecture Notes in Computer Science, vol 1514. Springer, Berlin, Heidelberg. https://doi.org/10.1007/3-540-49649-1_6
+     * also available at: https://link.springer.com/chapter/10.1007/3-540-49649-1_6.
+     * This elliptic curve is twisted and each coordinate has both real and imaginary parts.
+     * 
+     * @param pt1xx The real part of the x-coordinate of the point.
+     * @param pt1xy The imaginary part of the x-coordinate of the point.
+     * @param pt1yx The real part of the y-coordinate of the point.
+     * @param pt1yy The imaginary part of the y-coordinate of the point.
+     * @param pt1zx The real part of the z-coordinate of the point.
+     * @param pt1zy The imaginary part of the z-coordinate of the point.
+     * @return pt2xx The real part of the x-coordinate of the resulting point.
+     * @return pt2xy The imaginary part of the x-coordinate of the resulting point.
+     * @return pt2yx The real part of the y-coordinate of the resulting point.
+     * @return pt2yy The imaginary part of the y-coordinate of the resulting point.
+     * @return pt2zx The real part of the z-coordinate of the resulting point.
+     * @return pt2zy The imaginary part of the z-coordinate of the resulting point.
+     */
+    function _ECTwistDoubleProjective(
         uint256 pt1xx,
         uint256 pt1xy,
         uint256 pt1yx,
@@ -336,7 +383,7 @@ library BN256G2 {
         (pt2zx, pt2zy) = _FQ2Muc(pt2zx, pt2zy, 8); // newz = 8 * S * S_squared
     }
 
-    function _ECTwistMulJacobian(
+    function _ECTwistMulProjective(
         uint256 d,
         uint256 pt1xx,
         uint256 pt1xy,
@@ -347,7 +394,7 @@ library BN256G2 {
     ) internal pure returns (uint256[6] memory pt2) {
         while (d != 0) {
             if ((d & 1) != 0) {
-                pt2 = _ECTwistAddJacobian(
+                pt2 = _ECTwistAddProjective(
                     pt2[PTXX],
                     pt2[PTXY],
                     pt2[PTYX],
@@ -362,7 +409,7 @@ library BN256G2 {
                     pt1zy
                 );
             }
-            (pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, pt1zy) = _ECTwistDoubleJacobian(
+            (pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, pt1zy) = _ECTwistDoubleProjective(
                 pt1xx,
                 pt1xy,
                 pt1yx,
@@ -495,24 +542,46 @@ library BN256G2 {
         assert(_isOnCurve(Pxx, Pxy, Pyx, Pyy));
         uint256[6] memory Q = [Pxx, Pxy, Pyx, Pyy, 1, 0];
 
-        Q = _ECTwistMulByCofactorJacobian(Q);
+        Q = _ECTwistMulByCofactorProjective(Q);
 
-        return _fromJacobian(Q[PTXX], Q[PTXY], Q[PTYX], Q[PTYY], Q[PTZX], Q[PTZY]);
+        return _fromProjective(Q[PTXX], Q[PTXY], Q[PTYX], Q[PTYY], Q[PTZX], Q[PTZY]);
     }
 
-    function _ECTwistMulByCofactorJacobian(uint256[6] memory P) internal pure returns (uint256[6] memory Q) {
+    /**
+     * @notice Multiplies a point on a twisted elliptic curve by the cofactor in projective coordinates.
+     * @dev This function implements the algorithm described in the paper "Faster Hashing to G2" by 
+     * Laura Fuentes-Castaneda, Edward Knapp, and Francisco Rodriguez-Henriquez, available at: 
+     * https://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf. The elliptic curve is twisted and 
+     * each coordinate has both real and imaginary parts.
+     * 
+     * @param P The input point in projective coordinates as an array of six uint256 values:
+     * - P[0] (PTXX): The real part of the x-coordinate of the point.
+     * - P[1] (PTXY): The imaginary part of the x-coordinate of the point.
+     * - P[2] (PTYX): The real part of the y-coordinate of the point.
+     * - P[3] (PTYY): The imaginary part of the y-coordinate of the point.
+     * - P[4] (PTZX): The real part of the z-coordinate of the point.
+     * - P[5] (PTZY): The imaginary part of the z-coordinate of the point.
+     * @return Q The resulting point in projective coordinates as an array of six uint256 values:
+     * - Q[0] (PTXX): The real part of the x-coordinate of the resulting point.
+     * - Q[1] (PTXY): The imaginary part of the x-coordinate of the resulting point.
+     * - Q[2] (PTYX): The real part of the y-coordinate of the resulting point.
+     * - Q[3] (PTYY): The imaginary part of the y-coordinate of the resulting point.
+     * - Q[4] (PTZX): The real part of the z-coordinate of the resulting point.
+     * - Q[5] (PTZY): The imaginary part of the z-coordinate of the resulting point.
+     */
+    function _ECTwistMulByCofactorProjective(uint256[6] memory P) internal pure returns (uint256[6] memory Q) {
         uint256[6] memory T0;
         uint256[6] memory T1;
         uint256[6] memory T2;
 
         // T0 = CURVE_ORDER_FACTOR * P
-        T0 = _ECTwistMulJacobian(CURVE_ORDER_FACTOR, P[PTXX], P[PTXY], P[PTYX], P[PTYY], P[PTZX], P[PTZY]);
+        T0 = _ECTwistMulProjective(CURVE_ORDER_FACTOR, P[PTXX], P[PTXY], P[PTYX], P[PTYY], P[PTZX], P[PTZY]);
 
         // T1 = 2 * T0
-        T1 = _ECTwistMulJacobian(2, T0[PTXX], T0[PTXY], T0[PTYX], T0[PTYY], T0[PTZX], T0[PTZY]);
+        T1 = _ECTwistMulProjective(2, T0[PTXX], T0[PTXY], T0[PTYX], T0[PTYY], T0[PTZX], T0[PTZY]);
 
         // T1 = T1 + T0
-        T1 = _ECTwistAddJacobian(
+        T1 = _ECTwistAddProjective(
             T0[PTXX],
             T0[PTXY],
             T0[PTYX],
@@ -528,14 +597,14 @@ library BN256G2 {
         );
 
         // T1 = Frobenius(T1)
-        T1 = _ECTwistFrobeniusJacobian(T1);
+        T1 = _ECTwistFrobeniusProjective(T1);
 
         // T2 = Frobenius^2(T0)
-        T2 = _ECTwistFrobeniusJacobian(T0);
-        T2 = _ECTwistFrobeniusJacobian(T2);
+        T2 = _ECTwistFrobeniusProjective(T0);
+        T2 = _ECTwistFrobeniusProjective(T2);
 
         // T0 = T0 + T1 + T2
-        T0 = _ECTwistAddJacobian(
+        T0 = _ECTwistAddProjective(
             T0[PTXX],
             T0[PTXY],
             T0[PTYX],
@@ -549,7 +618,7 @@ library BN256G2 {
             T1[PTZX],
             T1[PTZY]
         );
-        T0 = _ECTwistAddJacobian(
+        T0 = _ECTwistAddProjective(
             T0[PTXX],
             T0[PTXY],
             T0[PTYX],
@@ -565,13 +634,13 @@ library BN256G2 {
         );
 
         // T2 = Frobenius^3(P)
-        T2 = _ECTwistFrobeniusJacobian(P);
-        T2 = _ECTwistFrobeniusJacobian(T2);
-        T2 = _ECTwistFrobeniusJacobian(T2);
+        T2 = _ECTwistFrobeniusProjective(P);
+        T2 = _ECTwistFrobeniusProjective(T2);
+        T2 = _ECTwistFrobeniusProjective(T2);
 
         // Q = T0 + T2
         return
-            _ECTwistAddJacobian(
+            _ECTwistAddProjective(
                 T0[PTXX],
                 T0[PTXY],
                 T0[PTYX],
@@ -587,7 +656,7 @@ library BN256G2 {
             );
     }
 
-    function _ECTwistFrobeniusJacobian(uint256[6] memory pt1) internal pure returns (uint256[6] memory pt2) {
+    function _ECTwistFrobeniusProjective(uint256[6] memory pt1) internal pure returns (uint256[6] memory pt2) {
         // Apply Frobenius map to each component
         (pt2[PTXX], pt2[PTXY]) = _FQ2Frobenius(pt1[PTXX], pt1[PTXY]);
         (pt2[PTYX], pt2[PTYY]) = _FQ2Frobenius(pt1[PTYX], pt1[PTYY]);

@@ -604,44 +604,60 @@ library BN256G2 {
         return (x1, FIELD_MODULUS - x2);
     }
 
+    function memcpy(bytes memory dest, bytes memory src, uint size) private pure {
+        // Copy by word
+        uint offset = 32; // Advance past the length encoding of the array
+        uint wordCount = size / 32;
+        assembly {
+            let destPtr := add(dest, offset)
+            let srcPtr := add(src, offset)
+            for { let i := 0 } lt(i, wordCount) { i := add(i, 1) } {
+                mstore(destPtr, mload(srcPtr))
+                destPtr := add(destPtr, 32)
+                srcPtr := add(srcPtr, 32)
+            }
+        }
+
+        // Copy tail end (remaining bytes)
+        for (uint i = (wordCount * 32); i < size; i++) {
+            dest[i] = src[i];
+        }
+    }
+
     // hashes to G2 using the try and increment method
-    function mapToG2(uint256 h) internal view returns (G2Point memory) {
+    //function mapToG2(uint256 h) internal view returns (G2Point memory) {
+    function mapToG2(bytes memory message) internal view returns (G2Point memory) {
+
         // Define the G2Point coordinates
-        uint256 x1 = h;
-        uint256 x2 = 0;
+        uint256 x1;
+        uint256 x2;
         uint256 y1 = 0;
         uint256 y2 = 0;
 
-        bool foundValidPoint = false;
+        bytes memory message_with_i = new bytes(message.length + 1 /*bytes*/);
+        memcpy(message_with_i, message, message.length);
 
-        // Iterate until we find a valid G2 point
-        while (!foundValidPoint) {
-            // Try to get y^2
-            (uint256 yx, uint256 yy) = Get_yy_coordinate(x1, x2);
+        for (uint8 increment = 0;; increment++) { // Iterate until we find a valid G2 point
+            message_with_i[message_with_i.length - 1] = bytes1(increment);
+            x1                                        = byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(message_with_i)))));
+            x2                                        = 0;
 
-            // Calculate square root
-            (uint256 sqrt_x, uint256 sqrt_y) = FQ2Sqrt(yx, yy);
-
-            // Check if this is a point
-            if (sqrt_x != 0 && sqrt_y != 0) {
+            (uint256 yx,     uint256 yy)     = Get_yy_coordinate(x1, x2); // Try to get y^2
+            (uint256 sqrt_x, uint256 sqrt_y) = FQ2Sqrt(yx, yy);           // Calculate square root
+            if (sqrt_x != 0 && sqrt_y != 0) {                             // Check if this is a point
                 y1 = sqrt_x;
                 y2 = sqrt_y;
                 if (IsOnCurve(x1, x2, y1, y2)) {
-                    foundValidPoint = true;
-                } else {
-                    x1 += 1;
+                    break;
                 }
-            } else {
-                // Increment x coordinate and try again.
-                x1 += 1;
             }
         }
 
         return (G2Point([x2, x1], [y2, y1]));
     }
 
-    function hashToG2(uint256 h) internal view returns (G2Point memory) {
-        G2Point memory map = mapToG2(h);
+    function hashToG2(bytes memory message) internal view returns (G2Point memory) {
+        G2Point memory map = mapToG2(message);
         (uint256 x1, uint256 x2, uint256 y1, uint256 y2) = ECTwistMulByCofactor(map.X[1], map.X[0], map.Y[1], map.Y[0]);
         return (G2Point([x2, x1], [y2, y1]));
     }
@@ -677,14 +693,6 @@ library BN256G2 {
             swapped |= byteValue << (256 - 8 - (i * 8));
         }
         return swapped;
-    }
-
-    function calcField(uint256 pkX, uint256 pkY) internal pure returns (uint256) {
-        return hashToField(string(abi.encodePacked(pkX, pkY)));
-    }
-
-    function hashToField(string memory message) internal pure returns (uint256) {
-        return byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(bytes(message))))));
     }
 
     /// @return the generator of G2

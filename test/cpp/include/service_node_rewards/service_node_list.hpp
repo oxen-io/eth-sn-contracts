@@ -16,6 +16,7 @@
 
 #include <string>
 #include <vector>
+#include <span>
 
 constexpr inline uint64_t SERVICE_NODE_LIST_SENTINEL = 0;
 
@@ -26,7 +27,7 @@ public:
     uint64_t service_node_id = SERVICE_NODE_LIST_SENTINEL;
     ServiceNode() = default;
     ServiceNode(uint64_t _service_node_id);
-    bls::Signature signHash(const std::array<unsigned char, 32>& hash) const;
+    bls::Signature blsSignHash(std::span<const char> bytes) const;
     std::string    proofOfPossession(uint32_t chainID, const std::string& contractAddress, const std::string& senderEthAddress, const std::string& serviceNodePubkey);
     std::string    getPublicKeyHex() const;
     bls::PublicKey getPublicKey() const;

@@ -2,9 +2,14 @@
 #include "service_node_rewards/ec_utils.hpp"
 #include "ethyl/utils.hpp"
 
+extern "C" {
+#include "crypto/keccak.h"
+}
+
 #include <algorithm>
 #include <chrono>
 #include <random>
+#include <cstring>
 
 const std::string proofOfPossessionTag = "BLS_SIG_TRYANDINCREMENT_POP";
 const std::string rewardTag = "BLS_SIG_TRYANDINCREMENT_REWARD";
@@ -26,21 +31,91 @@ std::string buildTag(const std::string& baseTag, uint32_t chainID, const std::st
     return utils::toHexString(utils::hash(concatenatedTag));
 }
 
-bls::Signature ServiceNode::signHash(const std::array<unsigned char, 32>& hash) const {
-    bls::Signature sig;
-    secretKey.signHash(sig, hash.data(), hash.size());
-    return sig;
+static void tryAndIncMapToHash(mcl::bn::G2& P, std::span<const char> bytes) {
+    for (uint8_t increment = 0;; increment++) {
+        KECCAK_CTX keccak_ctx;
+        std::array<unsigned char, 32> hash;
+        keccak_init(&keccak_ctx);
+        keccak_update(&keccak_ctx, reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size());
+        keccak_update(&keccak_ctx, reinterpret_cast<const uint8_t *>(&increment), sizeof(increment));
+        keccak_finish(&keccak_ctx, hash.data());
+
+        mcl::bn::Fp t;
+        t.setArrayMask(hash.data(), hash.size());
+        mcl::bn::G2::Fp x = mcl::bn::G2::Fp(t, 0);
+
+        mcl::bn::G2::Fp y;
+        mcl::bn::G2::getWeierstrass(y, x);
+        if (mcl::bn::G2::Fp::squareRoot(y, y)) {
+            bool b;
+            P.set(&b, x, y, false);
+            assert(b);
+            return; // Successfully mapped to curve, exit the loop
+        }
+    }
 }
 
+bls::Signature ServiceNode::blsSignHash(std::span<const char> bytes) const {
+    // NOTE: This is herumi's 'blsSignHash' deconstructed to its primitive
+    // function calls but instead of executing herumi's 'tryAndIncMapTo' which
+    // maps a hash to a point we execute our own mapping function. herumi's
+    // method increments the x-coordinate to try and map the point.
+    //
+    // This approach does not follow the original BLS paper's construction of the
+    // hash to curve method which does `H(m||i)` e.g. it hashes the message with
+    // an integer appended on the end. This integer is incremented and the
+    // message is re-hashed if the resulting hash could not be mapped onto the
+    // field.
+
+    // NOTE: mcl::bn::blsSignHash(...) -> toG(...)
+    // Map a string of `bytes` to a point on the curve for BLS
+    mcl::bn::G2 Hm;
+    {
+        tryAndIncMapToHash(Hm, bytes);
+        mcl::bn::BN::param.mapTo.mulByCofactor(Hm);
+    }
+
+    // NOTE: mcl::bn::blsSignHash(...) -> GmulCT(...) -> G2::mulCT
+    bls::Signature result = {};
+    result.clear();
+    {
+        mcl::bn::Fr s;
+        std::memcpy(const_cast<uint64_t*>(s.getUnit()), &secretKey.getPtr()->v, sizeof(s));
+        static_assert(sizeof(s) == sizeof(secretKey.getPtr()->v));
+
+        mcl::bn::G2 g2;
+        mcl::bn::G2::mulCT(g2, Hm, s);
+        std::memcpy(&result.getPtr()->v.x, &g2.x, sizeof(g2.x));
+        std::memcpy(&result.getPtr()->v.y, &g2.y, sizeof(g2.y));
+        std::memcpy(&result.getPtr()->v.z, &g2.z, sizeof(g2.z));
+        static_assert(sizeof(g2) == sizeof(result.getPtr()->v));
+    }
+
+    return result;
+}
+
+// TODO(doyle): oxen-core has a new BLS implementation that can construct these
+// messages directly as a byte stream and avoid the marshalling back-and-forth.
+//
+// For now we construct the hex strings then marshall to bytes for the BLS
+// operations.
+//
+// In particular BLSSigner can be pulled into this repository as a utility class
+// that can then be imported by oxen-core for use in the core-repo. This repo
+// should contain all the contracts and bindings code (like BLSSigner) that help
+// end-user applications like oxen-core interact with the contracts (such as
+// creating a proof-of-posession).
+//
+// It will also allow this test repository to re-use that functionality for
+// testing purposes.
 std::string ServiceNode::proofOfPossession(uint32_t chainID, const std::string& contractAddress, const std::string& senderEthAddress, const std::string& serviceNodePubkey) {
     std::string senderAddressOutput = senderEthAddress;
     if (senderAddressOutput.substr(0, 2) == "0x")
         senderAddressOutput = senderAddressOutput.substr(2);  // remove "0x"
     std::string fullTag = buildTag(proofOfPossessionTag, chainID, contractAddress);
     std::string message = "0x" + fullTag + getPublicKeyHex() + senderAddressOutput + utils::padTo32Bytes(utils::toHexString(serviceNodePubkey), utils::PaddingDirection::LEFT);
-    const std::array<unsigned char, 32> hash = utils::hash(message);
-    bls::Signature sig;
-    secretKey.signHash(sig, hash.data(), hash.size());
+    std::vector<char> messageBytes = utils::fromHexString<char>(message);
+    bls::Signature sig = blsSignHash(messageBytes);
     return utils::SignatureToHex(sig);
 }
 
@@ -107,21 +182,21 @@ std::string ServiceNodeList::aggregatePubkeyHex() {
 }
 
 std::string ServiceNodeList::aggregateSignatures(const std::string& message) {
-    const std::array<unsigned char, 32> hash = utils::hash(message); // Get the hash of the input
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& node : nodes) {
-        aggSig.add(node.signHash(hash));
+        std::vector<char> messageBytes = utils::fromHexString<char>(message);
+        aggSig.add(node.blsSignHash(messageBytes));
     }
     return utils::SignatureToHex(aggSig);
 }
 
 std::string ServiceNodeList::aggregateSignaturesFromIndices(const std::string& message, const std::vector<int64_t>& indices) {
-    const std::array<unsigned char, 32> hash = utils::hash(message); // Get the hash of the input
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& index : indices) {
-        aggSig.add(nodes[static_cast<size_t>(index)].signHash(hash));
+        std::vector<char> messageBytes = utils::fromHexString<char>(message);
+        aggSig.add(nodes[static_cast<size_t>(index)].blsSignHash(messageBytes));
     }
     return utils::SignatureToHex(aggSig);
 }
@@ -172,13 +247,13 @@ uint64_t ServiceNodeList::randomServiceNodeID() {
 std::tuple<std::string, uint64_t, std::string> ServiceNodeList::liquidateNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
     std::string pubkey = nodes[static_cast<size_t>(findNodeIndex(nodeID))].getPublicKeyHex();
     std::string fullTag = buildTag(liquidateTag, chainID, contractAddress);
-    auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    auto timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     std::string message = "0x" + fullTag + pubkey + utils::padTo32Bytes(utils::decimalToHex(timestamp), utils::PaddingDirection::LEFT);
-    const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& service_node_id: service_node_ids) {
-        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
+        std::vector<char> messageBytes = utils::fromHexString<char>(message);
+        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].blsSignHash(messageBytes));
     }
     return std::make_tuple(pubkey, timestamp, utils::SignatureToHex(aggSig));
 }
@@ -186,13 +261,13 @@ std::tuple<std::string, uint64_t, std::string> ServiceNodeList::liquidateNodeFro
 std::tuple<std::string, uint64_t, std::string> ServiceNodeList::removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
     std::string pubkey = nodes[static_cast<size_t>(findNodeIndex(nodeID))].getPublicKeyHex();
     std::string fullTag = buildTag(removalTag, chainID, contractAddress);
-    auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    auto timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     std::string message = "0x" + fullTag + pubkey + utils::padTo32Bytes(utils::decimalToHex(timestamp), utils::PaddingDirection::LEFT);
-    const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& service_node_id: service_node_ids) {
-        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
+        std::vector<char> messageBytes = utils::fromHexString<char>(message);
+        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].blsSignHash(messageBytes));
     }
     return std::make_tuple(pubkey, timestamp, utils::SignatureToHex(aggSig));
 }
@@ -203,11 +278,11 @@ std::string ServiceNodeList::updateRewardsBalance(const std::string& address, co
         rewardAddressOutput = rewardAddressOutput.substr(2);  // remove "0x"
     std::string fullTag = buildTag(rewardTag, chainID, contractAddress);
     std::string message = "0x" + fullTag + utils::padToNBytes(rewardAddressOutput, 20, utils::PaddingDirection::LEFT) + utils::padTo32Bytes(std::to_string(amount), utils::PaddingDirection::LEFT);
-    const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& service_node_id: service_node_ids) {
-        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
+        std::vector<char> messageBytes = utils::fromHexString<char>(message);
+        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].blsSignHash(messageBytes));
     }
     return utils::SignatureToHex(aggSig);
 }

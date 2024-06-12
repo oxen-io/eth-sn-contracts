@@ -206,7 +206,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // NOTE: Validate signature
         {
             bytes memory encodedMessage = abi.encodePacked(rewardTag, recipientAddress, recipientRewards);
-            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage);
             validateSignatureOrRevert(ids, blsSignature, Hm);
         }
 
@@ -342,7 +342,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             caller,
             serviceNodePubkey
         );
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+        BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage);
 
         BN256G2.G2Point memory signature = BN256G2.G2Point(
             [blsSignature.sigs1, blsSignature.sigs0],
@@ -421,7 +421,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // NOTE: Validate signature
         {
             bytes memory encodedMessage = abi.encodePacked(removalTag, blsPubkey.X, blsPubkey.Y, timestamp);
-            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage);
             validateSignatureOrRevert(ids, blsSignature, Hm);
         }
 
@@ -499,7 +499,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // NOTE: Validate signature
         {
             bytes memory encodedMessage = abi.encodePacked(liquidateTag, blsPubkey.X, blsPubkey.Y, timestamp);
-            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage);
             validateSignatureOrRevert(ids, blsSignature, Hm);
         }
 

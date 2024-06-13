@@ -604,11 +604,24 @@ library BN256G2 {
         return (x1, FIELD_MODULUS - x2);
     }
 
+    // Helper function to increment message bytes
+    function incrementMessage(bytes memory data) internal pure {
+        for (uint256 i = data.length; i > 0; i--) {
+            uint256 index = i - 1;
+            uint8 byteValue = uint8(data[index]);
+            if (byteValue != 0xFF) {
+                byteValue++;
+                data[index] = bytes1(byteValue);
+                break;
+            } else {
+                data[index] = bytes1(0); // Reset the byte to 0 when it overflows
+            }
+        }
+    }
+
     // hashes to G2 using the try and increment method
     //function mapToG2(uint256 h) internal view returns (G2Point memory) {
     function mapToG2(bytes memory message) internal view returns (G2Point memory) {
-
-        uint256 h = byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(message)))));
 
         // Define the G2Point coordinates
         uint256 x1;
@@ -620,7 +633,7 @@ library BN256G2 {
 
         // Iterate until we find a valid G2 point
         while (!foundValidPoint) {
-            x1 = h;
+            x1 = byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(message)))));
             x2 = 0;
             // Try to get y^2
             (uint256 yx, uint256 yy) = Get_yy_coordinate(x1, x2);
@@ -635,11 +648,10 @@ library BN256G2 {
                 if (IsOnCurve(x1, x2, y1, y2)) {
                     foundValidPoint = true;
                 } else {
-                    h += 1;
+                    incrementMessage(message);
                 }
             } else {
-                // Increment h and try again.
-                h += 1;
+                incrementMessage(message);
             }
         }
 

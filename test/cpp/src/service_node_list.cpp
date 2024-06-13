@@ -31,6 +31,12 @@ bls::Signature ServiceNode::signHash(const std::array<unsigned char, 32>& hash) 
     secretKey.signHash(sig, hash.data(), hash.size());
     return sig;
 }
+using HashFunction = std::function<std::array<unsigned char,32>(const std::string&)>;
+bls::Signature ServiceNode::signHashFunc(const std::string& message, HashFunction hashFunc) const {
+    bls::Signature sig;
+    secretKey.signHashFunc(sig, message, hashFunc);
+    return sig;
+}
 
 std::string ServiceNode::proofOfPossession(uint32_t chainID, const std::string& contractAddress, const std::string& senderEthAddress, const std::string& serviceNodePubkey) {
     std::string senderAddressOutput = senderEthAddress;
@@ -38,9 +44,12 @@ std::string ServiceNode::proofOfPossession(uint32_t chainID, const std::string& 
         senderAddressOutput = senderAddressOutput.substr(2);  // remove "0x"
     std::string fullTag = buildTag(proofOfPossessionTag, chainID, contractAddress);
     std::string message = "0x" + fullTag + getPublicKeyHex() + senderAddressOutput + utils::padTo32Bytes(utils::toHexString(serviceNodePubkey), utils::PaddingDirection::LEFT);
-    const std::array<unsigned char, 32> hash = utils::hash(message);
+    //TODO sean delete this
+    //const std::array<unsigned char, 32> hash = utils::hash(message);
+    //bls::Signature sig;
+    //secretKey.signHash(sig, hash.data(), hash.size());
     bls::Signature sig;
-    secretKey.signHash(sig, hash.data(), hash.size());
+    secretKey.signHashFunc(sig, message, utils::hash);
     return utils::SignatureToHex(sig);
 }
 
@@ -107,21 +116,22 @@ std::string ServiceNodeList::aggregatePubkeyHex() {
 }
 
 std::string ServiceNodeList::aggregateSignatures(const std::string& message) {
-    const std::array<unsigned char, 32> hash = utils::hash(message); // Get the hash of the input
+    //const std::array<unsigned char, 32> hash = utils::hash(message); // Get the hash of the input
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& node : nodes) {
-        aggSig.add(node.signHash(hash));
+        //aggSig.add(node.signHash(hash));
+        aggSig.add(node.signHashFunc(message, utils::hash));
     }
     return utils::SignatureToHex(aggSig);
 }
 
 std::string ServiceNodeList::aggregateSignaturesFromIndices(const std::string& message, const std::vector<int64_t>& indices) {
-    const std::array<unsigned char, 32> hash = utils::hash(message); // Get the hash of the input
+    //const std::array<unsigned char, 32> hash = utils::hash(message); // Get the hash of the input
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& index : indices) {
-        aggSig.add(nodes[static_cast<size_t>(index)].signHash(hash));
+        aggSig.add(nodes[static_cast<size_t>(index)].signHashFunc(message, utils::hash));
     }
     return utils::SignatureToHex(aggSig);
 }
@@ -174,11 +184,11 @@ std::tuple<std::string, uint64_t, std::string> ServiceNodeList::liquidateNodeFro
     std::string fullTag = buildTag(liquidateTag, chainID, contractAddress);
     auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     std::string message = "0x" + fullTag + pubkey + utils::padTo32Bytes(utils::decimalToHex(timestamp), utils::PaddingDirection::LEFT);
-    const std::array<unsigned char, 32> hash = utils::hash(message);
+    //const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& service_node_id: service_node_ids) {
-        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
+        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHashFunc(message, utils::hash));
     }
     return std::make_tuple(pubkey, timestamp, utils::SignatureToHex(aggSig));
 }
@@ -188,11 +198,11 @@ std::tuple<std::string, uint64_t, std::string> ServiceNodeList::removeNodeFromIn
     std::string fullTag = buildTag(removalTag, chainID, contractAddress);
     auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     std::string message = "0x" + fullTag + pubkey + utils::padTo32Bytes(utils::decimalToHex(timestamp), utils::PaddingDirection::LEFT);
-    const std::array<unsigned char, 32> hash = utils::hash(message);
+    //const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& service_node_id: service_node_ids) {
-        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
+        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHashFunc(message, utils::hash));
     }
     return std::make_tuple(pubkey, timestamp, utils::SignatureToHex(aggSig));
 }
@@ -203,11 +213,11 @@ std::string ServiceNodeList::updateRewardsBalance(const std::string& address, co
         rewardAddressOutput = rewardAddressOutput.substr(2);  // remove "0x"
     std::string fullTag = buildTag(rewardTag, chainID, contractAddress);
     std::string message = "0x" + fullTag + utils::padToNBytes(rewardAddressOutput, 20, utils::PaddingDirection::LEFT) + utils::padTo32Bytes(std::to_string(amount), utils::PaddingDirection::LEFT);
-    const std::array<unsigned char, 32> hash = utils::hash(message);
+    //const std::array<unsigned char, 32> hash = utils::hash(message);
     bls::Signature aggSig;
     aggSig.clear();
     for(auto& service_node_id: service_node_ids) {
-        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHash(hash));
+        aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].signHashFunc(message, utils::hash));
     }
     return utils::SignatureToHex(aggSig);
 }

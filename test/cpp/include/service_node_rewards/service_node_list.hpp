@@ -27,6 +27,7 @@ public:
     ServiceNode() = default;
     ServiceNode(uint64_t _service_node_id);
     bls::Signature signHash(const std::array<unsigned char, 32>& hash) const;
+    bls::Signature signHashFunc(const std::string& message, HashFunction hashFunc) const;
     std::string    proofOfPossession(uint32_t chainID, const std::string& contractAddress, const std::string& senderEthAddress, const std::string& serviceNodePubkey);
     std::string    getPublicKeyHex() const;
     bls::PublicKey getPublicKey() const;

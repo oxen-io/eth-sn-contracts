@@ -604,11 +604,28 @@ library BN256G2 {
         return (x1, FIELD_MODULUS - x2);
     }
 
+    // Helper function to increment message bytes
+    function incrementMessage(bytes memory data) internal pure {
+        for (uint256 i = data.length; i > 0; i--) {
+            uint256 index = i - 1;
+            uint8 byteValue = uint8(data[index]);
+            if (byteValue != 0xFF) {
+                byteValue++;
+                data[index] = bytes1(byteValue);
+                break;
+            } else {
+                data[index] = bytes1(0); // Reset the byte to 0 when it overflows
+            }
+        }
+    }
+
     // hashes to G2 using the try and increment method
-    function mapToG2(uint256 h) internal view returns (G2Point memory) {
+    //function mapToG2(uint256 h) internal view returns (G2Point memory) {
+    function mapToG2(bytes memory message) internal view returns (G2Point memory) {
+
         // Define the G2Point coordinates
-        uint256 x1 = h;
-        uint256 x2 = 0;
+        uint256 x1;
+        uint256 x2;
         uint256 y1 = 0;
         uint256 y2 = 0;
 
@@ -616,6 +633,8 @@ library BN256G2 {
 
         // Iterate until we find a valid G2 point
         while (!foundValidPoint) {
+            x1 = byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(message)))));
+            x2 = 0;
             // Try to get y^2
             (uint256 yx, uint256 yy) = Get_yy_coordinate(x1, x2);
 
@@ -629,19 +648,19 @@ library BN256G2 {
                 if (IsOnCurve(x1, x2, y1, y2)) {
                     foundValidPoint = true;
                 } else {
-                    x1 += 1;
+                    incrementMessage(message);
                 }
             } else {
-                // Increment x coordinate and try again.
-                x1 += 1;
+                incrementMessage(message);
             }
         }
 
         return (G2Point([x2, x1], [y2, y1]));
     }
 
-    function hashToG2(uint256 h) internal view returns (G2Point memory) {
-        G2Point memory map = mapToG2(h);
+    //function hashToG2(uint256 h) internal view returns (G2Point memory) {
+    function hashToG2(bytes memory message) internal view returns (G2Point memory) {
+        G2Point memory map = mapToG2(message);
         (uint256 x1, uint256 x2, uint256 y1, uint256 y2) = ECTwistMulByCofactor(map.X[1], map.X[0], map.Y[1], map.Y[0]);
         return (G2Point([x2, x1], [y2, y1]));
     }
@@ -679,13 +698,9 @@ library BN256G2 {
         return swapped;
     }
 
-    function calcField(uint256 pkX, uint256 pkY) internal pure returns (uint256) {
-        return hashToField(string(abi.encodePacked(pkX, pkY)));
-    }
-
-    function hashToField(string memory message) internal pure returns (uint256) {
-        return byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(bytes(message))))));
-    }
+    //function calcField(uint256 pkX, uint256 pkY) internal pure returns (uint256) {
+        //return hashToField(string(abi.encodePacked(pkX, pkY)));
+    //}
 
     /// @return the generator of G2
     function P2() internal pure returns (G2Point memory) {

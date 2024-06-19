@@ -23,6 +23,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     uint64 public constant LIST_SENTINEL = 0;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
+    uint256 public constant MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND = 5;
 
     uint64 public nextServiceNodeID;
     uint256 public totalNodes;
@@ -95,6 +96,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     mapping(bytes blsPublicKey => uint64 serviceNodeID) public serviceNodeIDs;
 
     BN256G1.G1Point public _aggregatePubkey;
+    uint256         public _lastHeightPubkeyWasAggregated;
+    uint256         public _numPubkeyAggregationsForHeight;
 
     // MODIFIERS
     modifier whenStarted() {
@@ -563,13 +566,31 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     /// @notice Add the service node with the specified BLS public key to
     /// the service node list. EVM revert if the service node already exists.
-    /// @return result The ID allocated for the service node. The service node can then
-    /// be accessed by `_serviceNodes[result]`
+    ///
+    /// @return result The ID allocated for the service node. The service node
+    /// can then be accessed by `_serviceNodes[result]`
     function serviceNodeAdd(BN256G1.G1Point memory pubkey) internal returns (uint64 result) {
         // NOTE: Check if the service node already exists
         // (e.g. <BLS Key> -> <SN> mapping)
         bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(pubkey);
         if (serviceNodeIDs[pubkeyBytes] != LIST_SENTINEL) revert BLSPubkeyAlreadyExists(serviceNodeIDs[pubkeyBytes]);
+
+        // NOTE: After the contract has started (e.g. the contract has been
+        // seeded) we limit the number of public keys permitted to be aggregated
+        // within a single block.
+        if (isStarted) {
+            if (_lastHeightPubkeyWasAggregated < block.number) {
+                _lastHeightPubkeyWasAggregated  = block.number;
+                _numPubkeyAggregationsForHeight = 0;
+            }
+            _numPubkeyAggregationsForHeight++;
+
+            uint256 limit = maxPermittedPubkeyAggregations();
+            require(_numPubkeyAggregationsForHeight <= limit,
+                    "The maximum number of new Session Nodes permitted per block has been "
+                    "exceeded. Session Node can not be added, please retry again in the next "
+                    "block.");
+        }
 
         result = nextServiceNodeID;
         nextServiceNodeID += 1;
@@ -602,6 +623,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         } else {
             _aggregatePubkey = BN256G1.add(_aggregatePubkey, pubkey);
         }
+
         return result;
     }
 
@@ -750,6 +772,22 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
 
         return count;
+    }
+
+    /// @notice The maximum number of pubkey aggregations permitted for the
+    /// current block height.
+    ///
+    /// @dev This is currently defined as max(5, 2 percent of the network).
+    ///
+    /// This value is used in tandem with `_numPubkeyAggregationsForHeight`
+    /// which tracks the current number of aggregations thus far for the current
+    /// block in the blockchain. This counter gets reset to 0 for each new
+    /// block.
+    function maxPermittedPubkeyAggregations() public view returns (uint256 result) {
+        uint256 twoPercentOfTotalNodes = totalNodes * 2 / 100;
+        result = twoPercentOfTotalNodes > MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND
+                                        ? twoPercentOfTotalNodes
+                                        : MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND;
     }
 
     /// @notice Getter for a single service node given their service node ID

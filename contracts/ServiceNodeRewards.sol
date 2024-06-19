@@ -522,8 +522,18 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     /// @notice Seeds the public key list with an initial set of service nodes.
     ///
+    /// This function can only be called after deployment of the contract by the
+    /// owner, and, prior to starting the contract.
+    ///
     /// @dev This should be called before the hardfork by the foundation to
-    /// ensure the public key list is ready to operate.
+    /// ensure the public key list is ready to operate. The foundation will
+    /// enumerate the keys from Session Nodes in C++ via cryptographic proofs
+    /// which include a proof-of-possession to verify that the
+    /// Session Node has the secret-component of the BLS public key they are
+    /// declaring.
+    ///
+    /// Depending on the number of nodes that must be seeded, this function
+    /// may necessarily be called multiple times due to gas limits.
     ///
     /// @param pkX Array of X-coordinates for the public keys.
     /// @param pkY Array of Y-coordinates for the public keys.
@@ -534,6 +544,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         uint256[] calldata pkY,
         uint256[] calldata amounts
     ) external onlyOwner {
+        require(!isStarted, "The rewards list can only be seeded after "
+                "deployment and before `start` is invoked on the contract.");
+
         if (pkX.length != pkY.length || pkX.length != amounts.length) {
             revert ArrayLengthMismatch();
         }

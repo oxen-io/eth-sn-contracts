@@ -16,6 +16,7 @@ interface IServiceNodeRewards {
         uint64 prev;
         address operator;
         BN256G1.G1Point pubkey;
+        uint256 addedTimestamp;
         uint256 leaveRequestTimestamp;
         uint256 deposit;
         Contributor[] contributors;

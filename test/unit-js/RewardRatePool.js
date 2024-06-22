@@ -34,13 +34,13 @@ describe("RewardRatePool Contract Tests", function () {
         rewardRatePool = await upgrades.deployProxy(RewardRatePool, [await serviceNodeRewards.getAddress(), await mockERC20.getAddress()]);
     });
 
-    it("Should have the correct interest rate", async function () {
-        await expect(await rewardRatePool.ANNUAL_INTEREST_RATE())
+    it("Should have the correct payout rate", async function () {
+        await expect(await rewardRatePool.ANNUAL_SIMPLE_PAYOUT_RATE())
             .to.equal(145);
     });
 
-    it("should calculate 14.5% interest correctly", async function () {
-        await expect(await rewardRatePool.calculateInterestAmount(principal, seconds_in_year))
+    it("should calculate 14.5% payout correctly", async function () {
+        await expect(await rewardRatePool.calculatePayoutAmount(principal, seconds_in_year))
             .to.equal((principal * 0.145).toFixed(0));
     });
 

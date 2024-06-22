@@ -7,7 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title Reward Rate Pool Contract
- * @dev Implements reward distribution based on a fixed annual interest rate.
+ * @dev Implements reward distribution based on a fixed simple annual payout rate.
  */
 contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     using SafeERC20 for IERC20;
@@ -18,12 +18,12 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     address public beneficiary;
     uint256 public totalPaidOut;
     uint256 public lastPaidOutTime;
-    uint64 public constant ANNUAL_INTEREST_RATE = 145; // 14.5% in tenths of a percent
+    uint64 public constant ANNUAL_SIMPLE_PAYOUT_RATE = 145; // 14.5% in tenths of a percent
     uint64 public constant BASIS_POINTS = 1000; // Basis points for percentage calculation
 
     /**
      * @dev Sets the initial beneficiary and SENT token address.
-     * @param _beneficiary Address that will receive the interest payouts.
+     * @param _beneficiary Address that will receive the payouts.
      * @param _sent Address of the SENT ERC20 token contract.
      */
     function initialize(address _beneficiary, address _sent) public initializer {
@@ -44,7 +44,7 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     //////////////////////////////////////////////////////////////
 
     /**
-     * @dev Calculates and releases the due interest payout to the beneficiary.
+     * @dev Calculates and releases the due payout to the beneficiary.
      * Updates the total paid out and the last payout time.
      */
     function payoutReleased() public {
@@ -77,7 +77,7 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     function rewardRate(uint256 timestamp) public view returns (uint256) {
         uint256 alreadyReleased = calculateReleasedAmount(timestamp);
         uint256 totalDeposited = calculateTotalDeposited();
-        return calculateInterestAmount(totalDeposited - alreadyReleased, 2 minutes);
+        return calculatePayoutAmount(totalDeposited - alreadyReleased, 2 minutes);
     }
 
     /**
@@ -95,16 +95,16 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
      */
     function calculateReleasedAmount(uint256 timestamp) public view returns (uint256) {
         uint256 timeElapsed = timestamp - lastPaidOutTime;
-        return totalPaidOut + calculateInterestAmount(SENT.balanceOf(address(this)), timeElapsed);
+        return totalPaidOut + calculatePayoutAmount(SENT.balanceOf(address(this)), timeElapsed);
     }
 
     /**
-     * @dev Calculates 14.5% annual interest for a given balance and time period.
-     * @param balance The principal balance to calculate interest on.
-     * @param timeElapsed The time period over which to calculate interest.
-     * @return The calculated interest amount.
+     * @dev Calculates payout amount for a given balance and time period.
+     * @param balance The principal balance to calculate payout from.
+     * @param timeElapsed The time period over which to calculate payout.
+     * @return The calculated payout amount.
      */
-    function calculateInterestAmount(uint256 balance, uint256 timeElapsed) public pure returns (uint256) {
-        return (balance * ANNUAL_INTEREST_RATE * timeElapsed) / (BASIS_POINTS * 365 days);
+    function calculatePayoutAmount(uint256 balance, uint256 timeElapsed) public pure returns (uint256) {
+        return (balance * ANNUAL_SIMPLE_PAYOUT_RATE * timeElapsed) / (BASIS_POINTS * 365 days);
     }
 }

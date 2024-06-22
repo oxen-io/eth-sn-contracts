@@ -30,7 +30,7 @@ There are 3 testing frameworks in use,
 Contracts can be compiled and tested against unit tests run by executing:
 
 ```
-yarn
+yarn install --frozen-lockfile
 yarn build
 yarn test
 ```

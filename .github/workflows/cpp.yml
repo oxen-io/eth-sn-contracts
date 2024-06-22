@@ -23,7 +23,7 @@ jobs:
 
     - name: Install Yarn dependencies and build
       run: |
-        yarn
+        yarn install --frozen-lockfile
         yarn build
 
     - name: Install prerequisites for C++ build

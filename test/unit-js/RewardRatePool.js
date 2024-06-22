@@ -66,6 +66,32 @@ describe("RewardRatePool Contract Tests", function () {
             .to.equal(ethers.parseUnits((principal * 0.151).toFixed().toString(), 9) * BigInt(seconds_in_2_minutes) / BigInt(seconds_in_year));
     });
 
+    it("should should be ~14.017% with daily withdrawals", async function () {
+        await mockERC20.transfer(rewardRatePool, bigAtomicPrincipal);
+        let t = await rewardRatePool.lastPaidOutTime();
+        let total_paid = 0;
+        for (let i = 0; i < 365; i++) {
+            t += BigInt(seconds_in_day);
+            await time.setNextBlockTimestamp(t);
+            await rewardRatePool.payoutReleased();
+        }
+        await expect(await rewardRatePool.calculateReleasedAmount(t))
+            .to.equal(bigAtomicPrincipal * BigInt("14017916502388") / BigInt("100000000000000"));
+    });
+
+    it("should should be ~14.098% with monthly withdrawals", async function () {
+        await mockERC20.transfer(rewardRatePool, bigAtomicPrincipal);
+        let t = await rewardRatePool.lastPaidOutTime();
+        let total_paid = 0;
+        for (let i = 0; i < 12; i++) {
+            t += BigInt(seconds_in_year / 12);
+            await time.setNextBlockTimestamp(t);
+            await rewardRatePool.payoutReleased();
+        }
+        await expect(await rewardRatePool.calculateReleasedAmount(t))
+            .to.equal(bigAtomicPrincipal * BigInt("14097571610714") / BigInt("100000000000000"));
+    });
+
     it("should be able to release funds to the rewards contract", async function () {
         await mockERC20.transfer(rewardRatePool, bigAtomicPrincipal);
         expect(await mockERC20.balanceOf(rewardRatePool)).to.equal(bigAtomicPrincipal);

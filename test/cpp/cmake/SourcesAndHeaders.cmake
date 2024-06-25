@@ -19,4 +19,5 @@ set(test_sources
   src/basic.cpp
   src/basic_ethereum.cpp
   src/rewards_contract.cpp
+  src/hash.cpp
 )

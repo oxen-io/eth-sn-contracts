@@ -27,7 +27,7 @@ public:
     uint64_t service_node_id = SERVICE_NODE_LIST_SENTINEL;
     ServiceNode() = default;
     ServiceNode(uint64_t _service_node_id);
-    bls::Signature blsSignHash(std::span<const char> bytes) const;
+    bls::Signature blsSignHash(std::span<const uint8_t> bytes, uint32_t chainID, std::string_view contractAddress) const;
     std::string    proofOfPossession(uint32_t chainID, const std::string& contractAddress, const std::string& senderEthAddress, const std::string& serviceNodePubkey);
     std::string    getPublicKeyHex() const;
     bls::PublicKey getPublicKey() const;
@@ -46,12 +46,12 @@ public:
     std::string getLatestNodePubkey();
 
     std::string aggregatePubkeyHex();
-    std::string aggregateSignatures(const std::string& message);
-    std::string aggregateSignaturesFromIndices(const std::string& message, const std::vector<int64_t>& indices);
+    std::string aggregateSignatures(const std::string& message, uint32_t chainID, std::string_view contractAddress);
+    std::string aggregateSignaturesFromIndices(const std::string& message, const std::vector<int64_t>& indices, uint32_t chainID, std::string_view contractAddress);
 
     std::tuple<std::string, uint64_t, std::string> liquidateNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& indices);
     std::tuple<std::string, uint64_t, std::string> removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& indices);
-    std::string updateRewardsBalance(const std::string& address, const uint64_t amount, const uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids);
+    std::string updateRewardsBalance(const std::string& address, uint64_t amount, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids);
 
     std::vector<uint64_t> findNonSigners(const std::vector<uint64_t>& indices);
     std::vector<uint64_t> randomSigners(const size_t numOfRandomIndices);

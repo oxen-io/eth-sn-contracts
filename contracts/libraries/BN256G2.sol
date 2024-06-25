@@ -7,6 +7,8 @@ pragma solidity ^0.8.20;
  * @dev Homepage: https://github.com/musalbas/solidity-BN256G2
  */
 
+import "hardhat/console.sol";
+
 library BN256G2 {
     uint256 internal constant CURVE_ORDER_FACTOR = 4965661367192848881; // this is also knows as z, generates prime definine base field (FIELD MODULUS) and order of the curve for BN curves
     uint256 internal constant FIELD_MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
@@ -575,29 +577,8 @@ library BN256G2 {
         return (x1, FIELD_MODULUS - x2);
     }
 
-    function memcpy(bytes memory dest, bytes memory src, uint size) private pure {
-        // Copy by word
-        uint offset = 32; // Advance past the length encoding of the array
-        uint wordCount = size / 32;
-        assembly {
-            let destPtr := add(dest, offset)
-            let srcPtr := add(src, offset)
-            for { let i := 0 } lt(i, wordCount) { i := add(i, 1) } {
-                mstore(destPtr, mload(srcPtr))
-                destPtr := add(destPtr, 32)
-                srcPtr := add(srcPtr, 32)
-            }
-        }
-
-        // Copy tail end (remaining bytes)
-        for (uint i = (wordCount * 32); i < size; i++) {
-            dest[i] = src[i];
-        }
-    }
-
-    // hashes to G2 using the try and increment method
-    //function mapToG2(uint256 h) internal view returns (G2Point memory) {
-    function mapToG2(bytes memory message) internal view returns (G2Point memory) {
+    // Hashes to G2 using the try and increment method
+    function mapToG2(bytes memory message, bytes32 hashToG2Tag) internal view returns (G2Point memory) {
 
         // Define the G2Point coordinates
         uint256 x1;
@@ -606,12 +587,18 @@ library BN256G2 {
         uint256 y2 = 0;
 
         bytes memory message_with_i = new bytes(message.length + 1 /*bytes*/);
-        memcpy(message_with_i, message, message.length);
+        for (uint index = 0; index < message.length; index++) {
+            message_with_i[index] = message[index];
+        }
 
         for (uint8 increment = 0;; increment++) { // Iterate until we find a valid G2 point
             message_with_i[message_with_i.length - 1] = bytes1(increment);
-            x1                                        = byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(message_with_i)))));
-            x2                                        = 0;
+
+            // TODO: Has side-effects in devnet that causes the hashToField to
+            // generate the correct values. No-op on other networks.
+            console.logBytes(message_with_i);
+
+            (x1, x2) = hashToField(message_with_i, hashToG2Tag);
 
             (uint256 yx,     uint256 yy)     = Get_yy_coordinate(x1, x2); // Try to get y^2
             (uint256 sqrt_x, uint256 sqrt_y) = FQ2Sqrt(yx, yy);           // Calculate square root
@@ -627,38 +614,170 @@ library BN256G2 {
         return (G2Point([x2, x1], [y2, y1]));
     }
 
-    function hashToG2(bytes memory message) internal view returns (G2Point memory) {
-        G2Point memory map = mapToG2(message);
+    function hashToG2(bytes memory message, bytes32 hashToG2Tag) internal view returns (G2Point memory) {
+        G2Point memory map = mapToG2(message, hashToG2Tag);
         (uint256 x1, uint256 x2, uint256 y1, uint256 y2) = ECTwistMulByCofactor(map.X[1], map.X[0], map.Y[1], map.Y[0]);
         return (G2Point([x2, x1], [y2, y1]));
     }
 
-    function convertArrayAsLE(bytes32 src) internal pure returns (bytes32) {
-        bytes32 dst;
-        for (uint256 i = 0; i < 32; i++) {
-            // Considering each byte of bytes32
-            bytes1 s = src[i];
-            // Assuming the role of D is just to cast or store our byte in this context
-            dst |= bytes32(s) >> (i * 8);
+    uint256 private constant KECCAK256_BLOCKSIZE = 136;
+
+    /**
+     * Takes an arbitrary byte-string and a domain seperation tag (dst) and
+     * returns two elements of the field with prime `FIELD_MODULUS`. This
+     * implementation is taken from Hopr's crypto implementation and repurposed
+     * for a BN256 curve:
+     *
+     * github.com/hoprnet/hoprnet/blob/53e3f49855775af8e92b465306be144038167b63/ethereum/contracts/src/Crypto.sol
+     *
+     * @dev DSTs longer than 255 bytes are considered unsound.
+     *      see https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-domain-separation
+     *
+     * @param message the message to hash
+     * @param dst domain separation tag, used to make protocol instantiations unique
+     */
+    function hashToField(bytes memory message, bytes32 dst) public view returns (uint256 u0, uint256 u1) {
+        (bytes32 b1, bytes32 b2, bytes32 b3) = expandMessageXMDKeccak256(message, abi.encodePacked(dst));
+
+        // computes ([...b1[..], ...b2[0..16]] ^ 1) mod n
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            let p := mload(0x40)                // next free memory slot
+            mstore(p, 0x30)                     // Length of Base
+            mstore(add(p, 0x20), 0x20)          // Length of Exponent
+            mstore(add(p, 0x40), 0x20)          // Length of Modulus
+            mstore(add(p, 0x60), b1)            // Base
+            mstore(add(p, 0x80), b2)
+            mstore(add(p, 0x90), 1)             // Exponent
+            mstore(add(p, 0xb0), FIELD_MODULUS) // Modulus
+            if iszero(staticcall(not(0), 0x05, p, 0xD0, p, 0x20)) { revert(0, 0) }
+
+            u0 := mload(p)
         }
-        return dst;
+
+        // computes ([...b2[16..32], ...b3[..]] ^ 1) mod n
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            let p := mload(0x40)
+            mstore(p, 0x30)                     // Length of Base
+            mstore(add(p, 0x20), 0x20)          // Length of Exponent
+            mstore(add(p, 0x50), b2)
+            mstore(add(p, 0x40), 0x20)          // Length of Modulus
+            mstore(add(p, 0x70), b3)            // Base
+            mstore(add(p, 0x90), 1)             // Exponent
+            mstore(add(p, 0xb0), FIELD_MODULUS) // Modulus
+            if iszero(staticcall(not(0), 0x05, p, 0xD0, p, 0x20)) { revert(0, 0) }
+
+            u1 := mload(p)
+        }
     }
 
-    // This matches mcl maskN, this only takes the 254 bits for the field, if it is still greater than the field then take the 253 bits
-    function maskBits(uint256 input) internal pure returns (uint256) {
-        uint256 mask = ~uint256(0) - 0xC0;
-        if (byteSwap(input & mask) >= FIELD_MODULUS) {
-            mask = ~uint256(0) - 0xE0;
-        }
-        return input & mask;
-    }
+    /**
+     * Expands an arbitrary byte-string to 96 bytes using the
+     * `expand_message_xmd` method described in
+     *
+     * https://www.rfc-editor.org/rfc/rfc9380.html#name-expand_message_xmd
+     *
+     * This implementation is taken from Hopr's crypto implementation:
+     *
+     * github.com/hoprnet/hoprnet/blob/53e3f49855775af8e92b465306be144038167b63/ethereum/contracts/src/Crypto.sol
+     *
+     * Used for hashToField functionality to generate points within
+     * FIELD_MODULUS such that bias of selecting such numbers is beneath 2^-128
+     * as recommended by RFC9380.
+     *
+     * @dev DSTs longer than 255 bytes are considered unsound.
+     *      see https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-domain-separation
+     *
+     * @param message the message to hash
+     * @param dst domain separation tag, used to make protocol instantiations unique
+     */
+    function expandMessageXMDKeccak256(
+        bytes memory message,
+        bytes memory dst
+    )
+        public
+        pure
+        returns (bytes32 b1, bytes32 b2, bytes32 b3)
+    {
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            if gt(mload(dst), 255) { revert(0, 0) }
 
-    function byteSwap(uint256 value) internal pure returns (uint256) {
-        uint256 swapped = 0;
-        for (uint256 i = 0; i < 32; i++) {
-            uint256 byteValue = (value >> (i * 8)) & 0xFF;
-            swapped |= byteValue << (256 - 8 - (i * 8));
+            let b0
+            {
+                // create payload for b0 hash
+                let b0Payload := mload(0x40)
+
+                // payload[0..KECCAK256_BLOCKSIZE] = 0
+
+                let b0PayloadO := KECCAK256_BLOCKSIZE // leave first block empty
+                let msg_o := 0x20 // skip length prefix
+
+                // payload[KECCAK256_BLOCKSIZE..KECCAK256_BLOCKSIZE+message.len()] = message[0..message.len()]
+                for { let i := 0 } lt(i, mload(message)) { i := add(i, 0x20) } {
+                    mstore(add(b0Payload, b0PayloadO), mload(add(message, msg_o)))
+                    b0PayloadO := add(b0PayloadO, 0x20)
+                    msg_o := add(msg_o, 0x20)
+                }
+
+                // payload[KECCAK256_BLOCKSIZE+message.len()+1..KECCAK256_BLOCKSIZE+message.len()+2] = 96
+                b0PayloadO := add(mload(message), 137)
+                mstore8(add(b0Payload, b0PayloadO), 0x60) // only support for 96 bytes output length
+
+                let dstO := 0x20
+                b0PayloadO := add(b0PayloadO, 2)
+
+                // payload[KECCAK256_BLOCKSIZE+message.len()+3..KECCAK256_BLOCKSIZE+message.len()+dst.len()]
+                // = dst[0..dst.len()]
+                for { let i := 0 } lt(i, mload(dst)) { i := add(i, 0x20) } {
+                    mstore(add(b0Payload, b0PayloadO), mload(add(dst, dstO)))
+                    b0PayloadO := add(b0PayloadO, 0x20)
+                    dstO := add(dstO, 0x20)
+                }
+
+                // payload[KECCAK256_BLOCKSIZE+message.len()+dst.len()..KECCAK256_BLOCKSIZE+message.len()+dst.len()+1]
+                // = dst.len()
+                b0PayloadO := add(add(mload(message), mload(dst)), 139)
+                mstore8(add(b0Payload, b0PayloadO), mload(dst))
+
+                b0 := keccak256(b0Payload, add(140, add(mload(dst), mload(message))))
+            }
+
+            // create payload for b1, b2 ... hashes
+            let bIPayload := mload(0x40)
+            mstore(bIPayload, b0)
+            // payload[32..33] = 1
+            mstore8(add(bIPayload, 0x20), 1)
+
+            let payloadO := 0x21
+            let dstO := 0x20
+
+            // payload[33..33+dst.len()] = dst[0..dst.len()]
+            for { let i := 0 } lt(i, mload(dst)) { i := add(i, 0x20) } {
+                mstore(add(bIPayload, payloadO), mload(add(dst, dstO)))
+                payloadO := add(payloadO, 0x20)
+                dstO := add(dstO, 0x20)
+            }
+
+            // payload[65+dst.len()..66+dst.len()] = dst.len()
+            mstore8(add(bIPayload, add(0x21, mload(dst))), mload(dst))
+
+            b1 := keccak256(bIPayload, add(34, mload(dst)))
+
+            // payload[0..32] = b0 XOR b1
+            mstore(bIPayload, xor(b0, b1))
+            // payload[32..33] = 2
+            mstore8(add(bIPayload, 0x20), 2)
+
+            b2 := keccak256(bIPayload, add(34, mload(dst)))
+
+            // payload[0..32] = b0 XOR b2
+            mstore(bIPayload, xor(b0, b2))
+            // payload[32..33] = 2
+            mstore8(add(bIPayload, 0x20), 3)
+
+            b3 := keccak256(bIPayload, add(34, mload(dst)))
         }
-        return swapped;
     }
 }

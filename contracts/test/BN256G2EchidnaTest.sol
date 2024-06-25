@@ -32,15 +32,16 @@ contract BN256G2EchidnaTest {
 
     bytes private message;
     BN256G2.G2Point Hm;
+    bytes32 dummyTag;
 
     constructor() {
         message = bytes("1");
-        Hm = BN256G2.hashToG2(message);
+        Hm = BN256G2.hashToG2(message, dummyTag);
     }
 
     function setMessage(bytes calldata _message) public {
         message = _message;
-        Hm = BN256G2.hashToG2(message);
+        Hm = BN256G2.hashToG2(message, dummyTag);
     }
 
     function echidna_always_hashable() public returns (bool) {

@@ -70,7 +70,7 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
      * Updates the total paid out and the last payout time.
      */
     function payoutReleased() public {
-        uint256 newTotalPaidOut = calculateReleasedAmount(block.timestamp);
+        uint256 newTotalPaidOut = calculateReleasedAmount();
         uint256 released = newTotalPaidOut - totalPaidOut;
         totalPaidOut = newTotalPaidOut;
         lastPaidOutTime = block.timestamp;
@@ -92,12 +92,11 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     //////////////////////////////////////////////////////////////
 
     /**
-     * @dev Returns the block reward for a 2 minutes block at a certain timestamp.
-     * @param timestamp The timestamp of the block.
+     * @dev Returns the current 2-minute block reward.
      * @return The calculated block reward.
      */
-    function rewardRate(uint256 timestamp) public view returns (uint256) {
-        uint256 alreadyReleased = calculateReleasedAmount(timestamp);
+    function rewardRate() public view returns (uint256) {
+        uint256 alreadyReleased = calculateReleasedAmount();
         uint256 totalDeposited = calculateTotalDeposited();
         return calculatePayoutAmount(totalDeposited - alreadyReleased, 2 minutes);
     }
@@ -111,12 +110,11 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     }
 
     /**
-     * @dev Calculates the amount of SENT tokens released up to a specific timestamp.
-     * @param timestamp The timestamp until which to calculate the released amount.
+     * @dev Calculates the amount of SENT tokens released up to the current time.
      * @return The calculated amount of SENT tokens released.
      */
-    function calculateReleasedAmount(uint256 timestamp) public view returns (uint256) {
-        uint256 timeElapsed = timestamp - lastPaidOutTime;
+    function calculateReleasedAmount() public view returns (uint256) {
+        uint256 timeElapsed = block.timestamp - lastPaidOutTime;
         return totalPaidOut + calculatePayoutAmount(SENT.balanceOf(address(this)), timeElapsed);
     }
 

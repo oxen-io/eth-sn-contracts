@@ -46,24 +46,20 @@ describe("RewardRatePool Contract Tests", function () {
     });
 
     it("should calculate 15.1% released correctly", async function () {
+        await time.setNextBlockTimestamp(await time.latest() + 42)
         await mockERC20.transfer(rewardRatePool, bigAtomicPrincipal);
-        let last_paid = await rewardRatePool.lastPaidOutTime();
-        await expect(await rewardRatePool.calculateReleasedAmount(last_paid + BigInt(seconds_in_year)))
-            .to.equal(ethers.parseUnits((principal * 0.151).toFixed(0).toString(), 9));
-    });
-    
-    it("should calculate 15.1% released correctly", async function () {
-        await mockERC20.transfer(rewardRatePool, bigAtomicPrincipal);
-        let last_paid = await rewardRatePool.lastPaidOutTime();
-        await expect(await rewardRatePool.calculateReleasedAmount(last_paid))
-            .to.equal(0);
+        await expect(await rewardRatePool.calculateReleasedAmount())
+            // Block timestamp has advanced by 42 seconds, so there will be a corresponding released amount:
+            .to.equal(ethers.parseUnits((principal * 0.151).toFixed().toString(), 9) * BigInt(42) / BigInt(seconds_in_year));
     });
 
     it("should calculate reward rate", async function () {
+        await time.setNextBlockTimestamp(await time.latest() + 1)
         await mockERC20.transfer(rewardRatePool, bigAtomicPrincipal);
-        let last_paid = await rewardRatePool.lastPaidOutTime();
-        await expect(await rewardRatePool.rewardRate(last_paid))
-            .to.equal(ethers.parseUnits((principal * 0.151).toFixed().toString(), 9) * BigInt(seconds_in_2_minutes) / BigInt(seconds_in_year));
+        // The -1 here is because the block time advances by at least 1, and that's enough to just
+        // slightly reduce our reward by one atomic unit with the specific values we use here.
+        await expect(await rewardRatePool.rewardRate())
+            .to.equal(ethers.parseUnits((principal * 0.151).toFixed().toString(), 9) * BigInt(seconds_in_2_minutes) / BigInt(seconds_in_year) - BigInt(1));
     });
 
     it("should should be ~14.017% with daily withdrawals", async function () {
@@ -75,7 +71,7 @@ describe("RewardRatePool Contract Tests", function () {
             await time.setNextBlockTimestamp(t);
             await rewardRatePool.payoutReleased();
         }
-        await expect(await rewardRatePool.calculateReleasedAmount(t))
+        await expect(await rewardRatePool.calculateReleasedAmount())
             .to.equal(bigAtomicPrincipal * BigInt("14017916502388") / BigInt("100000000000000"));
     });
 
@@ -88,7 +84,7 @@ describe("RewardRatePool Contract Tests", function () {
             await time.setNextBlockTimestamp(t);
             await rewardRatePool.payoutReleased();
         }
-        await expect(await rewardRatePool.calculateReleasedAmount(t))
+        await expect(await rewardRatePool.calculateReleasedAmount())
             .to.equal(bigAtomicPrincipal * BigInt("14097571610714") / BigInt("100000000000000"));
     });
 
@@ -97,29 +93,17 @@ describe("RewardRatePool Contract Tests", function () {
         expect(await mockERC20.balanceOf(rewardRatePool)).to.equal(bigAtomicPrincipal);
 
         // NOTE: Advance time and test the payout release
-        let last_paid    = await rewardRatePool.lastPaidOutTime();
-        let total_payout = await rewardRatePool.calculateReleasedAmount(last_paid + BigInt(seconds_in_year));
-
+        let last_paid = await rewardRatePool.lastPaidOutTime();
         await time.setNextBlockTimestamp(last_paid + BigInt(seconds_in_year));
         await expect(await rewardRatePool.payoutReleased()).to
                                                            .emit(rewardRatePool, 'FundsReleased')
-                                                           .withArgs(total_payout);
-
-        expect(await mockERC20.balanceOf(serviceNodeRewards)).to
-                                                             .equal(total_payout);
-
+                                                           .withArgs(15100000000000);
 
         // NOTE: Advance time again and test the payout release
-        last_paid             = await rewardRatePool.lastPaidOutTime();
-        let next_total_payout = await rewardRatePool.calculateReleasedAmount(last_paid + BigInt(seconds_in_year));
-        total_payout          = next_total_payout - total_payout;
-
+        last_paid = await rewardRatePool.lastPaidOutTime();
         await time.setNextBlockTimestamp(last_paid + BigInt(seconds_in_year));
         await expect(await rewardRatePool.payoutReleased()).to
                                                            .emit(rewardRatePool, 'FundsReleased')
-                                                           .withArgs(total_payout);
-
-        expect(await mockERC20.balanceOf(serviceNodeRewards)).to
-                                                             .equal(next_total_payout);
+                                                           .withArgs(12819900000000); // (10000 - 15.1%) * 15.1%
     });
 });

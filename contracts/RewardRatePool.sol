@@ -7,7 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title Reward Rate Pool Contract
- * @dev Implements reward distribution based on a fixed annual interest rate.
+ * @dev Implements reward distribution based on a fixed simple annual payout rate.
  */
 contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     using SafeERC20 for IERC20;
@@ -18,12 +18,34 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     address public beneficiary;
     uint256 public totalPaidOut;
     uint256 public lastPaidOutTime;
-    uint64 public constant ANNUAL_INTEREST_RATE = 145; // 14.5% in tenths of a percent
+    // The simple annual payout rate used for reward calculations.  This 15.1% value is chosen so
+    // that, with daily payouts computed at this simple rate, the total (compounded) payout over a
+    // year will equal 14% of the amount that was in the pool at the beginning of the year.
+    //
+    // To elaborate where this comes from, with daily payout r (=R/365, that is, the annual payout
+    // divided by 365 days per year), with starting balance P, the payout on day 1 equals:
+    //     rP
+    // leaving P-rP = (1-r)P in the pool, and so the day 2 payout equals:
+    //     r(1-r)P
+    // leaving (1-r)P - r(1-r)P = (1-r)(1-r)P = (1-r)^2 P in the pool.  And so on, so that
+    // after 365 days there will be (1-r)^365 P left in the pool.
+    //
+    // To hit a target of 14% over a year, then, we want to find r to solve:
+    //     (1-r)^{365} P = (1-.14) P
+    // i.e.
+    //     (1-r)^{365} = 0.86
+    // and then we multiply the `r` solution by 365 to get the simple annual rate with daily
+    // payouts.  Rounded to the nearest 10th of a percent, that value equals 0.151, i.e. 15.1%.
+    //
+    // There is, of course, some slight imprecision here from the rounding and because the precise
+    // payout frequency depends on the times between calling this smart contract, but the errors are
+    // expected to be small, keeping this close to the 14% target.
+    uint64 public constant ANNUAL_SIMPLE_PAYOUT_RATE = 151; // 15.1% in tenths of a percent
     uint64 public constant BASIS_POINTS = 1000; // Basis points for percentage calculation
 
     /**
      * @dev Sets the initial beneficiary and SENT token address.
-     * @param _beneficiary Address that will receive the interest payouts.
+     * @param _beneficiary Address that will receive the payouts.
      * @param _sent Address of the SENT ERC20 token contract.
      */
     function initialize(address _beneficiary, address _sent) public initializer {
@@ -44,11 +66,11 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     //////////////////////////////////////////////////////////////
 
     /**
-     * @dev Calculates and releases the due interest payout to the beneficiary.
+     * @dev Calculates and releases the due payout to the beneficiary.
      * Updates the total paid out and the last payout time.
      */
     function payoutReleased() public {
-        uint256 newTotalPaidOut = calculateReleasedAmount(block.timestamp);
+        uint256 newTotalPaidOut = calculateReleasedAmount();
         uint256 released = newTotalPaidOut - totalPaidOut;
         totalPaidOut = newTotalPaidOut;
         lastPaidOutTime = block.timestamp;
@@ -70,14 +92,13 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     //////////////////////////////////////////////////////////////
 
     /**
-     * @dev Returns the block reward for a 2 minutes block at a certain timestamp.
-     * @param timestamp The timestamp of the block.
+     * @dev Returns the current 2-minute block reward.
      * @return The calculated block reward.
      */
-    function rewardRate(uint256 timestamp) public view returns (uint256) {
-        uint256 alreadyReleased = calculateReleasedAmount(timestamp);
+    function rewardRate() public view returns (uint256) {
+        uint256 alreadyReleased = calculateReleasedAmount();
         uint256 totalDeposited = calculateTotalDeposited();
-        return calculateInterestAmount(totalDeposited - alreadyReleased, 2 minutes);
+        return calculatePayoutAmount(totalDeposited - alreadyReleased, 2 minutes);
     }
 
     /**
@@ -89,22 +110,21 @@ contract RewardRatePool is Initializable, Ownable2StepUpgradeable {
     }
 
     /**
-     * @dev Calculates the amount of SENT tokens released up to a specific timestamp.
-     * @param timestamp The timestamp until which to calculate the released amount.
+     * @dev Calculates the amount of SENT tokens released up to the current time.
      * @return The calculated amount of SENT tokens released.
      */
-    function calculateReleasedAmount(uint256 timestamp) public view returns (uint256) {
-        uint256 timeElapsed = timestamp - lastPaidOutTime;
-        return totalPaidOut + calculateInterestAmount(SENT.balanceOf(address(this)), timeElapsed);
+    function calculateReleasedAmount() public view returns (uint256) {
+        uint256 timeElapsed = block.timestamp - lastPaidOutTime;
+        return totalPaidOut + calculatePayoutAmount(SENT.balanceOf(address(this)), timeElapsed);
     }
 
     /**
-     * @dev Calculates 14.5% annual interest for a given balance and time period.
-     * @param balance The principal balance to calculate interest on.
-     * @param timeElapsed The time period over which to calculate interest.
-     * @return The calculated interest amount.
+     * @dev Calculates payout amount for a given balance and time period.
+     * @param balance The principal balance to calculate payout from.
+     * @param timeElapsed The time period over which to calculate payout.
+     * @return The calculated payout amount.
      */
-    function calculateInterestAmount(uint256 balance, uint256 timeElapsed) public pure returns (uint256) {
-        return (balance * ANNUAL_INTEREST_RATE * timeElapsed) / (BASIS_POINTS * 365 days);
+    function calculatePayoutAmount(uint256 balance, uint256 timeElapsed) public pure returns (uint256) {
+        return (balance * ANNUAL_SIMPLE_PAYOUT_RATE * timeElapsed) / (BASIS_POINTS * 365 days);
     }
 }

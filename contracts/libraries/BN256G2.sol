@@ -377,7 +377,19 @@ library BN256G2 {
         }
     }
 
-    function FQ2Sqrt(uint256 x1, uint256 x2) internal view returns (uint256, uint256) {
+    /**
+     * @dev Square root function implemented as a translation from herumi's
+     * bls/mcl/include/mcl/fp_tower.hpp Fp::squareRoot, see:
+     *
+     * github.com/herumi/mcl/blob/0ede57b846f02298bd80995533fb789f9067d86e/include/mcl/fp_tower.hpp#L364
+     *
+     *   (a + bi)^2 = (a^2 - b^2) + 2ab i = c + di
+     *   A = a^2
+     *   B = b^2
+     *   A = (c +/- sqrt(c^2 + d^2))/2
+     *   b = d / 2a
+     */
+    function FQ2Sqrt(uint256 x1, uint256 x2) public view returns (uint256, uint256) {
         // t1 and t2 for Fp types
         uint256 t1;
         uint256 t2;
@@ -396,45 +408,41 @@ library BN256G2 {
             }
         }
 
-        // Fp::sqr(t1, x.a); Fp::sqr(t2, x.b);
-        t1 = mulmod(x1, x1, FIELD_MODULUS);
-        t2 = mulmod(x2, x2, FIELD_MODULUS);
+        t1 = mulmod(x1, x1, FIELD_MODULUS);           // c^2                          => Fp::sqr(t1, x.a);
+        t2 = mulmod(x2, x2, FIELD_MODULUS);           // d^2                          => Fp::sqr(t2, x.b);
+        t1 = addmod(t1, t2, FIELD_MODULUS);           // t1 = c^2 + d^2               => t1 += t2;
 
-        // t1 += t2; // c^2 + d^2
-        t1 = addmod(t1, t2, FIELD_MODULUS);
+        (t1, has_root) = _sqrt(t1);                   // sqrt(c^2 + d^2)              => if (!Fp::squareRoot(t1, t1)) return false;
+        if (!has_root) return (0, 0);                 // Return failed sqrt value
 
-        // if (!Fp::squareRoot(t1, t1)) return false;
-        (t1, has_root) = _sqrt(t1);
-        if (!has_root) return (0, 0); // indicate failed sqrt
+        t2 = addmod(x1, t1, FIELD_MODULUS);           // t2 = c + sqrt(c^2 + d^2)     => Fp::add(t2, x.a, t1);
+        t2 = divBy2(t2);                              // t2 = (c + sqrt(c^2 + d^2))/2 => Fp::divBy2(t2, t2);
 
-        // Fp::add(t2, x.a, t1); Fp::divBy2(t2, t2);
-        t2 = addmod(x1, t1, FIELD_MODULUS);
-        t2 = divBy2(t2);
-
-        // if (!Fp::squareRoot(t2, t2))
         uint256 sqrt_t2;
         (sqrt_t2, has_root) = _sqrt(t2);
-        if (!has_root) {
-            // Fp::sub(t2, x.a, t1); Fp::divBy2(t2, t2);
-            t2 = submod(x1, t1, FIELD_MODULUS);
-            t2 = divBy2(t2);
+        if (!has_root) {                              //                              => if (!Fp::squareRoot(t2, t2))
+            t2 = submod(x1, t1, FIELD_MODULUS);       // t2 = c - sqrt(c^2 + d^2)     => Fp::sub(t2, x.a, t1);
+            t2 = divBy2(t2);                          // t2 = (c - sqrt(c^2 + d^2))/2 => Fp::divBy2(t2, t2);
 
             (sqrt_t2, has_root) = _sqrt(t2);
-            if (!has_root) return (0, 0); // indicate failed sqrt
+            if (!has_root) return (0, 0);             // Return failed sqrt value
         }
 
-        // y.a = t2;
-        uint256 y1 = sqrt_t2;
+        uint256 y1 = sqrt_t2;                         // y1 = t2;
 
-        // t2 += t2; Fp::inv(t2, t2);
-        t2 = addmod(sqrt_t2, sqrt_t2, FIELD_MODULUS);
-        t2 = _modInv(t2, FIELD_MODULUS);
+        t2 = addmod(sqrt_t2, sqrt_t2, FIELD_MODULUS); // t2 += t2;
+        t2 = _modInv(t2, FIELD_MODULUS);              // Fp::inv(t2, t2);
 
-        // Fp::mul(y.b, x.b, t2);
         uint256 y2;
-        y2 = mulmod(x2, t2, FIELD_MODULUS);
+        y2 = mulmod(x2, t2, FIELD_MODULUS);           // y2 = b / (2 * t2)            => Fp::mul(y.b, x.b, t2);
 
         return (y1, y2);
+    }
+
+    function NegateFQ2Sqrt(uint256 x1, uint256 x2) public pure returns (uint256, uint256) {
+        uint256 neg_x1 = FIELD_MODULUS - x1;
+        uint256 neg_x2 = FIELD_MODULUS - x2;
+        return (neg_x1, neg_x2);
     }
 
     function ECTwistMulByCofactor(
@@ -598,13 +606,16 @@ library BN256G2 {
             // generate the correct values. No-op on other networks.
             console.logBytes(message_with_i);
 
-            (x1, x2) = hashToField(message_with_i, hashToG2Tag);
-
+            bool b;
+            (x1, x2, b)                      = hashToField(message_with_i, hashToG2Tag);
             (uint256 yx,     uint256 yy)     = Get_yy_coordinate(x1, x2); // Try to get y^2
             (uint256 sqrt_x, uint256 sqrt_y) = FQ2Sqrt(yx, yy);           // Calculate square root
-            if (sqrt_x != 0 && sqrt_y != 0) {                             // Check if this is a point
-                y1 = sqrt_x;
-                y2 = sqrt_y;
+
+            if (sqrt_x != 0 && sqrt_y != 0) { // Check if this is a point
+                if (b) { // Let b => {0, 1} to choose between the two roots.
+                    (sqrt_x, sqrt_y) = NegateFQ2Sqrt(sqrt_x, sqrt_y);
+                }
+                (y1, y2) = (sqrt_x, sqrt_y);
                 if (IsOnCurve(x1, x2, y1, y2)) {
                     break;
                 }
@@ -636,8 +647,8 @@ library BN256G2 {
      * @param message the message to hash
      * @param dst domain separation tag, used to make protocol instantiations unique
      */
-    function hashToField(bytes memory message, bytes32 dst) public view returns (uint256 u0, uint256 u1) {
-        (bytes32 b1, bytes32 b2, bytes32 b3) = expandMessageXMDKeccak256(message, abi.encodePacked(dst));
+    function hashToField(bytes memory message, bytes32 dst) public view returns (uint256 u0, uint256 u1, bool b) {
+        (bytes32 b1, bytes32 b2, bytes32 b3, bytes32 b4) = expandMessageXMDKeccak256(message, abi.encodePacked(dst));
 
         // computes ([...b1[..], ...b2[0..16]] ^ 1) mod n
         // solhint-disable-next-line no-inline-assembly
@@ -670,10 +681,12 @@ library BN256G2 {
 
             u1 := mload(p)
         }
+
+        b = (uint8(uint256(b4)) & 1) == 1;
     }
 
     /**
-     * Expands an arbitrary byte-string to 96 bytes using the
+     * Expands an arbitrary byte-string to 128 bytes using the
      * `expand_message_xmd` method described in
      *
      * https://www.rfc-editor.org/rfc/rfc9380.html#name-expand_message_xmd
@@ -698,7 +711,7 @@ library BN256G2 {
     )
         public
         pure
-        returns (bytes32 b1, bytes32 b2, bytes32 b3)
+        returns (bytes32 b1, bytes32 b2, bytes32 b3, bytes32 b4)
     {
         // solhint-disable-next-line no-inline-assembly
         assembly {
@@ -721,9 +734,9 @@ library BN256G2 {
                     msg_o := add(msg_o, 0x20)
                 }
 
-                // payload[KECCAK256_BLOCKSIZE+message.len()+1..KECCAK256_BLOCKSIZE+message.len()+2] = 96
+                // payload[KECCAK256_BLOCKSIZE+message.len()+1..KECCAK256_BLOCKSIZE+message.len()+2] = 128
                 b0PayloadO := add(mload(message), 137)
-                mstore8(add(b0Payload, b0PayloadO), 0x60) // only support for 96 bytes output length
+                mstore8(add(b0Payload, b0PayloadO), 0x80) // only support for 128 bytes output length
 
                 let dstO := 0x20
                 b0PayloadO := add(b0PayloadO, 2)
@@ -774,10 +787,17 @@ library BN256G2 {
 
             // payload[0..32] = b0 XOR b2
             mstore(bIPayload, xor(b0, b2))
-            // payload[32..33] = 2
+            // payload[32..33] = 3
             mstore8(add(bIPayload, 0x20), 3)
 
             b3 := keccak256(bIPayload, add(34, mload(dst)))
+
+            // payload[0..32] = b0 XOR b3
+            mstore(bIPayload, xor(b0, b3))
+            // payload[32..33] = 4
+            mstore8(add(bIPayload, 0x20), 4)
+
+            b4 := keccak256(bIPayload, add(34, mload(dst)))
         }
     }
 }

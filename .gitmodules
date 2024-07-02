@@ -1,9 +1,9 @@
 [submodule "test/cpp/external/Catch2"]
-	path = test/cpp/external/Catch2
-	url = git@github.com:catchorg/Catch2.git
+       path = test/cpp/external/Catch2
+       url = https://github.com/catchorg/Catch2
 [submodule "test/cpp/external/ethyl"]
-	path = test/cpp/external/ethyl
-	url = git@github.com:oxen-io/ethyl.git
+       path = test/cpp/external/ethyl
+       url = https://github.com/oxen-io/ethyl.git
 [submodule "test/cpp/external/bls"]
-	path = test/cpp/external/bls
-	url = git@github.com:herumi/bls.git
+       path = test/cpp/external/bls
+       url = https://github.com/oxen-io/bls.git

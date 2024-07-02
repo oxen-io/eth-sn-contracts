@@ -113,6 +113,14 @@ uint64_t ServiceNodeRewardsContract::serviceNodesLength() {
     return utils::fromHexStringToUint64(result);
 }
 
+uint64_t ServiceNodeRewardsContract::maxPermittedPubkeyAggregations() {
+    ethyl::ReadCallData callData;
+    callData.contractAddress = contractAddress;
+    callData.data = utils::getFunctionSignature("maxPermittedPubkeyAggregations()");
+    std::string result = provider.callReadFunction(callData);
+    return utils::fromHexStringToUint64(result);
+}
+
 std::string ServiceNodeRewardsContract::designatedToken() {
     ethyl::ReadCallData callData;
     callData.contractAddress = contractAddress;

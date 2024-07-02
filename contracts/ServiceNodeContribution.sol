@@ -143,6 +143,19 @@ contract ServiceNodeContribution is Shared {
             require(contributorAddresses.length > 0, "Operator has not contributed funds");
         }
 
+        // NOTE: Check if parent contract invariants changed
+        require(maxContributors == stakingRewardsContract.maxContributors(),
+                "This contract is outdated and no longer valid because the maximum number of "
+                "permitted contributors been changed. Please inform the operator and pre-existing "
+                "contributors to cancel the contract, withdraw their funds and to re-initiate a "
+                "new contract.");
+
+        require(stakingRequirement == stakingRewardsContract.stakingRequirement(),
+                "This contract is outdated and no longer valid because the staking requirement has "
+                "been changed. Please inform the operator and pre-existing contributors to cancel "
+                "the contract, withdraw their funds and to re-initiate a new contract.");
+
+        // NOTE: Check contract status and collateral
         require(amount >= minimumContribution(), "Contribution is below the minimum requirement.");
         require(totalContribution() + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
         require(!finalized, "Node has already been finalized.");
@@ -174,8 +187,6 @@ contract ServiceNodeContribution is Shared {
      */
     function finalizeNode() internal {
         require(totalContribution() == stakingRequirement, "Funding goal has not been met.");
-        require(!finalized, "Node has already been finalized.");
-        require(!cancelled, "Node has been cancelled.");
 
         // NOTE: Finalise the contract and setup the contributors for the
         // `stakingRewardsContract`

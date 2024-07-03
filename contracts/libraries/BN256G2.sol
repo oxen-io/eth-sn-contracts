@@ -7,6 +7,8 @@ pragma solidity ^0.8.20;
  * @dev Homepage: https://github.com/musalbas/solidity-BN256G2
  */
 
+import "hardhat/console.sol";
+
 library BN256G2 {
     uint256 internal constant CURVE_ORDER_FACTOR = 4965661367192848881; // this is also knows as z, generates prime definine base field (FIELD MODULUS) and order of the curve for BN curves
     uint256 internal constant FIELD_MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
@@ -52,84 +54,6 @@ library BN256G2 {
     uint256 constant FROBENIUS_COEFF_Y_0 = 2821565182194536844548159561693502659359617185244120367078079554186484126554;
     uint256 constant FROBENIUS_COEFF_Y_1 = 3505843767911556378687030309984248845540243509899259641013678093033130930403;
 
-    /**
-     * @notice Add two twist points
-     * @param pt1xx Coefficient 1 of x on point 1
-     * @param pt1xy Coefficient 2 of x on point 1
-     * @param pt1yx Coefficient 1 of y on point 1
-     * @param pt1yy Coefficient 2 of y on point 1
-     * @param pt2xx Coefficient 1 of x on point 2
-     * @param pt2xy Coefficient 2 of x on point 2
-     * @param pt2yx Coefficient 1 of y on point 2
-     * @param pt2yy Coefficient 2 of y on point 2
-     * @return (pt3xx, pt3xy, pt3yx, pt3yy)
-     */
-    function ECTwistAdd(
-        uint256 pt1xx,
-        uint256 pt1xy,
-        uint256 pt1yx,
-        uint256 pt1yy,
-        uint256 pt2xx,
-        uint256 pt2xy,
-        uint256 pt2yx,
-        uint256 pt2yy
-    ) internal view returns (uint256, uint256, uint256, uint256) {
-        if (pt1xx == 0 && pt1xy == 0 && pt1yx == 0 && pt1yy == 0) {
-            if (!(pt2xx == 0 && pt2xy == 0 && pt2yx == 0 && pt2yy == 0)) {
-                assert(_isOnCurve(pt2xx, pt2xy, pt2yx, pt2yy));
-            }
-            return (pt2xx, pt2xy, pt2yx, pt2yy);
-        } else if (pt2xx == 0 && pt2xy == 0 && pt2yx == 0 && pt2yy == 0) {
-            assert(_isOnCurve(pt1xx, pt1xy, pt1yx, pt1yy));
-            return (pt1xx, pt1xy, pt1yx, pt1yy);
-        }
-
-        assert(_isOnCurve(pt1xx, pt1xy, pt1yx, pt1yy));
-        assert(_isOnCurve(pt2xx, pt2xy, pt2yx, pt2yy));
-
-        uint256[6] memory pt3 = _ECTwistAddJacobian(pt1xx, pt1xy, pt1yx, pt1yy, 1, 0, pt2xx, pt2xy, pt2yx, pt2yy, 1, 0);
-
-        return _fromJacobian(pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]);
-    }
-
-    /**
-     * @notice Multiply a twist point by a scalar
-     * @param s     Scalar to multiply by
-     * @param pt1xx Coefficient 1 of x
-     * @param pt1xy Coefficient 2 of x
-     * @param pt1yx Coefficient 1 of y
-     * @param pt1yy Coefficient 2 of y
-     * @return (pt2xx, pt2xy, pt2yx, pt2yy)
-     */
-    function ECTwistMul(
-        uint256 s,
-        uint256 pt1xx,
-        uint256 pt1xy,
-        uint256 pt1yx,
-        uint256 pt1yy
-    ) internal view returns (uint256, uint256, uint256, uint256) {
-        uint256 pt1zx = 1;
-        if (pt1xx == 0 && pt1xy == 0 && pt1yx == 0 && pt1yy == 0) {
-            pt1xx = 1;
-            pt1yx = 1;
-            pt1zx = 0;
-        } else {
-            assert(_isOnCurve(pt1xx, pt1xy, pt1yx, pt1yy));
-        }
-
-        uint256[6] memory pt2 = _ECTwistMulJacobian(s, pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, 0);
-
-        return _fromJacobian(pt2[PTXX], pt2[PTXY], pt2[PTYX], pt2[PTYY], pt2[PTZX], pt2[PTZY]);
-    }
-
-    /**
-     * @notice Get the field modulus
-     * @return The field modulus
-     */
-    function GetFieldModulus() internal pure returns (uint256) {
-        return FIELD_MODULUS;
-    }
-
     function submod(uint256 a, uint256 b, uint256 n) internal pure returns (uint256) {
         return addmod(a, n - b, n);
     }
@@ -153,33 +77,12 @@ library BN256G2 {
         return (submod(xx, yx, FIELD_MODULUS), submod(xy, yy, FIELD_MODULUS));
     }
 
-    function _FQ2Div(uint256 xx, uint256 xy, uint256 yx, uint256 yy) internal view returns (uint256, uint256) {
-        (yx, yy) = _FQ2Inv(yx, yy);
-        return _FQ2Mul(xx, xy, yx, yy);
-    }
-
     function _FQ2Inv(uint256 x, uint256 y) internal view returns (uint256, uint256) {
         uint256 inv = _modInv(
             addmod(mulmod(y, y, FIELD_MODULUS), mulmod(x, x, FIELD_MODULUS), FIELD_MODULUS),
             FIELD_MODULUS
         );
         return (mulmod(x, inv, FIELD_MODULUS), FIELD_MODULUS - mulmod(y, inv, FIELD_MODULUS));
-    }
-
-    function _FQ2Pow(uint256 basex, uint256 basey, uint256 exponent) internal pure returns (uint256, uint256) {
-        uint256 resultx = 1;
-        uint256 resulty = 0; // Start with 1 + 0i in Fp2
-        while (exponent > 0) {
-            if (exponent % 2 != 0) {
-                // Multiply result by base in Fp2
-                (resultx, resulty) = _FQ2Mul(resultx, resulty, basex, basey);
-            }
-            // Square the base in Fp2
-            (basex, basey) = _FQ2Mul(basex, basey, basex, basey);
-            // Move to the next bit in the exponent
-            exponent /= 2;
-        }
-        return (resultx, resulty);
     }
 
     function _isOnCurve(uint256 xx, uint256 xy, uint256 yx, uint256 yy) internal pure returns (bool) {
@@ -215,7 +118,7 @@ library BN256G2 {
         require(success);
     }
 
-    function _fromJacobian(
+    function _fromProjective(
         uint256 pt1xx,
         uint256 pt1xy,
         uint256 pt1yx,
@@ -230,7 +133,31 @@ library BN256G2 {
         (pt2yx, pt2yy) = _FQ2Mul(pt1yx, pt1yy, invzx, invzy);
     }
 
-    function _ECTwistAddJacobian(
+     /**
+     * @notice Adds two points on a twisted elliptic curve in projective coordinates.
+     * @dev This function implements the addition formula for elliptic curves in projective coordinates
+     * based on formula (3) in section 2.2 from the paper
+     * Cohen, H., Miyaji, A., Ono, T. (1998). Efficient Elliptic Curve Exponentiation Using Mixed Coordinates.
+     * In: Ohta, K., Pei, D. (eds) Advances in Cryptology — ASIACRYPT’98. ASIACRYPT 1998.
+     * Lecture Notes in Computer Science, vol 1514. Springer, Berlin, Heidelberg. https://doi.org/10.1007/3-540-49649-1_6
+     * also available at: https://link.springer.com/chapter/10.1007/3-540-49649-1_6.
+     * This elliptic curve is twisted and each coordinate has both real and imaginary parts.
+     * 
+     * @param pt1xx The real part of the x-coordinate of the first point.
+     * @param pt1xy The imaginary part of the x-coordinate of the first point.
+     * @param pt1yx The real part of the y-coordinate of the first point.
+     * @param pt1yy The imaginary part of the y-coordinate of the first point.
+     * @param pt1zx The real part of the z-coordinate of the first point.
+     * @param pt1zy The imaginary part of the z-coordinate of the first point.
+     * @param pt2xx The real part of the x-coordinate of the second point.
+     * @param pt2xy The imaginary part of the x-coordinate of the second point.
+     * @param pt2yx The real part of the y-coordinate of the second point.
+     * @param pt2yy The imaginary part of the y-coordinate of the second point.
+     * @param pt2zx The real part of the z-coordinate of the second point.
+     * @param pt2zy The imaginary part of the z-coordinate of the second point.
+     * @return pt3 The resulting point of the addition in projective coordinates, including both real and imaginary parts for x, y, and z coordinates.
+     */
+    function _ECTwistAddProjective(
         uint256 pt1xx,
         uint256 pt1xy,
         uint256 pt1yx,
@@ -266,14 +193,14 @@ library BN256G2 {
             return pt3;
         }
 
-        (pt2yx, pt2yy) = _FQ2Mul(pt2yx, pt2yy, pt1zx, pt1zy); // U1 = y2 * z1
-        (pt3[PTYX], pt3[PTYY]) = _FQ2Mul(pt1yx, pt1yy, pt2zx, pt2zy); // U2 = y1 * z2
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1zx, pt1zy); // V1 = x2 * z1
-        (pt3[PTZX], pt3[PTZY]) = _FQ2Mul(pt1xx, pt1xy, pt2zx, pt2zy); // V2 = x1 * z2
+        (pt2yx,     pt2yy)     = _FQ2Mul(pt2yx, pt2yy, pt1zx, pt1zy); // Y₂Z₁ = Y₂ * Z₁
+        (pt3[PTYX], pt3[PTYY]) = _FQ2Mul(pt1yx, pt1yy, pt2zx, pt2zy); // Y₁Z₂ = Y₁ * Z₂
+        (pt2xx,     pt2xy)     = _FQ2Mul(pt2xx, pt2xy, pt1zx, pt1zy); // X₂Z₁ = X₂ * Z₁
+        (pt3[PTZX], pt3[PTZY]) = _FQ2Mul(pt1xx, pt1xy, pt2zx, pt2zy); // X₁Z₂ = X₁ * Z₂
 
         if (pt2xx == pt3[PTZX] && pt2xy == pt3[PTZY]) {
             if (pt2yx == pt3[PTYX] && pt2yy == pt3[PTYY]) {
-                (pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]) = _ECTwistDoubleJacobian(
+                (pt3[PTXX], pt3[PTXY], pt3[PTYX], pt3[PTYY], pt3[PTZX], pt3[PTZY]) = _ECTwistDoubleProjective(
                     pt1xx,
                     pt1xy,
                     pt1yx,
@@ -287,26 +214,49 @@ library BN256G2 {
             return pt3;
         }
 
-        (pt2zx, pt2zy) = _FQ2Mul(pt1zx, pt1zy, pt2zx, pt2zy); // W = z1 * z2
-        (pt1xx, pt1xy) = _FQ2Sub(pt2yx, pt2yy, pt3[PTYX], pt3[PTYY]); // U = U1 - U2
-        (pt1yx, pt1yy) = _FQ2Sub(pt2xx, pt2xy, pt3[PTZX], pt3[PTZY]); // V = V1 - V2
-        (pt1zx, pt1zy) = _FQ2Mul(pt1yx, pt1yy, pt1yx, pt1yy); // V_squared = V * V
-        (pt2yx, pt2yy) = _FQ2Mul(pt1zx, pt1zy, pt3[PTZX], pt3[PTZY]); // V_squared_times_V2 = V_squared * V2
-        (pt1zx, pt1zy) = _FQ2Mul(pt1zx, pt1zy, pt1yx, pt1yy); // V_cubed = V * V_squared
-        (pt3[PTZX], pt3[PTZY]) = _FQ2Mul(pt1zx, pt1zy, pt2zx, pt2zy); // newz = V_cubed * W
-        (pt2xx, pt2xy) = _FQ2Mul(pt1xx, pt1xy, pt1xx, pt1xy); // U * U
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt2zx, pt2zy); // U * U * W
-        (pt2xx, pt2xy) = _FQ2Sub(pt2xx, pt2xy, pt1zx, pt1zy); // U * U * W - V_cubed
-        (pt2zx, pt2zy) = _FQ2Muc(pt2yx, pt2yy, 2); // 2 * V_squared_times_V2
-        (pt2xx, pt2xy) = _FQ2Sub(pt2xx, pt2xy, pt2zx, pt2zy); // A = U * U * W - V_cubed - 2 * V_squared_times_V2
-        (pt3[PTXX], pt3[PTXY]) = _FQ2Mul(pt1yx, pt1yy, pt2xx, pt2xy); // newx = V * A
-        (pt1yx, pt1yy) = _FQ2Sub(pt2yx, pt2yy, pt2xx, pt2xy); // V_squared_times_V2 - A
-        (pt1yx, pt1yy) = _FQ2Mul(pt1xx, pt1xy, pt1yx, pt1yy); // U * (V_squared_times_V2 - A)
-        (pt1xx, pt1xy) = _FQ2Mul(pt1zx, pt1zy, pt3[PTYX], pt3[PTYY]); // V_cubed * U2
-        (pt3[PTYX], pt3[PTYY]) = _FQ2Sub(pt1yx, pt1yy, pt1xx, pt1xy); // newy = U * (V_squared_times_V2 - A) - V_cubed * U2
+        (pt2zx,     pt2zy)     = _FQ2Mul(pt1zx, pt1zy, pt2zx,     pt2zy);     // Z₁Z₂        = Z₁ * Z₂
+        (pt1xx,     pt1xy)     = _FQ2Sub(pt2yx, pt2yy, pt3[PTYX], pt3[PTYY]); // u           = Y₂Z₁ - Y₁Z₂
+        (pt1yx,     pt1yy)     = _FQ2Sub(pt2xx, pt2xy, pt3[PTZX], pt3[PTZY]); // v           = X₂Z₁ - X₁Z₂
+        (pt1zx,     pt1zy)     = _FQ2Mul(pt1yx, pt1yy, pt1yx,     pt1yy);     // v²          = v * v
+        (pt2yx,     pt2yy)     = _FQ2Mul(pt1zx, pt1zy, pt3[PTZX], pt3[PTZY]); // v²X₁Z₂      = v² * X₁Z₂
+        (pt1zx,     pt1zy)     = _FQ2Mul(pt1zx, pt1zy, pt1yx,     pt1yy);     // v³          = v² * v
+        (pt3[PTZX], pt3[PTZY]) = _FQ2Mul(pt1zx, pt1zy, pt2zx,     pt2zy);     // Z₃          = v³ * Z₁Z₂
+        (pt2xx,     pt2xy)     = _FQ2Mul(pt1xx, pt1xy, pt1xx,     pt1xy);     // u²          = u * u
+        (pt2xx,     pt2xy)     = _FQ2Mul(pt2xx, pt2xy, pt2zx,     pt2zy);     // u²Z₁Z₂      = u² * Z₁Z₂
+        (pt2xx,     pt2xy)     = _FQ2Sub(pt2xx, pt2xy, pt1zx,     pt1zy);     //             = u²Z₁Z₂ - v³
+        (pt2zx,     pt2zy)     = _FQ2Muc(pt2yx, pt2yy, 2);                    // 2v²X₁Z₂     = v²X₁Z₂ * 2
+        (pt2xx,     pt2xy)     = _FQ2Sub(pt2xx, pt2xy, pt2zx,     pt2zy);     // A           = (u²Z₁Z₂ - v³) - 2v²X₁Z₂
+        (pt3[PTXX], pt3[PTXY]) = _FQ2Mul(pt1yx, pt1yy, pt2xx,     pt2xy);     // X₃          = v * A
+        (pt1yx,     pt1yy)     = _FQ2Sub(pt2yx, pt2yy, pt2xx,     pt2xy);     //             = v²X₁Z₂ - A
+        (pt1yx,     pt1yy)     = _FQ2Mul(pt1xx, pt1xy, pt1yx,     pt1yy);     // uv²X₁Z₂ - A = u * (v²X₁Z₂ - A)
+        (pt1xx,     pt1xy)     = _FQ2Mul(pt1zx, pt1zy, pt3[PTYX], pt3[PTYY]); // v³Y₁Z₂      = v³ * Y₁Z₂
+        (pt3[PTYX], pt3[PTYY]) = _FQ2Sub(pt1yx, pt1yy, pt1xx,     pt1xy);     // Y₃          = (u * (v²X₁Z₂ - A)) - v³Y₁Z₂
     }
 
-    function _ECTwistDoubleJacobian(
+    /**
+     * @notice Doubles a point on a twisted elliptic curve in projective coordinates.
+     * @dev This function implements the doubling formula for elliptic curves in projective coordinates
+     * based on formula (4) in section 2.2 from the paper
+     * Cohen, H., Miyaji, A., Ono, T. (1998). Efficient Elliptic Curve Exponentiation Using Mixed Coordinates.
+     * In: Ohta, K., Pei, D. (eds) Advances in Cryptology — ASIACRYPT’98. ASIACRYPT 1998.
+     * Lecture Notes in Computer Science, vol 1514. Springer, Berlin, Heidelberg. https://doi.org/10.1007/3-540-49649-1_6
+     * also available at: https://link.springer.com/chapter/10.1007/3-540-49649-1_6.
+     * This elliptic curve is twisted and each coordinate has both real and imaginary parts.
+     *
+     * @param pt1xx The real part of the x-coordinate of the point.
+     * @param pt1xy The imaginary part of the x-coordinate of the point.
+     * @param pt1yx The real part of the y-coordinate of the point.
+     * @param pt1yy The imaginary part of the y-coordinate of the point.
+     * @param pt1zx The real part of the z-coordinate of the point.
+     * @param pt1zy The imaginary part of the z-coordinate of the point.
+     * @return pt2xx The real part of the x-coordinate of the resulting point.
+     * @return pt2xy The imaginary part of the x-coordinate of the resulting point.
+     * @return pt2yx The real part of the y-coordinate of the resulting point.
+     * @return pt2yy The imaginary part of the y-coordinate of the resulting point.
+     * @return pt2zx The real part of the z-coordinate of the resulting point.
+     * @return pt2zy The imaginary part of the z-coordinate of the resulting point.
+     */
+    function _ECTwistDoubleProjective(
         uint256 pt1xx,
         uint256 pt1xy,
         uint256 pt1yx,
@@ -314,29 +264,33 @@ library BN256G2 {
         uint256 pt1zx,
         uint256 pt1zy
     ) internal pure returns (uint256 pt2xx, uint256 pt2xy, uint256 pt2yx, uint256 pt2yy, uint256 pt2zx, uint256 pt2zy) {
-        (pt2xx, pt2xy) = _FQ2Muc(pt1xx, pt1xy, 3); // 3 * x
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1xx, pt1xy); // W = 3 * x * x
-        (pt1zx, pt1zy) = _FQ2Mul(pt1yx, pt1yy, pt1zx, pt1zy); // S = y * z
-        (pt2yx, pt2yy) = _FQ2Mul(pt1xx, pt1xy, pt1yx, pt1yy); // x * y
-        (pt2yx, pt2yy) = _FQ2Mul(pt2yx, pt2yy, pt1zx, pt1zy); // B = x * y * S
-        (pt1xx, pt1xy) = _FQ2Mul(pt2xx, pt2xy, pt2xx, pt2xy); // W * W
-        (pt2zx, pt2zy) = _FQ2Muc(pt2yx, pt2yy, 8); // 8 * B
-        (pt1xx, pt1xy) = _FQ2Sub(pt1xx, pt1xy, pt2zx, pt2zy); // H = W * W - 8 * B
-        (pt2zx, pt2zy) = _FQ2Mul(pt1zx, pt1zy, pt1zx, pt1zy); // S_squared = S * S
-        (pt2yx, pt2yy) = _FQ2Muc(pt2yx, pt2yy, 4); // 4 * B
-        (pt2yx, pt2yy) = _FQ2Sub(pt2yx, pt2yy, pt1xx, pt1xy); // 4 * B - H
-        (pt2yx, pt2yy) = _FQ2Mul(pt2yx, pt2yy, pt2xx, pt2xy); // W * (4 * B - H)
-        (pt2xx, pt2xy) = _FQ2Muc(pt1yx, pt1yy, 8); // 8 * y
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1yx, pt1yy); // 8 * y * y
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt2zx, pt2zy); // 8 * y * y * S_squared
-        (pt2yx, pt2yy) = _FQ2Sub(pt2yx, pt2yy, pt2xx, pt2xy); // newy = W * (4 * B - H) - 8 * y * y * S_squared
-        (pt2xx, pt2xy) = _FQ2Muc(pt1xx, pt1xy, 2); // 2 * H
-        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1zx, pt1zy); // newx = 2 * H * S
-        (pt2zx, pt2zy) = _FQ2Mul(pt1zx, pt1zy, pt2zx, pt2zy); // S * S_squared
-        (pt2zx, pt2zy) = _FQ2Muc(pt2zx, pt2zy, 8); // newz = 8 * S * S_squared
+        (pt2xx, pt2xy) = _FQ2Muc(pt1xx, pt1xy, 3);            // 3X₁          = 3 * X₁
+        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1xx, pt1xy); // 3X₁²         = 3X₁ * X₁ = w
+        (pt1zx, pt1zy) = _FQ2Mul(pt1yx, pt1yy, pt1zx, pt1zy); // s            = Y₁Z₁
+        (pt2yx, pt2yy) = _FQ2Mul(pt1xx, pt1xy, pt1yx, pt1yy); // X₁Y₁         = X₁ * Y₁
+        (pt2yx, pt2yy) = _FQ2Mul(pt2yx, pt2yy, pt1zx, pt1zy); // B            = X₁Y₁ * s
+        (pt1xx, pt1xy) = _FQ2Mul(pt2xx, pt2xy, pt2xx, pt2xy); // w²           = w * w [^Computes (3X₁²)² instead of (aZ₁² + 3X₁²)²]
+        (pt2zx, pt2zy) = _FQ2Muc(pt2yx, pt2yy, 8);            // 8B           = B * 8
+        (pt1xx, pt1xy) = _FQ2Sub(pt1xx, pt1xy, pt2zx, pt2zy); // h            = w² - 8B
+        (pt2zx, pt2zy) = _FQ2Mul(pt1zx, pt1zy, pt1zx, pt1zy); // s²           = s * s
+        (pt2yx, pt2yy) = _FQ2Muc(pt2yx, pt2yy, 4);            // 4B           = B * 4
+        (pt2yx, pt2yy) = _FQ2Sub(pt2yx, pt2yy, pt1xx, pt1xy); //              = 4B - h
+        (pt2yx, pt2yy) = _FQ2Mul(pt2yx, pt2yy, pt2xx, pt2xy); // w * (4B - H) = (4B - H) * w
+        (pt2xx, pt2xy) = _FQ2Muc(pt1yx, pt1yy, 8);            // 8Y₁          = Y₁ * 8
+        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1yx, pt1yy); // 8Y₁²         = 8Y₁ * Y₁
+        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt2zx, pt2zy); // 8Y₁²s²       = 8Y₁² * s²
+        (pt2yx, pt2yy) = _FQ2Sub(pt2yx, pt2yy, pt2xx, pt2xy); // Y₃           = (w * (4B - H)) - 8Y₁²s²
+        (pt2xx, pt2xy) = _FQ2Muc(pt1xx, pt1xy, 2);            // 2h           = h * 2
+        (pt2xx, pt2xy) = _FQ2Mul(pt2xx, pt2xy, pt1zx, pt1zy); // X₃           = 2h * s
+        (pt2zx, pt2zy) = _FQ2Mul(pt1zx, pt1zy, pt2zx, pt2zy); // s³           = s * s²
+        (pt2zx, pt2zy) = _FQ2Muc(pt2zx, pt2zy, 8);            // Z₃           = s³ * 8
+
+        // ^In Section 2.2 formula (4) it is assumed that `a` is 0 which cancels
+        //  out the LHS term of (aZ₁² + 3X₁²)² to (3X₁²)² for BN128/256 which is
+        //  defined by `Y² = X³ + 3` where `a = 0` and `b = 3`.
     }
 
-    function _ECTwistMulJacobian(
+    function _ECTwistMulProjective(
         uint256 d,
         uint256 pt1xx,
         uint256 pt1xy,
@@ -347,7 +301,7 @@ library BN256G2 {
     ) internal pure returns (uint256[6] memory pt2) {
         while (d != 0) {
             if ((d & 1) != 0) {
-                pt2 = _ECTwistAddJacobian(
+                pt2 = _ECTwistAddProjective(
                     pt2[PTXX],
                     pt2[PTXY],
                     pt2[PTYX],
@@ -362,7 +316,7 @@ library BN256G2 {
                     pt1zy
                 );
             }
-            (pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, pt1zy) = _ECTwistDoubleJacobian(
+            (pt1xx, pt1xy, pt1yx, pt1yy, pt1zx, pt1zy) = _ECTwistDoubleProjective(
                 pt1xx,
                 pt1xy,
                 pt1yx,
@@ -423,7 +377,19 @@ library BN256G2 {
         }
     }
 
-    function FQ2Sqrt(uint256 x1, uint256 x2) internal view returns (uint256, uint256) {
+    /**
+     * @dev Square root function implemented as a translation from herumi's
+     * bls/mcl/include/mcl/fp_tower.hpp Fp::squareRoot, see:
+     *
+     * github.com/herumi/mcl/blob/0ede57b846f02298bd80995533fb789f9067d86e/include/mcl/fp_tower.hpp#L364
+     *
+     *   (a + bi)^2 = (a^2 - b^2) + 2ab i = c + di
+     *   A = a^2
+     *   B = b^2
+     *   A = (c +/- sqrt(c^2 + d^2))/2
+     *   b = d / 2a
+     */
+    function FQ2Sqrt(uint256 x1, uint256 x2) public view returns (uint256, uint256) {
         // t1 and t2 for Fp types
         uint256 t1;
         uint256 t2;
@@ -438,52 +404,45 @@ library BN256G2 {
             if (has_root) {
                 return (t1, 0); // y.a = t1, y.b = 0
             } else {
-                // Fp::squareRoot(t1, -x.a)
-                (t1, has_root) = _sqrt(FIELD_MODULUS - x1); // -x.a under modulo FIELD_MODULUS
-                assert(has_root); // assert(b)
                 return (0, t1); // y.a = 0, y.b = t1
             }
         }
 
-        // Fp::sqr(t1, x.a); Fp::sqr(t2, x.b);
-        t1 = mulmod(x1, x1, FIELD_MODULUS);
-        t2 = mulmod(x2, x2, FIELD_MODULUS);
+        t1 = mulmod(x1, x1, FIELD_MODULUS);           // c^2                          => Fp::sqr(t1, x.a);
+        t2 = mulmod(x2, x2, FIELD_MODULUS);           // d^2                          => Fp::sqr(t2, x.b);
+        t1 = addmod(t1, t2, FIELD_MODULUS);           // t1 = c^2 + d^2               => t1 += t2;
 
-        // t1 += t2; // c^2 + d^2
-        t1 = addmod(t1, t2, FIELD_MODULUS);
+        (t1, has_root) = _sqrt(t1);                   // sqrt(c^2 + d^2)              => if (!Fp::squareRoot(t1, t1)) return false;
+        if (!has_root) return (0, 0);                 // Return failed sqrt value
 
-        // if (!Fp::squareRoot(t1, t1)) return false;
-        (t1, has_root) = _sqrt(t1);
-        if (!has_root) return (0, 0); // indicate failed sqrt
+        t2 = addmod(x1, t1, FIELD_MODULUS);           // t2 = c + sqrt(c^2 + d^2)     => Fp::add(t2, x.a, t1);
+        t2 = divBy2(t2);                              // t2 = (c + sqrt(c^2 + d^2))/2 => Fp::divBy2(t2, t2);
 
-        // Fp::add(t2, x.a, t1); Fp::divBy2(t2, t2);
-        t2 = addmod(x1, t1, FIELD_MODULUS);
-        t2 = divBy2(t2);
-
-        // if (!Fp::squareRoot(t2, t2))
         uint256 sqrt_t2;
         (sqrt_t2, has_root) = _sqrt(t2);
-        if (!has_root) {
-            // Fp::sub(t2, x.a, t1); Fp::divBy2(t2, t2);
-            t2 = submod(x1, t1, FIELD_MODULUS);
-            t2 = divBy2(t2);
+        if (!has_root) {                              //                              => if (!Fp::squareRoot(t2, t2))
+            t2 = submod(x1, t1, FIELD_MODULUS);       // t2 = c - sqrt(c^2 + d^2)     => Fp::sub(t2, x.a, t1);
+            t2 = divBy2(t2);                          // t2 = (c - sqrt(c^2 + d^2))/2 => Fp::divBy2(t2, t2);
 
             (sqrt_t2, has_root) = _sqrt(t2);
-            if (!has_root) return (0, 0); // indicate failed sqrt
+            if (!has_root) return (0, 0);             // Return failed sqrt value
         }
 
-        // y.a = t2;
-        uint256 y1 = sqrt_t2;
+        uint256 y1 = sqrt_t2;                         // y1 = t2;
 
-        // t2 += t2; Fp::inv(t2, t2);
-        t2 = addmod(sqrt_t2, sqrt_t2, FIELD_MODULUS);
-        t2 = _modInv(t2, FIELD_MODULUS);
+        t2 = addmod(sqrt_t2, sqrt_t2, FIELD_MODULUS); // t2 += t2;
+        t2 = _modInv(t2, FIELD_MODULUS);              // Fp::inv(t2, t2);
 
-        // Fp::mul(y.b, x.b, t2);
         uint256 y2;
-        y2 = mulmod(x2, t2, FIELD_MODULUS);
+        y2 = mulmod(x2, t2, FIELD_MODULUS);           // y2 = b / (2 * t2)            => Fp::mul(y.b, x.b, t2);
 
         return (y1, y2);
+    }
+
+    function NegateFQ2Sqrt(uint256 x1, uint256 x2) public pure returns (uint256, uint256) {
+        uint256 neg_x1 = FIELD_MODULUS - x1;
+        uint256 neg_x2 = FIELD_MODULUS - x2;
+        return (neg_x1, neg_x2);
     }
 
     function ECTwistMulByCofactor(
@@ -495,24 +454,46 @@ library BN256G2 {
         assert(_isOnCurve(Pxx, Pxy, Pyx, Pyy));
         uint256[6] memory Q = [Pxx, Pxy, Pyx, Pyy, 1, 0];
 
-        Q = _ECTwistMulByCofactorJacobian(Q);
+        Q = _ECTwistMulByCofactorProjective(Q);
 
-        return _fromJacobian(Q[PTXX], Q[PTXY], Q[PTYX], Q[PTYY], Q[PTZX], Q[PTZY]);
+        return _fromProjective(Q[PTXX], Q[PTXY], Q[PTYX], Q[PTYY], Q[PTZX], Q[PTZY]);
     }
 
-    function _ECTwistMulByCofactorJacobian(uint256[6] memory P) internal pure returns (uint256[6] memory Q) {
+    /**
+     * @notice Multiplies a point on a twisted elliptic curve by the cofactor in projective coordinates.
+     * @dev This function implements the algorithm described in the paper "Faster Hashing to G2" by 
+     * Laura Fuentes-Castaneda, Edward Knapp, and Francisco Rodriguez-Henriquez, available at: 
+     * https://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf. The elliptic curve is twisted and 
+     * each coordinate has both real and imaginary parts.
+     * 
+     * @param P The input point in projective coordinates as an array of six uint256 values:
+     * - P[0] (PTXX): The real part of the x-coordinate of the point.
+     * - P[1] (PTXY): The imaginary part of the x-coordinate of the point.
+     * - P[2] (PTYX): The real part of the y-coordinate of the point.
+     * - P[3] (PTYY): The imaginary part of the y-coordinate of the point.
+     * - P[4] (PTZX): The real part of the z-coordinate of the point.
+     * - P[5] (PTZY): The imaginary part of the z-coordinate of the point.
+     * @return Q The resulting point in projective coordinates as an array of six uint256 values:
+     * - Q[0] (PTXX): The real part of the x-coordinate of the resulting point.
+     * - Q[1] (PTXY): The imaginary part of the x-coordinate of the resulting point.
+     * - Q[2] (PTYX): The real part of the y-coordinate of the resulting point.
+     * - Q[3] (PTYY): The imaginary part of the y-coordinate of the resulting point.
+     * - Q[4] (PTZX): The real part of the z-coordinate of the resulting point.
+     * - Q[5] (PTZY): The imaginary part of the z-coordinate of the resulting point.
+     */
+    function _ECTwistMulByCofactorProjective(uint256[6] memory P) internal pure returns (uint256[6] memory Q) {
         uint256[6] memory T0;
         uint256[6] memory T1;
         uint256[6] memory T2;
 
         // T0 = CURVE_ORDER_FACTOR * P
-        T0 = _ECTwistMulJacobian(CURVE_ORDER_FACTOR, P[PTXX], P[PTXY], P[PTYX], P[PTYY], P[PTZX], P[PTZY]);
+        T0 = _ECTwistMulProjective(CURVE_ORDER_FACTOR, P[PTXX], P[PTXY], P[PTYX], P[PTYY], P[PTZX], P[PTZY]);
 
         // T1 = 2 * T0
-        T1 = _ECTwistMulJacobian(2, T0[PTXX], T0[PTXY], T0[PTYX], T0[PTYY], T0[PTZX], T0[PTZY]);
+        T1 = _ECTwistMulProjective(2, T0[PTXX], T0[PTXY], T0[PTYX], T0[PTYY], T0[PTZX], T0[PTZY]);
 
         // T1 = T1 + T0
-        T1 = _ECTwistAddJacobian(
+        T1 = _ECTwistAddProjective(
             T0[PTXX],
             T0[PTXY],
             T0[PTYX],
@@ -528,14 +509,14 @@ library BN256G2 {
         );
 
         // T1 = Frobenius(T1)
-        T1 = _ECTwistFrobeniusJacobian(T1);
+        T1 = _ECTwistFrobeniusProjective(T1);
 
         // T2 = Frobenius^2(T0)
-        T2 = _ECTwistFrobeniusJacobian(T0);
-        T2 = _ECTwistFrobeniusJacobian(T2);
+        T2 = _ECTwistFrobeniusProjective(T0);
+        T2 = _ECTwistFrobeniusProjective(T2);
 
         // T0 = T0 + T1 + T2
-        T0 = _ECTwistAddJacobian(
+        T0 = _ECTwistAddProjective(
             T0[PTXX],
             T0[PTXY],
             T0[PTYX],
@@ -549,7 +530,7 @@ library BN256G2 {
             T1[PTZX],
             T1[PTZY]
         );
-        T0 = _ECTwistAddJacobian(
+        T0 = _ECTwistAddProjective(
             T0[PTXX],
             T0[PTXY],
             T0[PTYX],
@@ -565,13 +546,13 @@ library BN256G2 {
         );
 
         // T2 = Frobenius^3(P)
-        T2 = _ECTwistFrobeniusJacobian(P);
-        T2 = _ECTwistFrobeniusJacobian(T2);
-        T2 = _ECTwistFrobeniusJacobian(T2);
+        T2 = _ECTwistFrobeniusProjective(P);
+        T2 = _ECTwistFrobeniusProjective(T2);
+        T2 = _ECTwistFrobeniusProjective(T2);
 
         // Q = T0 + T2
         return
-            _ECTwistAddJacobian(
+            _ECTwistAddProjective(
                 T0[PTXX],
                 T0[PTXY],
                 T0[PTYX],
@@ -587,7 +568,7 @@ library BN256G2 {
             );
     }
 
-    function _ECTwistFrobeniusJacobian(uint256[6] memory pt1) internal pure returns (uint256[6] memory pt2) {
+    function _ECTwistFrobeniusProjective(uint256[6] memory pt1) internal pure returns (uint256[6] memory pt2) {
         // Apply Frobenius map to each component
         (pt2[PTXX], pt2[PTXY]) = _FQ2Frobenius(pt1[PTXX], pt1[PTXY]);
         (pt2[PTYX], pt2[PTYY]) = _FQ2Frobenius(pt1[PTYX], pt1[PTYY]);
@@ -604,101 +585,219 @@ library BN256G2 {
         return (x1, FIELD_MODULUS - x2);
     }
 
-    // hashes to G2 using the try and increment method
-    function mapToG2(uint256 h) internal view returns (G2Point memory) {
+    // Hashes to G2 using the try and increment method
+    function mapToG2(bytes memory message, bytes32 hashToG2Tag) internal view returns (G2Point memory) {
+
         // Define the G2Point coordinates
-        uint256 x1 = h;
-        uint256 x2 = 0;
+        uint256 x1;
+        uint256 x2;
         uint256 y1 = 0;
         uint256 y2 = 0;
 
-        bool foundValidPoint = false;
+        bytes memory message_with_i = new bytes(message.length + 1 /*bytes*/);
+        for (uint index = 0; index < message.length; index++) {
+            message_with_i[index] = message[index];
+        }
 
-        // Iterate until we find a valid G2 point
-        while (!foundValidPoint) {
-            // Try to get y^2
-            (uint256 yx, uint256 yy) = Get_yy_coordinate(x1, x2);
+        for (uint8 increment = 0;; increment++) { // Iterate until we find a valid G2 point
+            message_with_i[message_with_i.length - 1] = bytes1(increment);
 
-            // Calculate square root
-            (uint256 sqrt_x, uint256 sqrt_y) = FQ2Sqrt(yx, yy);
+            // TODO: Has side-effects in devnet that causes the hashToField to
+            // generate the correct values. No-op on other networks.
+            console.logBytes(message_with_i);
 
-            // Check if this is a point
-            if (sqrt_x != 0 && sqrt_y != 0) {
-                y1 = sqrt_x;
-                y2 = sqrt_y;
-                if (IsOnCurve(x1, x2, y1, y2)) {
-                    foundValidPoint = true;
-                } else {
-                    x1 += 1;
+            bool b;
+            (x1, x2, b)                      = hashToField(message_with_i, hashToG2Tag);
+            (uint256 yx,     uint256 yy)     = Get_yy_coordinate(x1, x2); // Try to get y^2
+            (uint256 sqrt_x, uint256 sqrt_y) = FQ2Sqrt(yx, yy);           // Calculate square root
+
+            if (sqrt_x != 0 && sqrt_y != 0) { // Check if this is a point
+                if (b) { // Let b => {0, 1} to choose between the two roots.
+                    (sqrt_x, sqrt_y) = NegateFQ2Sqrt(sqrt_x, sqrt_y);
                 }
-            } else {
-                // Increment x coordinate and try again.
-                x1 += 1;
+                (y1, y2) = (sqrt_x, sqrt_y);
+                if (IsOnCurve(x1, x2, y1, y2)) {
+                    break;
+                }
             }
         }
 
         return (G2Point([x2, x1], [y2, y1]));
     }
 
-    function hashToG2(uint256 h) internal view returns (G2Point memory) {
-        G2Point memory map = mapToG2(h);
+    function hashToG2(bytes memory message, bytes32 hashToG2Tag) internal view returns (G2Point memory) {
+        G2Point memory map = mapToG2(message, hashToG2Tag);
         (uint256 x1, uint256 x2, uint256 y1, uint256 y2) = ECTwistMulByCofactor(map.X[1], map.X[0], map.Y[1], map.Y[0]);
         return (G2Point([x2, x1], [y2, y1]));
     }
 
-    function getWeierstrass(uint256 x, uint256 y) internal pure returns (uint256, uint256) {
-        return Get_yy_coordinate(x, y);
-    }
+    uint256 private constant KECCAK256_BLOCKSIZE = 136;
 
-    function convertArrayAsLE(bytes32 src) internal pure returns (bytes32) {
-        bytes32 dst;
-        for (uint256 i = 0; i < 32; i++) {
-            // Considering each byte of bytes32
-            bytes1 s = src[i];
-            // Assuming the role of D is just to cast or store our byte in this context
-            dst |= bytes32(s) >> (i * 8);
+    /**
+     * Takes an arbitrary byte-string and a domain seperation tag (dst) and
+     * returns two elements of the field with prime `FIELD_MODULUS`. This
+     * implementation is taken from Hopr's crypto implementation and repurposed
+     * for a BN256 curve:
+     *
+     * github.com/hoprnet/hoprnet/blob/53e3f49855775af8e92b465306be144038167b63/ethereum/contracts/src/Crypto.sol
+     *
+     * @dev DSTs longer than 255 bytes are considered unsound.
+     *      see https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-domain-separation
+     *
+     * @param message the message to hash
+     * @param dst domain separation tag, used to make protocol instantiations unique
+     */
+    function hashToField(bytes memory message, bytes32 dst) public view returns (uint256 u0, uint256 u1, bool b) {
+        (bytes32 b1, bytes32 b2, bytes32 b3, bytes32 b4) = expandMessageXMDKeccak256(message, abi.encodePacked(dst));
+
+        // computes ([...b1[..], ...b2[0..16]] ^ 1) mod n
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            let p := mload(0x40)                // next free memory slot
+            mstore(p, 0x30)                     // Length of Base
+            mstore(add(p, 0x20), 0x20)          // Length of Exponent
+            mstore(add(p, 0x40), 0x20)          // Length of Modulus
+            mstore(add(p, 0x60), b1)            // Base
+            mstore(add(p, 0x80), b2)
+            mstore(add(p, 0x90), 1)             // Exponent
+            mstore(add(p, 0xb0), FIELD_MODULUS) // Modulus
+            if iszero(staticcall(not(0), 0x05, p, 0xD0, p, 0x20)) { revert(0, 0) }
+
+            u0 := mload(p)
         }
-        return dst;
-    }
 
-    // This matches mcl maskN, this only takes the 254 bits for the field, if it is still greater than the field then take the 253 bits
-    function maskBits(uint256 input) internal pure returns (uint256) {
-        uint256 mask = ~uint256(0) - 0xC0;
-        if (byteSwap(input & mask) >= FIELD_MODULUS) {
-            mask = ~uint256(0) - 0xE0;
+        // computes ([...b2[16..32], ...b3[..]] ^ 1) mod n
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            let p := mload(0x40)
+            mstore(p, 0x30)                     // Length of Base
+            mstore(add(p, 0x20), 0x20)          // Length of Exponent
+            mstore(add(p, 0x50), b2)
+            mstore(add(p, 0x40), 0x20)          // Length of Modulus
+            mstore(add(p, 0x70), b3)            // Base
+            mstore(add(p, 0x90), 1)             // Exponent
+            mstore(add(p, 0xb0), FIELD_MODULUS) // Modulus
+            if iszero(staticcall(not(0), 0x05, p, 0xD0, p, 0x20)) { revert(0, 0) }
+
+            u1 := mload(p)
         }
-        return input & mask;
+
+        b = (uint8(uint256(b4)) & 1) == 1;
     }
 
-    function byteSwap(uint256 value) internal pure returns (uint256) {
-        uint256 swapped = 0;
-        for (uint256 i = 0; i < 32; i++) {
-            uint256 byteValue = (value >> (i * 8)) & 0xFF;
-            swapped |= byteValue << (256 - 8 - (i * 8));
+    /**
+     * Expands an arbitrary byte-string to 128 bytes using the
+     * `expand_message_xmd` method described in
+     *
+     * https://www.rfc-editor.org/rfc/rfc9380.html#name-expand_message_xmd
+     *
+     * This implementation is taken from Hopr's crypto implementation:
+     *
+     * github.com/hoprnet/hoprnet/blob/53e3f49855775af8e92b465306be144038167b63/ethereum/contracts/src/Crypto.sol
+     *
+     * Used for hashToField functionality to generate points within
+     * FIELD_MODULUS such that bias of selecting such numbers is beneath 2^-128
+     * as recommended by RFC9380.
+     *
+     * @dev DSTs longer than 255 bytes are considered unsound.
+     *      see https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-domain-separation
+     *
+     * @param message the message to hash
+     * @param dst domain separation tag, used to make protocol instantiations unique
+     */
+    function expandMessageXMDKeccak256(
+        bytes memory message,
+        bytes memory dst
+    )
+        public
+        pure
+        returns (bytes32 b1, bytes32 b2, bytes32 b3, bytes32 b4)
+    {
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            if gt(mload(dst), 255) { revert(0, 0) }
+
+            let b0
+            {
+                // create payload for b0 hash
+                let b0Payload := mload(0x40)
+
+                // payload[0..KECCAK256_BLOCKSIZE] = 0
+
+                let b0PayloadO := KECCAK256_BLOCKSIZE // leave first block empty
+                let msg_o := 0x20 // skip length prefix
+
+                // payload[KECCAK256_BLOCKSIZE..KECCAK256_BLOCKSIZE+message.len()] = message[0..message.len()]
+                for { let i := 0 } lt(i, mload(message)) { i := add(i, 0x20) } {
+                    mstore(add(b0Payload, b0PayloadO), mload(add(message, msg_o)))
+                    b0PayloadO := add(b0PayloadO, 0x20)
+                    msg_o := add(msg_o, 0x20)
+                }
+
+                // payload[KECCAK256_BLOCKSIZE+message.len()+1..KECCAK256_BLOCKSIZE+message.len()+2] = 128
+                b0PayloadO := add(mload(message), 137)
+                mstore8(add(b0Payload, b0PayloadO), 0x80) // only support for 128 bytes output length
+
+                let dstO := 0x20
+                b0PayloadO := add(b0PayloadO, 2)
+
+                // payload[KECCAK256_BLOCKSIZE+message.len()+3..KECCAK256_BLOCKSIZE+message.len()+dst.len()]
+                // = dst[0..dst.len()]
+                for { let i := 0 } lt(i, mload(dst)) { i := add(i, 0x20) } {
+                    mstore(add(b0Payload, b0PayloadO), mload(add(dst, dstO)))
+                    b0PayloadO := add(b0PayloadO, 0x20)
+                    dstO := add(dstO, 0x20)
+                }
+
+                // payload[KECCAK256_BLOCKSIZE+message.len()+dst.len()..KECCAK256_BLOCKSIZE+message.len()+dst.len()+1]
+                // = dst.len()
+                b0PayloadO := add(add(mload(message), mload(dst)), 139)
+                mstore8(add(b0Payload, b0PayloadO), mload(dst))
+
+                b0 := keccak256(b0Payload, add(140, add(mload(dst), mload(message))))
+            }
+
+            // create payload for b1, b2 ... hashes
+            let bIPayload := mload(0x40)
+            mstore(bIPayload, b0)
+            // payload[32..33] = 1
+            mstore8(add(bIPayload, 0x20), 1)
+
+            let payloadO := 0x21
+            let dstO := 0x20
+
+            // payload[33..33+dst.len()] = dst[0..dst.len()]
+            for { let i := 0 } lt(i, mload(dst)) { i := add(i, 0x20) } {
+                mstore(add(bIPayload, payloadO), mload(add(dst, dstO)))
+                payloadO := add(payloadO, 0x20)
+                dstO := add(dstO, 0x20)
+            }
+
+            // payload[65+dst.len()..66+dst.len()] = dst.len()
+            mstore8(add(bIPayload, add(0x21, mload(dst))), mload(dst))
+
+            b1 := keccak256(bIPayload, add(34, mload(dst)))
+
+            // payload[0..32] = b0 XOR b1
+            mstore(bIPayload, xor(b0, b1))
+            // payload[32..33] = 2
+            mstore8(add(bIPayload, 0x20), 2)
+
+            b2 := keccak256(bIPayload, add(34, mload(dst)))
+
+            // payload[0..32] = b0 XOR b2
+            mstore(bIPayload, xor(b0, b2))
+            // payload[32..33] = 3
+            mstore8(add(bIPayload, 0x20), 3)
+
+            b3 := keccak256(bIPayload, add(34, mload(dst)))
+
+            // payload[0..32] = b0 XOR b3
+            mstore(bIPayload, xor(b0, b3))
+            // payload[32..33] = 4
+            mstore8(add(bIPayload, 0x20), 4)
+
+            b4 := keccak256(bIPayload, add(34, mload(dst)))
         }
-        return swapped;
-    }
-
-    function calcField(uint256 pkX, uint256 pkY) internal pure returns (uint256) {
-        return hashToField(string(abi.encodePacked(pkX, pkY)));
-    }
-
-    function hashToField(string memory message) internal pure returns (uint256) {
-        return byteSwap(maskBits(uint256(convertArrayAsLE(keccak256(bytes(message))))));
-    }
-
-    /// @return the generator of G2
-    function P2() internal pure returns (G2Point memory) {
-        return
-            G2Point(
-                [
-                    11559732032986387107991004021392285783925812861821192530917403151452391805634,
-                    10857046999023057135944570762232829481370756359578518086990519993285655852781
-                ],
-                [
-                    4082367875863433681332203403145435568316851327593401208105741076214120093531,
-                    8495653923123431417604973247489272438418190587263600148770280649306958101930
-                ]
-            );
     }
 }

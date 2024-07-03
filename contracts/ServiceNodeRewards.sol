@@ -23,6 +23,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     uint64 public constant LIST_SENTINEL = 0;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
+    uint256 public constant MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND = 5;
 
     uint64 public nextServiceNodeID;
     uint256 public totalNodes;
@@ -34,6 +35,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     bytes32 public rewardTag;
     bytes32 public removalTag;
     bytes32 public liquidateTag;
+    bytes32 public hashToG2Tag;
 
     uint256 private _stakingRequirement;
     uint256 private _maxContributors;
@@ -67,6 +69,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         rewardTag = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
         removalTag = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
         liquidateTag = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
+        hashToG2Tag = buildTag("BLS_SIG_HASH_TO_FIELD_TAG");
         signatureExpiry = 10 minutes;
 
         designatedToken = IERC20(token_);
@@ -95,6 +98,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     mapping(bytes blsPublicKey => uint64 serviceNodeID) public serviceNodeIDs;
 
     BN256G1.G1Point public _aggregatePubkey;
+    uint256         public _lastHeightPubkeyWasAggregated;
+    uint256         public _numPubkeyAggregationsForHeight;
 
     // MODIFIERS
     modifier whenStarted() {
@@ -206,7 +211,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // NOTE: Validate signature
         {
             bytes memory encodedMessage = abi.encodePacked(rewardTag, recipientAddress, recipientRewards);
-            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage, hashToG2Tag);
             validateSignatureOrRevert(ids, blsSignature, Hm);
         }
 
@@ -342,7 +347,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             caller,
             serviceNodePubkey
         );
-        BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+        BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage, hashToG2Tag);
 
         BN256G2.G2Point memory signature = BN256G2.G2Point(
             [blsSignature.sigs1, blsSignature.sigs0],
@@ -421,7 +426,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // NOTE: Validate signature
         {
             bytes memory encodedMessage = abi.encodePacked(removalTag, blsPubkey.X, blsPubkey.Y, timestamp);
-            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage, hashToG2Tag);
             validateSignatureOrRevert(ids, blsSignature, Hm);
         }
 
@@ -499,7 +504,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // NOTE: Validate signature
         {
             bytes memory encodedMessage = abi.encodePacked(liquidateTag, blsPubkey.X, blsPubkey.Y, timestamp);
-            BN256G2.G2Point memory Hm = BN256G2.hashToG2(BN256G2.hashToField(string(encodedMessage)));
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage, hashToG2Tag);
             validateSignatureOrRevert(ids, blsSignature, Hm);
         }
 
@@ -522,8 +527,18 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     /// @notice Seeds the public key list with an initial set of service nodes.
     ///
+    /// This function can only be called after deployment of the contract by the
+    /// owner, and, prior to starting the contract.
+    ///
     /// @dev This should be called before the hardfork by the foundation to
-    /// ensure the public key list is ready to operate.
+    /// ensure the public key list is ready to operate. The foundation will
+    /// enumerate the keys from Session Nodes in C++ via cryptographic proofs
+    /// which include a proof-of-possession to verify that the
+    /// Session Node has the secret-component of the BLS public key they are
+    /// declaring.
+    ///
+    /// Depending on the number of nodes that must be seeded, this function
+    /// may necessarily be called multiple times due to gas limits.
     ///
     /// @param pkX Array of X-coordinates for the public keys.
     /// @param pkY Array of Y-coordinates for the public keys.
@@ -534,6 +549,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         uint256[] calldata pkY,
         uint256[] calldata amounts
     ) external onlyOwner {
+        require(!isStarted, "The rewards list can only be seeded after "
+                "deployment and before `start` is invoked on the contract.");
+
         if (pkX.length != pkY.length || pkX.length != amounts.length) {
             revert ArrayLengthMismatch();
         }
@@ -550,13 +568,31 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     /// @notice Add the service node with the specified BLS public key to
     /// the service node list. EVM revert if the service node already exists.
-    /// @return result The ID allocated for the service node. The service node can then
-    /// be accessed by `_serviceNodes[result]`
+    ///
+    /// @return result The ID allocated for the service node. The service node
+    /// can then be accessed by `_serviceNodes[result]`
     function serviceNodeAdd(BN256G1.G1Point memory pubkey) internal returns (uint64 result) {
         // NOTE: Check if the service node already exists
         // (e.g. <BLS Key> -> <SN> mapping)
         bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(pubkey);
         if (serviceNodeIDs[pubkeyBytes] != LIST_SENTINEL) revert BLSPubkeyAlreadyExists(serviceNodeIDs[pubkeyBytes]);
+
+        // NOTE: After the contract has started (e.g. the contract has been
+        // seeded) we limit the number of public keys permitted to be aggregated
+        // within a single block.
+        if (isStarted) {
+            if (_lastHeightPubkeyWasAggregated < block.number) {
+                _lastHeightPubkeyWasAggregated  = block.number;
+                _numPubkeyAggregationsForHeight = 0;
+            }
+            _numPubkeyAggregationsForHeight++;
+
+            uint256 limit = maxPermittedPubkeyAggregations();
+            require(_numPubkeyAggregationsForHeight <= limit,
+                    "The maximum number of new Session Nodes permitted per block has been "
+                    "exceeded. Session Node can not be added, please retry again in the next "
+                    "block.");
+        }
 
         result = nextServiceNodeID;
         nextServiceNodeID += 1;
@@ -589,6 +625,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         } else {
             _aggregatePubkey = BN256G1.add(_aggregatePubkey, pubkey);
         }
+
         return result;
     }
 
@@ -737,6 +774,22 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
 
         return count;
+    }
+
+    /// @notice The maximum number of pubkey aggregations permitted for the
+    /// current block height.
+    ///
+    /// @dev This is currently defined as max(5, 2 percent of the network).
+    ///
+    /// This value is used in tandem with `_numPubkeyAggregationsForHeight`
+    /// which tracks the current number of aggregations thus far for the current
+    /// block in the blockchain. This counter gets reset to 0 for each new
+    /// block.
+    function maxPermittedPubkeyAggregations() public view returns (uint256 result) {
+        uint256 twoPercentOfTotalNodes = totalNodes * 2 / 100;
+        result = twoPercentOfTotalNodes > MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND
+                                        ? twoPercentOfTotalNodes
+                                        : MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND;
     }
 
     /// @notice Getter for a single service node given their service node ID

@@ -33,7 +33,8 @@ async function main() {
     serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,[
         await mockERC20.getAddress(),              // token address
         await rewardRatePool.getAddress(),         // foundation pool address
-        120000000000,                              // staking requirement
+        120_000_000_000,                           // staking requirement
+        10,                                        // max contributors
         0,                                         // liquidator reward ratio
         0,                                         // pool share of liquidation ratio
         1                                          // recipient ratio
@@ -41,7 +42,7 @@ async function main() {
     await serviceNodeRewards.waitForDeployment();
 
     snContributionContractFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
-    snContributionFactory = await snContributionContractFactory.deploy(serviceNodeRewards, 10);
+    snContributionFactory = await snContributionContractFactory.deploy(serviceNodeRewards);
 
     await snContributionFactory.waitForDeployment();
 

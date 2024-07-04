@@ -19,23 +19,24 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: "**/node_modules"
-        key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+        key: ${{ runner.os }}-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
 
-    - name: Install Yarn dependencies and build
+    - name: Install pnpm dependencies and build
       run: |
-        yarn install --frozen-lockfile
-        yarn build
+        npm install -g pnpm
+        pnpm install --frozen-lockfile
+        pnpm build
 
     - name: Install prerequisites for C++ build
-      run: sudo apt-get update && sudo apt-get install -y cmake build-essential libboost-all-dev libssl-dev libcurl4-openssl-dev libsodium-dev
+      run: sudo apt-get update && sudo apt-get install -y cmake build-essential libssl-dev libcurl4-openssl-dev
 
     - name: Start Hardhat node in background
       run: |
-        yarn hardhat-node &
+        pnpm hardhat-node &
         echo "NODE_PID=$!" >> $GITHUB_ENV
 
     - name: Deploy contracts to local node
-      run: yarn deploy-local
+      run: pnpm deploy-local
 
     - name: Create Build Directory
       run: mkdir -p test/cpp/build
@@ -52,7 +53,7 @@ jobs:
       working-directory: ./test/cpp/build
       run: ctest -VV --repeat until-pass:2 --test-dir .
 
-    - name: Kill Yarn node
+    - name: Kill pnpm node
       run: kill $NODE_PID
       if: always()
 

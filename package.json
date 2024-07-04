@@ -1,7 +1,7 @@
 {
   "name": "service-node-rewards-contracts",
   "version": "1.0.0",
-  "description": "A smart contract that manages BLS public keys and pays rewards for the Oxen Service Node Network",
+  "description": "A smart contract that manages BLS public keys and pays rewards for the Session Node Network",
   "scripts": {
     "build": "hardhat compile",
     "test": "hardhat test",
@@ -9,11 +9,11 @@
     "deploy-local": "hardhat run scripts/deploy-local-test.js --network localhost",
     "hardhat-node": "hardhat node",
     "coverage": "hardhat coverage",
-    "lint": "yarn lint:sol && yarn lint:ts",
+    "lint": "pnpm lint:sol && pnpm :ts",
     "lint:sol": "solhint 'contracts/**/*.sol'",
     "lint:ts": "eslint --max-warnings 0 .",
     "fmt:sol": "prettier 'contracts/**/*.sol' -w",
-    "prepack": "yarn build"
+    "prepack": "pnpm build"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.2",

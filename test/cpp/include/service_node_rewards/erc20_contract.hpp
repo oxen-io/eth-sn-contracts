@@ -21,6 +21,6 @@ public:
     /// Provider must be set with an RPC client configure to allow the contract
     /// to communicate with the blockchain. If the provider is not setup, the
     /// functions that require a provider will throw.
-    ethyl::Provider provider;
+    std::shared_ptr<ethyl::Provider> provider;
 
 };

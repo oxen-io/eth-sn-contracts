@@ -27,9 +27,6 @@ ethyl::Transaction ERC20Contract::approve(const std::string& spender, uint64_t a
 uint64_t ERC20Contract::balanceOf(const std::string& address) {
     assert(contractAddress.size());
 
-    ethyl::ReadCallData callData;
-    callData.contractAddress = contractAddress;
-
     std::string functionSelector = ethyl::utils::toEthFunctionSignature("balanceOf(address)");
 
     std::string addressOutput = address;
@@ -37,8 +34,7 @@ uint64_t ERC20Contract::balanceOf(const std::string& address) {
         addressOutput = addressOutput.substr(2);  // remove "0x" prefix if present
     }
     std::string address_padded = ethyl::utils::padTo32Bytes(addressOutput, ethyl::utils::PaddingDirection::LEFT);
-    callData.data = functionSelector + address_padded;
-    std::string result = provider.callReadFunction(callData);
+    std::string result = provider->callReadFunction(contractAddress, functionSelector + address_padded);
 
     // Parse the result into a uint64_t
     // Assuming the result is returned as a 32-byte hexadecimal string that fits into uint64_t

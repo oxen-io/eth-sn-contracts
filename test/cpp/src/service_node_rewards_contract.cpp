@@ -24,11 +24,9 @@ ethyl::Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string
 
 ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
 {
-    ethyl::ReadCallData callData            = {};
     std::string  indexABI            = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(index), ethyl::utils::PaddingDirection::LEFT);
-    callData.contractAddress         = contractAddress;
-    callData.data                    = ethyl::utils::toEthFunctionSignature("serviceNodes(uint64)") + indexABI;
-    nlohmann::json     callResult    = provider.callReadFunctionJSON(callData);
+    std::string callData             = ethyl::utils::toEthFunctionSignature("serviceNodes(uint64)") + indexABI;
+    nlohmann::json     callResult    = provider->callReadFunctionJSON(contractAddress, callData);
     const std::string& callResultHex = callResult.get_ref<nlohmann::json::string_t&>();
     std::string_view   callResultIt  = ethyl::utils::trimPrefix(callResultHex, "0x");
 
@@ -89,29 +87,24 @@ uint64_t ServiceNodeRewardsContract::serviceNodeIDs(const bls::PublicKey& pKey)
     std::string offsetToPKeyDataABI = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(32) /*offset includes the 32 byte offset itself*/, ethyl::utils::PaddingDirection::LEFT);
     std::string bytesSizeABI        = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(pKeyABI.size() / 2), ethyl::utils::PaddingDirection::LEFT);
 
-    // NOTE: Setup call data
-    ethyl::ReadCallData callData    = {};
-    callData.contractAddress = contractAddress;
-
     // NOTE: Fill in ABI
-    callData.data.reserve(methodABI.size() + offsetToPKeyDataABI.size() + bytesSizeABI.size() + pKeyABI.size());
-    callData.data += methodABI;
-    callData.data += offsetToPKeyDataABI;
-    callData.data += bytesSizeABI;
-    callData.data += pKeyABI;
+    std::string callData;
+    callData.reserve(methodABI.size() + offsetToPKeyDataABI.size() + bytesSizeABI.size() + pKeyABI.size());
+    callData += methodABI;
+    callData += offsetToPKeyDataABI;
+    callData += bytesSizeABI;
+    callData += pKeyABI;
 
     // NOTE: Call function
-    nlohmann::json     callResult = provider.callReadFunctionJSON(callData);
+    nlohmann::json     callResult = provider->callReadFunctionJSON(contractAddress, callData);
     const std::string& resultHex  = callResult.get_ref<nlohmann::json::string_t&>();
     uint64_t           result     = ethyl::utils::hexStringToU64(resultHex);
     return result;
 }
 
 uint64_t ServiceNodeRewardsContract::serviceNodesLength() {
-    ethyl::ReadCallData callData;
-    callData.contractAddress = contractAddress;
-    callData.data = ethyl::utils::toEthFunctionSignature("serviceNodesLength()");
-    std::string result = provider.callReadFunction(callData);
+    std::string callData = ethyl::utils::toEthFunctionSignature("serviceNodesLength()");
+    std::string result = provider->callReadFunction(contractAddress, callData);
     return ethyl::utils::hexStringToU64(result);
 }
 
@@ -124,17 +117,13 @@ uint64_t ServiceNodeRewardsContract::maxPermittedPubkeyAggregations() {
 }
 
 std::string ServiceNodeRewardsContract::designatedToken() {
-    ethyl::ReadCallData callData;
-    callData.contractAddress = contractAddress;
-    callData.data = ethyl::utils::toEthFunctionSignature("designatedToken()");
-    return provider.callReadFunction(callData);
+    std::string callData = ethyl::utils::toEthFunctionSignature("designatedToken()");
+    return provider->callReadFunction(contractAddress, callData);
 }
 
 std::string ServiceNodeRewardsContract::aggregatePubkeyString() {
-    ethyl::ReadCallData callData    = {};
-    callData.contractAddress = contractAddress;
-    callData.data            = ethyl::utils::toEthFunctionSignature("aggregatePubkey()");
-    return provider.callReadFunction(callData);
+    std::string callData = ethyl::utils::toEthFunctionSignature("aggregatePubkey()");
+    return provider->callReadFunction(contractAddress, callData);
 }
 
 bls::PublicKey ServiceNodeRewardsContract::aggregatePubkey() {
@@ -144,16 +133,12 @@ bls::PublicKey ServiceNodeRewardsContract::aggregatePubkey() {
 }
 
 Recipient ServiceNodeRewardsContract::viewRecipientData(const std::string& address) {
-    ethyl::ReadCallData callData;
-    callData.contractAddress = contractAddress;
-
     std::string rewardAddressOutput = address;
     if (rewardAddressOutput.substr(0, 2) == "0x")
         rewardAddressOutput = rewardAddressOutput.substr(2);  // remove "0x"
     rewardAddressOutput = ethyl::utils::padTo32Bytes(rewardAddressOutput, ethyl::utils::PaddingDirection::LEFT);
-    callData.data = ethyl::utils::toEthFunctionSignature("recipients(address)") + rewardAddressOutput;
-
-    std::string result = provider.callReadFunction(callData);
+    std::string callData = ethyl::utils::toEthFunctionSignature("recipients(address)") + rewardAddressOutput;
+    std::string result = provider->callReadFunction(contractAddress, callData);
 
     // This assumes both the returned integers fit into a uint64_t but they are actually uint256 and dont have a good way of storing the 
     // full amount. In tests this will just mean that we need to keep our numbers below the 64bit max.

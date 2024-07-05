@@ -15,7 +15,7 @@
 
 ethbls::network_config config;
 
-ethyl::Provider defaultProvider;
+std::shared_ptr<ethyl::Provider> defaultProvider = ethyl::Provider::make_provider();
 ethyl::Signer signer;
 std::string contract_address;
 std::string erc20_address;
@@ -34,13 +34,13 @@ int main(int argc, char *argv[]) {
     config = ethbls::get_config(ethbls::network_type::LOCAL);
     std::cout << "Note to run these tests, ensure that a local Ethereum development network is running at " << config.RPC_URL << "\n";
 
-    defaultProvider.addClient("Client", std::string(config.RPC_URL));
-    contract_address = defaultProvider.getContractDeployedInLatestBlock();
+    defaultProvider->addClient("Client", std::string(config.RPC_URL));
+    contract_address = defaultProvider->getContractDeployedInLatestBlock();
 
     // NOTE: Setup the RPC clients
-    signer.provider.clients           = defaultProvider.clients;
-    erc20_contract.provider.clients   = defaultProvider.clients;
-    rewards_contract.provider.clients = defaultProvider.clients;
+    signer.provider = defaultProvider;
+    erc20_contract.provider = defaultProvider;
+    rewards_contract.provider = defaultProvider;
 
     // NOTE: Setup keys
     seckey        = ethyl::utils::fromHexString(std::string(config.PRIVATE_KEY));
@@ -51,15 +51,15 @@ int main(int argc, char *argv[]) {
     erc20_address                    = ethyl::utils::trimAddress(rewards_contract.designatedToken());
     erc20_contract.contractAddress   = erc20_address;
 
-    snapshot_id = defaultProvider.evm_snapshot();
+    snapshot_id = defaultProvider->evm_snapshot();
     int result  = Catch::Session().run(argc, argv);
     return result;
 }
 
 static void resetContractToSnapshot()
 {
-    REQUIRE(defaultProvider.evm_revert(snapshot_id));
-    snapshot_id = defaultProvider.evm_snapshot();
+    REQUIRE(defaultProvider->evm_revert(snapshot_id));
+    snapshot_id = defaultProvider->evm_snapshot();
 }
 
 // Given the service node list and the state of the list derived in C++, verify
@@ -139,13 +139,13 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
     auto tx = erc20_contract.approve(contract_address, std::numeric_limits<std::uint64_t>::max());;
     auto hash = signer.sendTransaction(tx, seckey);
     REQUIRE(hash != "");
-    REQUIRE(defaultProvider.transactionSuccessful(hash));
+    REQUIRE(defaultProvider->transactionSuccessful(hash));
 
     // Start our contract
     tx = rewards_contract.start();;
     hash = signer.sendTransaction(tx, seckey);
     REQUIRE(hash != "");
-    REQUIRE(defaultProvider.transactionSuccessful(hash));
+    REQUIRE(defaultProvider->transactionSuccessful(hash));
 
     SECTION( "Add a public key to the smart contract" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 0);
@@ -157,7 +157,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
             hash                           = signer.sendTransaction(tx, seckey);
             REQUIRE(hash != "");
-            REQUIRE(defaultProvider.transactionSuccessful(hash));
+            REQUIRE(defaultProvider->transactionSuccessful(hash));
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 1);
 
@@ -173,7 +173,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
             hash = signer.sendTransaction(tx, seckey);
             REQUIRE(hash != "");
-            REQUIRE(defaultProvider.transactionSuccessful(hash));
+            REQUIRE(defaultProvider->transactionSuccessful(hash));
         }
         REQUIRE(rewards_contract.serviceNodesLength() == 2);
         REQUIRE(rewards_contract.aggregatePubkeyString() == "0x" + snl.aggregatePubkeyHex());
@@ -198,7 +198,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         tx = rewards_contract.liquidateBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
         REQUIRE(rewards_contract.serviceNodesLength() == 2);
         snl.deleteNode(service_node_to_remove);
         REQUIRE(rewards_contract.aggregatePubkeyString() == "0x" + snl.aggregatePubkeyHex());
@@ -223,7 +223,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         tx = rewards_contract.liquidateBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
         REQUIRE(rewards_contract.serviceNodesLength() == 2);
         snl.deleteNode(service_node_to_remove);
         REQUIRE(rewards_contract.aggregatePubkeyString() == "0x" + snl.aggregatePubkeyHex());
@@ -266,7 +266,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
 
         verifyEVMServiceNodesAgainstCPPState(snl);
@@ -320,7 +320,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
         tx = rewards_contract.removeBLSPublicKeyAfterWaitTime(service_node_to_remove);
         REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
@@ -341,13 +341,13 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
         // Fast forward 31 days
-        defaultProvider.evm_increaseTime(std::chrono::hours(31 * 24));
+        defaultProvider->evm_increaseTime(std::chrono::hours(31 * 24));
         tx = rewards_contract.removeBLSPublicKeyAfterWaitTime(service_node_to_remove);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
         REQUIRE(rewards_contract.serviceNodesLength() == 2);
         snl.deleteNode(service_node_to_remove);
         REQUIRE(rewards_contract.aggregatePubkeyString() == "0x" + snl.aggregatePubkeyHex());
@@ -372,7 +372,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         tx = rewards_contract.removeBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
         REQUIRE(rewards_contract.serviceNodesLength() == 2);
         snl.deleteNode(service_node_to_remove);
         REQUIRE(rewards_contract.aggregatePubkeyString() == "0x" + snl.aggregatePubkeyHex());
@@ -422,7 +422,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         tx = rewards_contract.updateRewardsBalance(senderAddress, recipientAmount, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
         recipient = rewards_contract.viewRecipientData(senderAddress);
         REQUIRE(recipient.rewards == recipientAmount);
         REQUIRE(recipient.claimed == 0);
@@ -477,7 +477,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         tx = rewards_contract.claimRewards();
         hash = signer.sendTransaction(tx, secondseckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
 
         amount = erc20_contract.balanceOf(recipientAddress);
         REQUIRE(amount == recipientAmount);
@@ -512,14 +512,14 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         tx = rewards_contract.updateRewardsBalance(recipientAddress, recipientAmount, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
         uint64_t amount = erc20_contract.balanceOf(recipientAddress);
         REQUIRE(amount == 0);
 
         tx = rewards_contract.claimRewards();
         hash = signer.sendTransaction(tx, secondseckey);
         REQUIRE(hash != "");
-        REQUIRE(defaultProvider.transactionSuccessful(hash));
+        REQUIRE(defaultProvider->transactionSuccessful(hash));
 
         amount = erc20_contract.balanceOf(recipientAddress);
         REQUIRE(amount == recipientAmount);

@@ -26,6 +26,7 @@ struct ContractServiceNode {
     uint64_t                      prev;
     std::array<unsigned char, 20> recipient;
     bls::PublicKey                pubkey;
+    uint64_t                      addedTimestamp;
     uint64_t                      leaveRequestTimestamp;
     std::string                   deposit;
     std::array<Contributor, 10>   contributors;

@@ -111,7 +111,7 @@ bls::Signature ServiceNode::blsSignHash(std::span<const uint8_t> msg, uint32_t c
     mcl::bn::G2 Hm;
     {
         std::string hashToG2TagHex       = buildTag(hashToG2Tag, chainID, contractAddress);
-        std::vector<uint8_t> hashToG2Tag = utils::fromHexString<uint8_t>(hashToG2TagHex);
+        std::vector<uint8_t> hashToG2Tag = ethyl::utils::fromHexString<uint8_t>(hashToG2TagHex);
         Hm                               = mapToG2(msg, hashToG2Tag);
         mcl::bn::BN::param.mapTo.mulByCofactor(Hm);
     }
@@ -154,7 +154,7 @@ std::string ServiceNode::proofOfPossession(uint32_t chainID, const std::string& 
     if (senderAddressOutput.substr(0, 2) == "0x")
         senderAddressOutput = senderAddressOutput.substr(2);  // remove "0x"
     std::string fullTag               = buildTag(proofOfPossessionTag, chainID, contractAddress);
-    std::string message               = "0x" + fullTag + getPublicKeyHex() + senderAddressOutput + utils::padTo32Bytes(utils::toHexString(serviceNodePubkey), utils::PaddingDirection::LEFT);
+    std::string message               = "0x" + fullTag + getPublicKeyHex() + senderAddressOutput + ethyl::utils::padTo32Bytes(oxenc::to_hex(serviceNodePubkey), ethyl::utils::PaddingDirection::LEFT);
     std::vector<uint8_t> messageBytes = ethyl::utils::fromHexString<uint8_t>(message);
     bls::Signature sig                = blsSignHash(messageBytes, chainID, contractAddress);
     return utils::SignatureToHex(sig);
@@ -292,7 +292,7 @@ std::tuple<std::string, uint64_t, std::string> ServiceNodeList::liquidateNodeFro
     std::string message = "0x" + fullTag + pubkey + ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(timestamp), ethyl::utils::PaddingDirection::LEFT);
     bls::Signature aggSig;
     aggSig.clear();
-    std::vector<uint8_t> messageBytes = utils::fromHexString<uint8_t>(message);
+    std::vector<uint8_t> messageBytes = ethyl::utils::fromHexString<uint8_t>(message);
     for(auto& service_node_id: service_node_ids) {
         aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].blsSignHash(messageBytes, chainID, contractAddress));
     }
@@ -306,7 +306,7 @@ std::tuple<std::string, uint64_t, std::string> ServiceNodeList::removeNodeFromIn
     std::string message = "0x" + fullTag + pubkey + ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(timestamp), ethyl::utils::PaddingDirection::LEFT);
     bls::Signature aggSig;
     aggSig.clear();
-    std::vector<uint8_t> messageBytes = utils::fromHexString<uint8_t>(message);
+    std::vector<uint8_t> messageBytes = ethyl::utils::fromHexString<uint8_t>(message);
     for(auto& service_node_id: service_node_ids) {
         aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].blsSignHash(messageBytes, chainID, contractAddress));
     }
@@ -318,7 +318,7 @@ std::string ServiceNodeList::updateRewardsBalance(const std::string& address, ui
     if (rewardAddressOutput.substr(0, 2) == "0x")
         rewardAddressOutput = rewardAddressOutput.substr(2);  // remove "0x"
     std::string fullTag = buildTag(rewardTag, chainID, contractAddress);
-    std::string message = "0x" + fullTag + ethyl::utils::padToNBytes(rewardAddressOutput, 20, utils::PaddingDirection::LEFT) + ethyl::utils::padTo32Bytes(std::to_string(amount), ethyl::utils::PaddingDirection::LEFT);
+    std::string message = "0x" + fullTag + ethyl::utils::padToNBytes(rewardAddressOutput, 20, ethyl::utils::PaddingDirection::LEFT) + ethyl::utils::padTo32Bytes(std::to_string(amount), ethyl::utils::PaddingDirection::LEFT);
     bls::Signature aggSig;
     aggSig.clear();
     std::vector<uint8_t> messageBytes = ethyl::utils::fromHexString<uint8_t>(message);

@@ -1,6 +1,5 @@
 #include <iostream>
 #include <limits>
-#include <chrono>
 
 #include "ethyl/provider.hpp"
 #include "ethyl/signer.hpp"
@@ -15,7 +14,7 @@
 
 ethbls::network_config config;
 
-std::shared_ptr<ethyl::Provider> defaultProvider = ethyl::Provider::make_provider();
+std::shared_ptr<ethyl::Provider> defaultProvider;
 ethyl::Signer signer;
 std::string contract_address;
 std::string erc20_address;
@@ -29,6 +28,7 @@ std::vector<unsigned char> seckey;
 
 
 int main(int argc, char *argv[]) {
+     defaultProvider = ethyl::Provider::make_provider();
 
     // NOTE: Setup default provider
     config = ethbls::get_config(ethbls::network_type::LOCAL);
@@ -533,7 +533,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
     }
 
     SECTION("Add the maximum permitted number of nodes registered in one block") {
-        defaultProvider.evm_setAutomine(false);
+        defaultProvider->evm_setAutomine(false);
         uint64_t maxNodesToBeAdded = rewards_contract.maxPermittedPubkeyAggregations();
         ServiceNodeList snl(maxNodesToBeAdded);
         for (size_t index = 0; index < snl.nodes.size(); index++) {
@@ -544,7 +544,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
             if (index == snl.nodes.size() - 1)
-                defaultProvider.evm_setAutomine(true);
+                defaultProvider->evm_setAutomine(true);
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == maxNodesToBeAdded);
@@ -553,7 +553,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
     }
 
     SECTION("Exceed the maximum number of nodes registered in one block") {
-        defaultProvider.evm_setAutomine(false);
+        defaultProvider->evm_setAutomine(false);
         uint64_t maxNodesToBeAdded = rewards_contract.maxPermittedPubkeyAggregations();
         ServiceNodeList snl(maxNodesToBeAdded + 1);
         for (size_t index = 0; index < snl.nodes.size(); index++) {
@@ -564,7 +564,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
             if (index == snl.nodes.size() - 1) {
-                defaultProvider.evm_setAutomine(true);
+                defaultProvider->evm_setAutomine(true);
                 REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
                 // NOTE: The last service node will exceed the number of
                 // permitted nodes, we will undo it in our C++ list as well.
@@ -582,7 +582,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
     SECTION("Check that the node limit is reset after 1 block") {
 
         // NOTE: Add the max amount of nodes
-        defaultProvider.evm_setAutomine(false);
+        defaultProvider->evm_setAutomine(false);
         uint64_t maxNodesToBeAdded = rewards_contract.maxPermittedPubkeyAggregations();
         ServiceNodeList snl(maxNodesToBeAdded);
         for (size_t index = 0; index < snl.nodes.size(); index++) {
@@ -593,14 +593,14 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
             if (index == snl.nodes.size() - 1)
-                defaultProvider.evm_setAutomine(true);
+                defaultProvider->evm_setAutomine(true);
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == maxNodesToBeAdded);
         size_t prevServiceNodesLength = maxNodesToBeAdded;
 
         // NOTE: Add the max amount of nodes again in the next block
-        defaultProvider.evm_setAutomine(false);
+        defaultProvider->evm_setAutomine(false);
         maxNodesToBeAdded = rewards_contract.maxPermittedPubkeyAggregations();
         for (size_t index = 0; index < maxNodesToBeAdded; index++)
             snl.addNode();
@@ -613,7 +613,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
             tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
             if (index == snl.nodes.size() - 1)
-                defaultProvider.evm_setAutomine(true);
+                defaultProvider->evm_setAutomine(true);
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.serviceNodesLength() == prevServiceNodesLength + maxNodesToBeAdded);

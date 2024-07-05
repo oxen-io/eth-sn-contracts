@@ -43,6 +43,7 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
     std::string_view    prevHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += prevHex.size();
     std::string_view    recipientHex             = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);  walkIt += recipientHex.size();
     std::string_view    pubkeyHex                = callResultIt.substr(walkIt, BLS_PKEY_HEX_SIZE); walkIt += pubkeyHex.size();
+    std::string_view    addedTimestampHex        = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += addedTimestampHex.size();
     std::string_view    leaveRequestTimestampHex = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += leaveRequestTimestampHex.size();
     std::string_view    depositHex               = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += depositHex.size();
 
@@ -58,7 +59,7 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
         result.contributors[i].amount = ethyl::utils::hexStringToU64(contributorAmountHex);
         if (walkIt >= callResultIt.size()) break;
     }
-    
+
     assert(walkIt == callResultIt.size());
 
     // NOTE: Deserialize linked list
@@ -74,6 +75,7 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
     result.pubkey = utils::HexToBLSPublicKey(pubkeyHex);
 
     // NOTE: Deserialise metadata
+    result.addedTimestamp        = ethyl::utils::hexStringToU64(addedTimestampHex);
     result.leaveRequestTimestamp = ethyl::utils::hexStringToU64(leaveRequestTimestampHex);
     result.deposit               = depositHex;
     return result;
@@ -109,11 +111,8 @@ uint64_t ServiceNodeRewardsContract::serviceNodesLength() {
 }
 
 uint64_t ServiceNodeRewardsContract::maxPermittedPubkeyAggregations() {
-    ethyl::ReadCallData callData;
-    callData.contractAddress = contractAddress;
-    callData.data = utils::getFunctionSignature("maxPermittedPubkeyAggregations()");
-    std::string result = provider.callReadFunction(callData);
-    return utils::fromHexStringToUint64(result);
+    std::string result = provider->callReadFunction(contractAddress, ethyl::utils::toEthFunctionSignature("maxPermittedPubkeyAggregations()"));
+    return ethyl::utils::hexStringToU64(result);
 }
 
 std::string ServiceNodeRewardsContract::designatedToken() {

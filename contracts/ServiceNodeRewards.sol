@@ -24,6 +24,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     uint64 public constant LIST_SENTINEL = 0;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
     uint256 public constant MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND = 5;
+    // A small contributor is one who contributes less than 1/DIVISOR of the total; such a
+    // contributor may not initiate a leave request within the initial LEAVE_DELAY:
+    uint256 public constant SMALL_CONTRIBUTOR_LEAVE_DELAY = 30 days;
+    uint256 public constant SMALL_CONTRIBUTOR_DIVISOR = 4;
 
     uint64 public nextServiceNodeID;
     uint256 public totalNodes;
@@ -153,6 +157,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error ContractNotStarted();
     error ContributionTotalMismatch(uint256 required, uint256 provided);
     error EarlierLeaveRequestMade(uint64 serviceNodeID, address recipient);
+    error SmallContributorLeaveTooEarly(uint64 serviceNodeID, address recipient);
     error FirstContributorMismatch(address operator, address contributor);
     error InsufficientBLSSignatures(uint256 numSigners, uint256 requiredSigners);
     error InvalidBLSSignature();
@@ -378,9 +383,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// node that is initiating the removal.
     function _initiateRemoveBLSPublicKey(uint64 serviceNodeID, address caller) internal whenStarted {
         bool isContributor = false;
+        bool isSmall = false; // "small" means less than 25% of the SN total stake
         for (uint256 i = 0; i < _serviceNodes[serviceNodeID].contributors.length; i++) {
             if (_serviceNodes[serviceNodeID].contributors[i].addr == caller) {
                 isContributor = true;
+                isSmall =
+                    SMALL_CONTRIBUTOR_DIVISOR * _serviceNodes[serviceNodeID].contributors[i].stakedAmount
+                        < _serviceNodes[serviceNodeID].deposit;
                 break;
             }
         }
@@ -388,6 +397,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
         if (_serviceNodes[serviceNodeID].leaveRequestTimestamp != 0)
             revert EarlierLeaveRequestMade(serviceNodeID, caller);
+        if (isSmall && block.timestamp < _serviceNodes[serviceNodeID].addedTimestamp + SMALL_CONTRIBUTOR_LEAVE_DELAY)
+            revert SmallContributorLeaveTooEarly(serviceNodeID, caller);
         _serviceNodes[serviceNodeID].leaveRequestTimestamp = block.timestamp;
         emit ServiceNodeRemovalRequest(serviceNodeID, caller, _serviceNodes[serviceNodeID].pubkey);
     }
@@ -616,6 +627,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
         // NOTE: Assign BLS pubkey
         _serviceNodes[result].pubkey = pubkey;
+
+        _serviceNodes[result].addedTimestamp = block.timestamp;
 
         // NOTE: Create mapping from <BLS Key> -> <SN Linked List Index>
         serviceNodeIDs[pubkeyBytes] = result;

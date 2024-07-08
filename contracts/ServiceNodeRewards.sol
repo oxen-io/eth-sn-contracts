@@ -567,8 +567,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
                     "Seeded service cannot have more than 10 contributors");
 
             // NOTE: Add node to the smart contract
-            uint64 allocID                 = serviceNodeAdd(node.pubkey);
-            _serviceNodes[allocID].deposit = node.deposit;
+            uint64 allocID                  = serviceNodeAdd(node.pubkey);
+            _serviceNodes[allocID].deposit  = node.deposit;
+            _serviceNodes[allocID].operator = node.contributors[0].addr;
 
             uint256 stakedAmountSum = 0;
             for (uint256 contributorIndex = 0; contributorIndex < node.contributors.length; contributorIndex++) {

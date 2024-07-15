@@ -105,7 +105,6 @@ describe("ServiceNodeRewards Contract Tests", function () {
             await expect(serviceNodeRewards.connect(owner).seedPublicKeyList(pkX, pkY, amounts))
                 .to.be.revertedWithCustomError(serviceNodeRewards, "BLSPubkeyAlreadyExists")
         });
-        
     });
 });
 

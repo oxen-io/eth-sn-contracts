@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "./libraries/Shared.sol";
 import "./interfaces/IServiceNodeRewards.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -93,7 +94,6 @@ contract ServiceNodeContribution is Shared {
     //                  State-changing functions                //
     //                                                          //
     //////////////////////////////////////////////////////////////
-
     /**
      * @notice Allows the operator to contribute funds towards their own node.
      *
@@ -118,6 +118,21 @@ contract ServiceNodeContribution is Shared {
         require(amount >= minimumContribution(), "Contribution is below minimum requirement");
         blsSignature = _blsSignature;
         contributeFunds(amount);
+    }
+
+    function contributeOperatorFundsWithPermit(
+        uint256 amount,
+        IServiceNodeRewards.BLSSignatureParams memory _blsSignature,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public onlyOperator {
+        // NOTE: Try catch makes the code tolerant to front-running, see:
+        // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/05f218fb6617932e56bf5388c3b389c3028a7b73/contracts/token/ERC20/extensions/IERC20Permit.sol#L19
+        IERC20Permit token = IERC20Permit(address(SENT));
+        try token.permit(msg.sender, address(this), amount, deadline, v, r, s) {} catch {}
+        contributeOperatorFunds(amount, _blsSignature);
     }
 
     /**
@@ -177,6 +192,20 @@ contract ServiceNodeContribution is Shared {
         if (totalContribution() == stakingRequirement) {
             finalizeNode();
         }
+    }
+
+    function contributeFundsWithPermit(
+        uint256 amount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        // NOTE: Try catch makes the code tolerant to front-running, see:
+        // `contributeOperatorFundsWithPermit`
+        IERC20Permit token = IERC20Permit(address(SENT));
+        try token.permit(msg.sender, address(this), amount, deadline, v, r, s) {} catch {}
+        contributeFunds(amount);
     }
 
     /**

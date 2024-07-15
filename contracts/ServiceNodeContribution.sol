@@ -128,7 +128,10 @@ contract ServiceNodeContribution is Shared {
         bytes32 r,
         bytes32 s
     ) public onlyOperator {
-        IERC20Permit(address(SENT)).permit(msg.sender, address(this), amount, deadline, v, r, s);
+        // NOTE: Try catch makes the code tolerant to front-running, see:
+        // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/05f218fb6617932e56bf5388c3b389c3028a7b73/contracts/token/ERC20/extensions/IERC20Permit.sol#L19
+        IERC20Permit token = IERC20Permit(address(SENT));
+        try token.permit(msg.sender, address(this), amount, deadline, v, r, s) {} catch {}
         contributeOperatorFunds(amount, _blsSignature);
     }
 
@@ -198,7 +201,10 @@ contract ServiceNodeContribution is Shared {
         bytes32 r,
         bytes32 s
     ) public {
-        IERC20Permit(address(SENT)).permit(msg.sender, address(this), amount, deadline, v, r, s);
+        // NOTE: Try catch makes the code tolerant to front-running, see:
+        // `contributeOperatorFundsWithPermit`
+        IERC20Permit token = IERC20Permit(address(SENT));
+        try token.permit(msg.sender, address(this), amount, deadline, v, r, s) {} catch {}
         contributeFunds(amount);
     }
 

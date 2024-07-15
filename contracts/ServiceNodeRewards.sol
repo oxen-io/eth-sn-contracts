@@ -300,7 +300,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         bytes32 r,
         bytes32 s
     ) external whenNotPaused {
-        IERC20Permit(address(designatedToken)).permit(msg.sender, address(this), _stakingRequirement, deadline, v, r, s);
+        // NOTE: Try catch makes the code tolerant to front-running, see:
+        // ServiceNodeContribution.sol
+        IERC20Permit token = IERC20Permit(address(designatedToken));
+        try token.permit(msg.sender, address(this), _stakingRequirement, deadline, v, r, s) {} catch {}
         addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
     }
 

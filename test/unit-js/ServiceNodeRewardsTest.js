@@ -39,7 +39,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
     });
 
     it("Should have zero service nodes", async function () {
-        expect(await serviceNodeRewards.serviceNodesLength()).to.equal(0);
+        expect(await serviceNodeRewards.totalNodes()).to.equal(0);
     });
 
     describe("Seeding the public key as owner", function () {
@@ -58,7 +58,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
 
             await serviceNodeRewards.connect(owner).seedPublicKeyList(pkX, pkY, amounts);
 
-            expect(await serviceNodeRewards.serviceNodesLength()).to.equal(1);
+            expect(await serviceNodeRewards.totalNodes()).to.equal(1);
             let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
             expect(aggregate_pubkey[0] == P[0])
             expect(aggregate_pubkey[1] == P[1])
@@ -86,7 +86,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
             expect(aggregate_pubkey[0] == expected_aggregate_pubkey[0])
             expect(aggregate_pubkey[1] == expected_aggregate_pubkey[1])
 
-            expect(await serviceNodeRewards.serviceNodesLength()).to.equal(2);
+            expect(await serviceNodeRewards.totalNodes()).to.equal(2);
 
         });
 

@@ -116,10 +116,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     modifier hasEnoughSigners(uint256 numberOfNonSigningServiceNodes) {
         if (numberOfNonSigningServiceNodes > blsNonSignerThreshold) {
-            uint256 numberOfServiceNodes = serviceNodesLength();
             revert InsufficientBLSSignatures(
-                numberOfServiceNodes - numberOfNonSigningServiceNodes,
-                numberOfServiceNodes - blsNonSignerThreshold
+                totalNodes - numberOfNonSigningServiceNodes,
+                totalNodes - blsNonSignerThreshold
             );
         }
         _;

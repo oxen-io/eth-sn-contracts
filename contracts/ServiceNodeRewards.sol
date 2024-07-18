@@ -829,6 +829,38 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         return _serviceNodes[serviceNodeID];
     }
 
+    /// @notice Getter for obtaining all registered service node unique ids + pubkeys at once
+    /// @return ids an array of unique ids; and pubkeys an array of the same length of ids of associated pubkeys
+    function allServiceNodeIDs() external view returns (uint64[] memory ids, BN256G1.G1Point[] memory pubkeys) {
+        ids = new uint64[](totalNodes);
+        pubkeys = new BN256G1.G1Point[](totalNodes);
+
+        uint64 currentNode = _serviceNodes[LIST_SENTINEL].next;
+        for (uint64 i = 0; currentNode != LIST_SENTINEL; i++) {
+            ServiceNode storage sn = _serviceNodes[currentNode];
+            ids[i] = currentNode;
+            pubkeys[i] = sn.pubkey;
+            currentNode = sn.next;
+        }
+
+        return (ids, pubkeys);
+    }
+
+    /// @notice Getter for obtaining all registered service node pubkeys at once
+    /// @return pubkeys array of all currently registered pubkeys
+    function allServiceNodePubkeys() external view returns (BN256G1.G1Point[] memory pubkeys) {
+        pubkeys = new BN256G1.G1Point[](totalNodes);
+
+        uint64 currentNode = _serviceNodes[LIST_SENTINEL].next;
+        for (uint64 i = 0; currentNode != LIST_SENTINEL; i++) {
+            ServiceNode storage sn = _serviceNodes[currentNode];
+            pubkeys[i] = sn.pubkey;
+            currentNode = sn.next;
+        }
+
+        return pubkeys;
+    }
+
     /// @notice Getter function for liquidatorRewardRatio
     function liquidatorRewardRatio() external view returns (uint256) {
         return _liquidatorRewardRatio;

@@ -60,8 +60,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
 
             expect(await serviceNodeRewards.totalNodes()).to.equal(1);
             let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
-            expect(aggregate_pubkey[0] == P[0])
-            expect(aggregate_pubkey[1] == P[1])
+            expect(aggregate_pubkey).to.deep.equal(P);
         });
 
         it("Should correctly seed public key list with multiple items", async function () {
@@ -83,11 +82,11 @@ describe("ServiceNodeRewards Contract Tests", function () {
                 BigInt("0x019081a4475388be53e1088f6ec0dd79f99fc794709b9cf8b1ad401a9c4d3413"),
             ];
             let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
-            expect(aggregate_pubkey[0] == expected_aggregate_pubkey[0])
-            expect(aggregate_pubkey[1] == expected_aggregate_pubkey[1])
+            expect(aggregate_pubkey).to.deep.equal(expected_aggregate_pubkey);
 
             expect(await serviceNodeRewards.totalNodes()).to.equal(2);
-
+            expect(await serviceNodeRewards.allServiceNodeIDs()).to.deep.equal([[1n, 2n], [[P[0], P[1]], [P[2], P[3]]]]);
+            expect(await serviceNodeRewards.allServiceNodePubkeys()).to.deep.equal([[P[0], P[1]], [P[2], P[3]]]);
         });
 
         it("Should fail to seed public key list with duplicate items", async function () {

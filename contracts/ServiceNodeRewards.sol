@@ -563,29 +563,37 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// enumerate the keys from Session Nodes in C++ via cryptographic proofs
     /// which include a proof-of-possession to verify that the
     /// Session Node has the secret-component of the BLS public key they are
-    /// declaring.  Each service node will have its deposit balance set to the
-    /// current staking requirement.
+    /// declaring.
     ///
     /// Depending on the number of nodes that must be seeded, this function
     /// may necessarily be called multiple times due to gas limits.
     ///
     /// @param pkX Array of X-coordinates for the public keys.
     /// @param pkY Array of Y-coordinates for the public keys.
+    /// @param contributors Array of contributors; the node deposit will equal the sum of
+    /// contributions.
     function seedPublicKeyList(
         uint256[] calldata pkX,
-        uint256[] calldata pkY
+        uint256[] calldata pkY,
+        Contributor[][] calldata contributors
     ) external onlyOwner {
         require(!isStarted, "The rewards list can only be seeded after "
                 "deployment and before `start` is invoked on the contract.");
 
-        if (pkX.length != pkY.length) {
+        if (pkX.length != pkY.length || pkX.length != contributors.length) {
             revert ArrayLengthMismatch();
         }
 
         for (uint256 i = 0; i < pkX.length; i++) {
             BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX[i], pkY[i]);
             (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(pubkey);
-            sn.deposit = _stakingRequirement;
+            sn.operator = contributors[i][0].addr;
+            uint256 deposit = 0;
+            for (uint256 j = 0; j < contributors[i].length; j++) {
+                sn.contributors.push(contributors[i][j]);
+                deposit += contributors[i][j].stakedAmount;
+            }
+            sn.deposit = deposit;
             emit NewSeededServiceNode(allocID, pubkey);
         }
 

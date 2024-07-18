@@ -90,7 +90,7 @@ interface IServiceNodeRewards {
         BLSSignatureParams calldata blsSignature,
         uint64[] memory ids
     ) external;
-    function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) external;
+    function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY) external;
     function serviceNodesLength() external view returns (uint256 count);
     function updateServiceNodesLength() external;
     function start() external;

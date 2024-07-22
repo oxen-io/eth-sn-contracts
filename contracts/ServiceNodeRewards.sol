@@ -148,7 +148,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event SignatureExpiryUpdated(uint256 newExpiry);
 
     // ERRORS
-    error ArrayLengthMismatch();
     error DeleteSentinelNodeNotAllowed();
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
     error BLSPubkeyDoesNotMatch(uint64 serviceNodeID, BN256G1.G1Point pubkey);
@@ -569,24 +568,38 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// Depending on the number of nodes that must be seeded, this function
     /// may necessarily be called multiple times due to gas limits.
     ///
-    /// @param pkX Array of X-coordinates for the public keys.
-    /// @param pkY Array of Y-coordinates for the public keys.
-    function seedPublicKeyList(
-        uint256[] calldata pkX,
-        uint256[] calldata pkY
-    ) external onlyOwner {
+    /// @param nodes Array of service nodes to seed the smart contract with
+    function seedPublicKeyList(SeedServiceNode[] calldata nodes) external onlyOwner {
         require(!isStarted, "The rewards list can only be seeded after "
                 "deployment and before `start` is invoked on the contract.");
 
-        if (pkX.length != pkY.length) {
-            revert ArrayLengthMismatch();
-        }
+        for (uint256 i = 0; i < nodes.length; i++) {
+            SeedServiceNode calldata node = nodes[i];
 
-        for (uint256 i = 0; i < pkX.length; i++) {
-            BN256G1.G1Point memory pubkey = BN256G1.G1Point(pkX[i], pkY[i]);
-            (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(pubkey);
-            sn.deposit = _stakingRequirement;
-            emit NewSeededServiceNode(allocID, pubkey);
+            // NOTE: Basic sanity checks
+            require(node.deposit > 0, "Deposit must be non-zero");
+            require(node.pubkey.X != 0 && node.pubkey.Y != 0, "The zero public key is not permitted");
+            require(node.contributors.length > 0,
+                    "There must be at-least one contributor in the node. The first contributor is defined to be the operator.");
+            require(node.contributors.length <= 10,
+                    "Seeded service cannot have more than 10 contributors");
+
+            // NOTE: Add node to the smart contract
+            (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(node.pubkey);
+            sn.deposit  = node.deposit;
+            sn.operator = node.contributors[0].addr;
+
+            uint256 stakedAmountSum = 0;
+            for (uint256 contributorIndex = 0; contributorIndex < node.contributors.length; contributorIndex++) {
+                Contributor calldata contributor  = node.contributors[contributorIndex];
+                stakedAmountSum                  += contributor.stakedAmount;
+                require(contributor.addr         != address(0), "Contributor address cannot be the nil address (zero)");
+                sn.contributors.push(contributor);
+            }
+            require(stakedAmountSum == node.deposit,
+                    "Sum of the contributor(s) staked amounts do not match the deposit of the node");
+
+            emit NewSeededServiceNode(allocID, node.pubkey);
         }
 
         updateBLSNonSignerThreshold();

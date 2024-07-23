@@ -577,7 +577,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             SeedServiceNode calldata node = nodes[i];
 
             // NOTE: Basic sanity checks
-            require(node.deposit > 0, "Deposit must be non-zero");
             require(node.pubkey.X != 0 && node.pubkey.Y != 0, "The zero public key is not permitted");
             require(node.contributors.length > 0,
                     "There must be at-least one contributor in the node. The first contributor is defined to be the operator.");
@@ -586,7 +585,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
             // NOTE: Add node to the smart contract
             (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(node.pubkey);
-            sn.deposit  = node.deposit;
+            sn.deposit  = _stakingRequirement;
             sn.operator = node.contributors[0].addr;
 
             uint256 stakedAmountSum = 0;
@@ -596,8 +595,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
                 require(contributor.addr         != address(0), "Contributor address cannot be the nil address (zero)");
                 sn.contributors.push(contributor);
             }
-            require(stakedAmountSum == node.deposit,
-                    "Sum of the contributor(s) staked amounts do not match the deposit of the node");
+            require(stakedAmountSum == _stakingRequirement,
+                    "Sum of the contributor(s) staked amounts do not match the staking requirement");
 
             emit NewSeededServiceNode(allocID, node.pubkey);
         }

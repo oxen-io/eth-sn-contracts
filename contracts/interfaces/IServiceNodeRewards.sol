@@ -12,7 +12,6 @@ interface IServiceNodeRewards {
 
     struct SeedServiceNode {
         BN256G1.G1Point pubkey;
-        uint256 deposit;
         Contributor[] contributors;
     }
 

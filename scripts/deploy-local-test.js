@@ -42,7 +42,7 @@ async function main() {
 
 
     await serviceNodeRewards.waitForDeployment();
-    const leng = serviceNodeRewards.serviceNodesLength();
+    const leng = serviceNodeRewards.totalNodes();
 
     console.log(
         '  ',

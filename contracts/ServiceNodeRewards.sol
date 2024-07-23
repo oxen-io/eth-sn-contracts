@@ -646,13 +646,14 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // node->next->prev = node;
         // node->prev->next = node;
         // ```
-        sn = _serviceNodes[id];
+        sn                           = _serviceNodes[id];
         ServiceNode storage sentinel = _serviceNodes[LIST_SENTINEL];
-        uint64 prev = sentinel.prev;
-        sentinel.prev = id;
-        sn.next = LIST_SENTINEL;
-        sn.prev = prev;
-        _serviceNodes[prev].next = id;
+
+        uint64 prev                  = sentinel.prev;
+        sn.next                      = LIST_SENTINEL; // node->next       = sentinel
+        sn.prev                      = prev;          // node->prev       = sentinel->prev
+        sentinel.prev                = id;            // node->next->prev = node
+        _serviceNodes[prev].next     = id;            // node->prev->next = node
 
         // NOTE: Assign BLS pubkey
         sn.pubkey = pubkey;

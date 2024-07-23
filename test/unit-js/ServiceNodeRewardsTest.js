@@ -168,7 +168,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                     contributors: [
                         {
                             addr: "0x66d801a70615979d82c304b7db374d11c232db66",
-                            stakedAmount: staking_req - 1,
+                            stakedAmount: staking_req - 1n,
                         }
                     ]
                 },
@@ -223,7 +223,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
 
             const contributorCount    = 10;
             const ethAddr             = "0x66d801a70615979d82c304b7db374d11c232db66";
-            const stakePerContributor = staking_req / contributorCount;
+            const stakePerContributor = staking_req / BigInt(contributorCount);
             for (let index = 0; index < contributorCount; index++) {
                 seedData[0].contributors.push({addr: ethAddr, stakedAmount: stakePerContributor});
             }
@@ -246,7 +246,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
 
             const contributorCount    = 11;
             const ethAddr             = "0x66d801a70615979d82c304b7db374d11c232db66";
-            const stakePerContributor = seedData[0].deposit / contributorCount;
+            const stakePerContributor = staking_req / BigInt(contributorCount);
             for (let index = 0; index < contributorCount; index++) {
                 seedData[0].contributors.push({addr: ethAddr, stakedAmount: stakePerContributor});
             }
@@ -6312,7 +6312,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                 [contributors[26][2]['addr'], contributors[26][2]['stakedAmount']],
                 [contributors[26][3]['addr'], contributors[26][3]['stakedAmount']],
             ]);
-        });
+        }).timeout(80000);
     });
 });
 

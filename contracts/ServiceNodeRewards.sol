@@ -724,6 +724,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             } else {
                 _aggregatePubkey = BN256G1.add(_aggregatePubkey, sn.pubkey);
             }
+            currentNode = sn.next;
         }
     }
 

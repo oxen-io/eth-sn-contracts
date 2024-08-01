@@ -762,39 +762,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         emit BLSNonSignerThresholdMaxUpdated(newMax);
     }
 
-    // NOTE: This function will be removed immediately after upgrading the
-    // testnet contract because the original mainnet version was deployed.
-    // Trying to deploy `test/TestnetServiceNodeRewards.sol` doesn't work
-    // because the hash the contract would have been deployed at is not present
-    // on stagenet (I believe this address is the proxy contract address
-    // which means that the testnet version of the contract was _not_ deployed).
-    //
-    // So, what I've opted for is to migrate the admin function to the main
-    // contract, deploy it, and then remove the admin contract and give a big
-    // disclaimer on what this function is doing here.
-    //
-    // This will be committed to the repository to provide a perma-link for
-    // documentation purposes of the list of upgrades that have been deployed on
-    // stagenet and the commit will be reverted there-after.
-
-    // New function for owner to remove nodes without BLS signature validation
-    function removeNodeBySNID(uint64 serviceNodeID) external onlyOwner {
-        IServiceNodeRewards.ServiceNode memory node = this.serviceNodes(serviceNodeID);
-        require(node.operator != address(0));
-        _removeBLSPublicKey(serviceNodeID, node.deposit);
-    }
-
-    // NOTE: Due to a bug where removeBySNID(1) was called twice, the sentinel
-    // node is now pointing to itself (e.g. the totalNodes of the contract is
-    // set to 0). We ship a function to patch up the list as necessary.
-    function rescueSNList() external onlyOwner {
-        require(_serviceNodes[2].prev == 0);
-        require(_serviceNodes[2].next == 3);
-        require(_serviceNodes[233].next == 0 && _serviceNodes[233].prev == 232);
-        _serviceNodes[0].prev = 233;
-        _serviceNodes[0].next = 2;
-    }
-
     //////////////////////////////////////////////////////////////
     //                                                          //
     //                Non-state-changing functions              //

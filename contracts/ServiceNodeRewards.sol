@@ -707,9 +707,24 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    /// @notice allows anyone to update the service nodes length variable
+    // @notice Publically allow anyone to recalculate the total nodes in the
+    // contract
     function updateServiceNodesLength() public {
         totalNodes = serviceNodesLength();
+    }
+
+    // @notice Publically allow anyone to recalculate the aggregate public key
+    // in the smart contract
+    function updateAggregatePubkey() public {
+        uint64 currentNode = _serviceNodes[LIST_SENTINEL].next;
+        for (uint64 i = 0; currentNode != LIST_SENTINEL; i++) {
+            ServiceNode storage sn = _serviceNodes[currentNode];
+            if (i == 0) {
+                _aggregatePubkey = sn.pubkey;
+            } else {
+                _aggregatePubkey = BN256G1.add(_aggregatePubkey, sn.pubkey);
+            }
+        }
     }
 
     /// @notice Updates the internal threshold for how many non signers an

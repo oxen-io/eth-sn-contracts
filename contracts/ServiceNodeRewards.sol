@@ -778,22 +778,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         emit BLSNonSignerThresholdMaxUpdated(newMax);
     }
 
-    function stagenetInjectMissingNode() public onlyOwner {
-        uint64 id                               = 232;
-        require(_serviceNodes[id].operator == address(0));
-        _serviceNodes[id - 1].next              = id;
-        _serviceNodes[id + 1].prev              = id;
-        _serviceNodes[id].next                  = id + 1;
-        _serviceNodes[id].prev                  = id - 1;
-        _serviceNodes[id].operator              = 0x678f704981f13c84F67BbB055743E62AC5e5e078;
-        _serviceNodes[id].pubkey.X              = 0x0c942cc2bbed8d9f329c39de39b77b019892a36ef014f47ada99aabfdfea0459;
-        _serviceNodes[id].pubkey.Y              = 0x24ea93ad0efebc21800380ec18b8f3d42b4950bc33b4d9837a6e9c067f267b5e;
-        _serviceNodes[id].addedTimestamp        = 1722474832;
-        _serviceNodes[id].leaveRequestTimestamp = 0;
-        _serviceNodes[id].deposit               = 120_000_000_000;
-        _serviceNodes[id].contributors.push(Contributor(_serviceNodes[id].operator, _serviceNodes[id].deposit));
-    }
-
     //////////////////////////////////////////////////////////////
     //                                                          //
     //                Non-state-changing functions              //

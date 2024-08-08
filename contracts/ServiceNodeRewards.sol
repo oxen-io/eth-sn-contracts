@@ -128,7 +128,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);
     event NewServiceNode(
         uint64 indexed serviceNodeID,
-        address recipient,
+        address initiator,
         BN256G1.G1Point pubkey,
         ServiceNodeParams serviceNode,
         Contributor[] contributors
@@ -136,14 +136,14 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
     event BLSNonSignerThresholdMaxUpdated(uint256 newMax);
-    event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
+    event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address operator, BN256G1.G1Point pubkey);
     event ServiceNodeRemoval(
         uint64 indexed serviceNodeID,
-        address recipient,
+        address operator,
         uint256 returnedAmount,
         BN256G1.G1Point pubkey
     );
-    event ServiceNodeRemovalRequest(uint64 indexed serviceNodeID, address recipient, BN256G1.G1Point pubkey);
+    event ServiceNodeRemovalRequest(uint64 indexed serviceNodeID, address contributor, BN256G1.G1Point pubkey);
     event StakingRequirementUpdated(uint256 newRequirement);
     event SignatureExpiryUpdated(uint256 newExpiry);
 
@@ -155,8 +155,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error ContractAlreadyStarted();
     error ContractNotStarted();
     error ContributionTotalMismatch(uint256 required, uint256 provided);
-    error EarlierLeaveRequestMade(uint64 serviceNodeID, address recipient);
-    error SmallContributorLeaveTooEarly(uint64 serviceNodeID, address recipient);
+    error EarlierLeaveRequestMade(uint64 serviceNodeID, address contributor);
+    error SmallContributorLeaveTooEarly(uint64 serviceNodeID, address contributor);
     error FirstContributorMismatch(address operator, address contributor);
     error InsufficientBLSSignatures(uint256 numSigners, uint256 requiredSigners);
     error InvalidBLSSignature();
@@ -483,7 +483,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     /// @dev Internal function to remove a service node from the contract. This
     /// function updates the linked-list and mapping information for the specified
-    /// `serivceNodeID`.
+    /// `serviceNodeID`.
     ///
     /// @param serviceNodeID The ID of the service node to be removed.
     function _removeBLSPublicKey(uint64 serviceNodeID, uint256 returnedAmount) internal {

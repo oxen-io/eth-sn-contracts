@@ -9,7 +9,7 @@
 class ERC20Contract {
 public:
     // Function to call the 'approve' method of the ERC20 token contract
-    Transaction approve(const std::string& spender, uint64_t amount);
+    ethyl::Transaction approve(const std::string& spender, uint64_t amount);
     uint64_t balanceOf(const std::string& address);
 
     /// Address of the ERC20 contract that must be set to the address of the
@@ -21,6 +21,7 @@ public:
     /// Provider must be set with an RPC client configure to allow the contract
     /// to communicate with the blockchain. If the provider is not setup, the
     /// functions that require a provider will throw.
-    ethyl::Provider provider;
+    std::shared_ptr<ethyl::Provider> client_ptr{ethyl::Provider::make_provider()};
+    ethyl::Provider& provider{*client_ptr};
 
 };

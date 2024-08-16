@@ -15,6 +15,7 @@
 #pragma GCC diagnostic pop
 
 #include <span>
+#include <oxenc/hex.h>
 
 namespace utils
 {

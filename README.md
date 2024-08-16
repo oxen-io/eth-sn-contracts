@@ -30,7 +30,7 @@ There are 3 testing frameworks in use,
 Contracts can be compiled and tested against unit tests run by executing:
 
 ```
-yarn
+yarn install --frozen-lockfile
 yarn build
 yarn test
 ```
@@ -87,3 +87,17 @@ You can run `slither` a static analyzer separately from Echidna by executing:
 ```
 make analyze
 ```
+
+## Scripts
+
+- `scripts/attach-and-dump-sn-rewards-stats.js`
+
+  Attaches to the `ServiceNodeRewards` instance specified in the script and
+  dumps the current state of the contract. This script is RPC heavy as it
+  scrapes contributors and service nodes information which currently is done
+  with 1 request per entry.
+
+  This script can be run via hardhat, e.g:
+
+    npx hardhat run --network sepoliaarbitrum scripts/attach-and-dump-sn-rewards-stats.js
+

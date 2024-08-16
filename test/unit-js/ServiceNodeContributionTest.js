@@ -57,6 +57,36 @@ async function withdrawContributor(sentToken, snContribution, contributor) {
     expect(contributorArrayExpected).to.deep.equal(contributorArray);
 }
 
+async function setupPermitSignature(token, owner, spenderAddress, amount, deadline) {
+    const domain = {
+        name: await token.name(),
+        version: '1',
+        chainId: (await ethers.provider.getNetwork()).chainId,
+        verifyingContract: await token.getAddress(),
+    };
+
+    const schema = {
+        Permit: [
+            { name: 'owner',     type: 'address' },
+            { name: 'spender',   type: 'address' },
+            { name: 'value',     type: 'uint256' },
+            { name: 'nonce',     type: 'uint256' },
+            { name: 'deadline',  type: 'uint256' },
+        ]
+    };
+
+    const payload = {
+        owner:    owner.address,
+        spender:  spenderAddress,
+        value:    amount,
+        nonce:    await token.nonces(owner.address),
+        deadline: deadline,
+    };
+
+    const result = await owner.signTypedData(domain, schema, payload);
+    return result;
+}
+
 describe("ServiceNodeContribution Contract Tests", function () {
     // NOTE: Contract factories for deploying onto the blockchain
     let sentTokenContractFactory;
@@ -256,6 +286,74 @@ describe("ServiceNodeContribution Contract Tests", function () {
             await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
             await expect(snContribution.connect(snOperator).contributeOperatorFunds(minContribution - BigInt(1), [3,4,5,6]))
                 .to.be.revertedWith("Contribution is below minimum requirement");
+        });
+
+        it("Operator can contribute stake w/ permit", async function () {
+            const stake         = await snContribution.stakingRequirement();
+
+            const currentBlock   = await ethers.provider.getBlockNumber();
+            const blockTimestamp = (await ethers.provider.getBlock(currentBlock)).timestamp;
+            const deadline       = blockTimestamp + (60 * 10); // Expire 10 minutes from now
+
+            const signature     = await setupPermitSignature(sentToken, snOperator, snContributionAddress, stake, deadline);
+            const signatureNo0x = signature.substring(2);
+            const r             = signatureNo0x.substring(0,   64);
+            const s             = signatureNo0x.substring(64,  128);
+            const v             = signatureNo0x.substring(128, 130);
+            await snContribution.connect(snOperator)
+                                .contributeOperatorFundsWithPermit(stake,
+                                                                   [3, 4, 5, 6],
+                                                                   deadline,
+                                                                   '0x' + v,
+                                                                   '0x' + r,
+                                                                   '0x' + s);
+            expect(await snContribution.totalContribution()).to.equal(stake);
+        });
+
+        it("Operator can't contribute more than staking requirement w/ permit", async function () {
+            const stake         = (await snContribution.stakingRequirement()) + BigInt(1);
+
+            const currentBlock   = await ethers.provider.getBlockNumber();
+            const blockTimestamp = (await ethers.provider.getBlock(currentBlock)).timestamp;
+            const deadline       = blockTimestamp + (60 * 10); // Expire 10 minutes from now
+
+            const signature     = await setupPermitSignature(sentToken, snOperator, snContributionAddress, stake, deadline);
+            const signatureNo0x = signature.substring(2);
+            const r             = signatureNo0x.substring(0,   64);
+            const s             = signatureNo0x.substring(64,  128);
+            const v             = signatureNo0x.substring(128, 130);
+            await expect(snContribution.connect(snOperator)
+                                .contributeOperatorFundsWithPermit(stake,
+                                                                   [3, 4, 5, 6],
+                                                                   deadline,
+                                                                   '0x' + v,
+                                                                   '0x' + r,
+                                                                   '0x' + s)).to.be.reverted;
+            expect(await snContribution.totalContribution()).to.equal(BigInt(0));
+        });
+
+
+        it("Operator can't submit expired stake w/ permit", async function () {
+            const stake         = await snContribution.stakingRequirement();
+            await sentToken.transfer(snOperator, stake);
+
+            const currentBlock   = await ethers.provider.getBlockNumber();
+            const blockTimestamp = (await ethers.provider.getBlock(currentBlock)).timestamp;
+            const deadline       = blockTimestamp - (60 * 10); // Expired 10 minutes prior
+
+            const signature     = await setupPermitSignature(sentToken, snOperator, snContributionAddress, stake, deadline);
+            const signatureNo0x = signature.substring(2);
+            const r             = signatureNo0x.substring(0,   64);
+            const s             = signatureNo0x.substring(64,  128);
+            const v             = signatureNo0x.substring(128, 130);
+            await expect(snContribution.connect(snOperator)
+                                       .contributeOperatorFundsWithPermit(stake,
+                                                                          [3, 4, 5, 6],
+                                                                          deadline,
+                                                                          '0x' + v,
+                                                                          '0x' + r,
+                                                                          '0x' + s)).to.be.reverted;
+            expect(await snContribution.totalContribution()).to.equal(0);
         });
 
         it("Allows operator to contribute and records correct balance", async function () {

@@ -8,7 +8,7 @@ build:
 	npx hardhat compile
 
 node:
-	npx hardhat node
+	npx hardhat node --verbose
 	#anvil
 
 analyze:

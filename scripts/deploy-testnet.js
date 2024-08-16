@@ -7,7 +7,7 @@
 const hre = require("hardhat");
 const chalk = require('chalk')
 
-let principal = 40000000;
+let principal = 250000;
 let bigAtomicPrincipal = ethers.parseUnits(principal.toString(), 9);
 
 async function main() {
@@ -23,13 +23,13 @@ async function main() {
     // Get signers
     [owner] = await ethers.getSigners();
 
-    RewardRatePool = await ethers.getContractFactory("RewardRatePool");
+    RewardRatePool = await ethers.getContractFactory("TestnetRewardRatePool");
     rewardRatePool = await upgrades.deployProxy(RewardRatePool, [await owner.getAddress(), await mockERC20.getAddress()]);
 
     await mockERC20.transfer(rewardRatePool, bigAtomicPrincipal);
 
     // Deploy the ServiceNodeRewards contract
-    ServiceNodeRewardsMaster = await ethers.getContractFactory("ServiceNodeRewards");
+    ServiceNodeRewardsMaster = await ethers.getContractFactory("TestnetServiceNodeRewards");
     serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,[
         await mockERC20.getAddress(),              // token address
         await rewardRatePool.getAddress(),         // foundation pool address
@@ -39,11 +39,21 @@ async function main() {
         0,                                         // pool share of liquidation ratio
         1                                          // recipient ratio
     ]);
-
-
     await serviceNodeRewards.waitForDeployment();
-    const leng = serviceNodeRewards.totalNodes();
 
+    snContributionContractFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
+    snContributionFactory = await snContributionContractFactory.deploy(serviceNodeRewards);
+
+    await snContributionFactory.waitForDeployment();
+
+    rewardRatePool.setBeneficiary(serviceNodeRewards);
+
+    console.log(
+        '  ',
+        chalk.cyan(`SENT Contract Address`),
+        'deployed to:',
+        chalk.greenBright(await mockERC20.getAddress()),
+    )
     console.log(
         '  ',
         chalk.cyan(`Service Node Rewards Contract`),
@@ -58,9 +68,9 @@ async function main() {
     )
     console.log(
         '  ',
-        chalk.cyan(`SENT Contract Address`),
+        chalk.cyan(`Service Node Contribution Factory Contract`),
         'deployed to:',
-        chalk.greenBright(await mockERC20.getAddress()),
+        chalk.greenBright(await snContributionFactory.getAddress()),
     )
 }
 

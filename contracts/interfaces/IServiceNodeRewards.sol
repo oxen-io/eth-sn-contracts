@@ -6,8 +6,13 @@ import "../libraries/BN256G1.sol";
 
 interface IServiceNodeRewards {
     struct Contributor {
-        address addr; // The address of the contributor
+        address addr;         // The address of the contributor
         uint256 stakedAmount; // The amount staked by the contributor
+    }
+
+    struct SeedServiceNode {
+        BN256G1.G1Point pubkey;
+        Contributor[] contributors;
     }
 
     /// @notice Represents a service node in the network.
@@ -16,6 +21,7 @@ interface IServiceNodeRewards {
         uint64 prev;
         address operator;
         BN256G1.G1Point pubkey;
+        uint256 addedTimestamp;
         uint256 leaveRequestTimestamp;
         uint256 deposit;
         Contributor[] contributors;
@@ -58,6 +64,8 @@ interface IServiceNodeRewards {
     function rewardTag() external view returns (bytes32);
     function serviceNodes(uint64) external view returns (ServiceNode memory);
     function serviceNodeIDs(bytes memory) external view returns (uint64);
+    function allServiceNodeIDs() external view returns (uint64[] memory ids, BN256G1.G1Point[] memory pubkeys);
+    function allServiceNodePubkeys() external view returns (BN256G1.G1Point[] memory pubkeys);
     function stakingRequirement() external view returns (uint256);
     function totalNodes() external view returns (uint256);
 
@@ -89,7 +97,7 @@ interface IServiceNodeRewards {
         BLSSignatureParams calldata blsSignature,
         uint64[] memory ids
     ) external;
-    function seedPublicKeyList(uint256[] calldata pkX, uint256[] calldata pkY, uint256[] calldata amounts) external;
+    function seedPublicKeyList(SeedServiceNode[] calldata nodes) external;
     function serviceNodesLength() external view returns (uint256 count);
     function updateServiceNodesLength() external;
     function start() external;

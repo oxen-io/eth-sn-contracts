@@ -30,9 +30,10 @@ There are 3 testing frameworks in use,
 Contracts can be compiled and tested against unit tests run by executing:
 
 ```
-yarn install --frozen-lockfile
-yarn build
-yarn test
+npm install -g pnpm            # If you don't have pnpm installed yet
+pnpm install --frozen-lockfile # Install the dependencies
+pnpm build                     # Build the JS unit-tests and Solidity contracts
+pnpm test                      # Run the JS unit-tests
 ```
 
 ### C++

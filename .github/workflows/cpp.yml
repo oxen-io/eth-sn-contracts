@@ -1,58 +1,70 @@
 name: C++ Tests
-on: [push, pull_request]
+on:
+  - push
+  - pull_request
 
 jobs:
   tests:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-      with:
-        submodules: 'recursive'
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '18'
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          run_install: false
 
-    - uses: actions/cache@v2
-      with:
-        path: "**/node_modules"
-        key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: 'pnpm'
+          node-version-file: '.tool-versions'
 
-    - name: Install Yarn dependencies and build
-      run: |
-        yarn install --frozen-lockfile
-        yarn build
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-    - name: Install prerequisites for C++ build
-      run: sudo apt-get update && sudo apt-get install -y cmake build-essential libboost-all-dev libssl-dev libcurl4-openssl-dev libsodium-dev
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
-    - name: Start Hardhat node in background
-      run: |
-        yarn hardhat-node &
-        echo "NODE_PID=$!" >> $GITHUB_ENV
+      - name: Install dependencies
+        run: pnpm install
 
-    - name: Deploy contracts to local node
-      run: yarn deploy-local
+      - name: Compile contracts
+        run: pnpm build
 
-    - name: Create Build Directory
-      run: mkdir -p test/cpp/build
+      - name: Install prerequisites for C++ build
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential libssl-dev libcurl4-openssl-dev ninja-build
 
-    - name: CMake Generate
-      working-directory: ./test/cpp/build
-      run: cmake -B. -H..
+      - name: Start Hardhat node in background
+        run: |
+          pnpm hardhat-node &
+          echo "NODE_PID=$!" >> $GITHUB_ENV
 
-    - name: Compile
-      working-directory: ./test/cpp/build
-      run: cmake --build .
+      - name: Deploy contracts to local node
+        run: pnpm deploy-local
 
-    - name: Run C++ tests
-      working-directory: ./test/cpp/build
-      run: ctest -VV --repeat until-pass:2 --test-dir .
+      - name: CMake Generate
+        run: cmake -B ./test/cpp/build -S ./test/cpp -G Ninja
 
-    - name: Kill Yarn node
-      run: kill $NODE_PID
-      if: always()
+      - name: Compile
+        run: cmake --build ./test/cpp/build --parallel --verbose
+
+      - name: Run C++ tests
+        working-directory: ./test/cpp/build
+        run: ctest -VV --repeat until-pass:2 --test-dir .
+
+      - name: Kill pnpm node
+        run: kill $NODE_PID
+        if: always()
 

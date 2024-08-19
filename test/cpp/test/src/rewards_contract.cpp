@@ -2,7 +2,6 @@
 #include <limits>
 #include <chrono>
 
-#include <oxen/log.hpp>
 #include "ethyl/provider.hpp"
 #include "ethyl/signer.hpp"
 #include "ethyl/utils.hpp"
@@ -32,7 +31,6 @@ std::vector<unsigned char> seckey;
 
 int main(int argc, char *argv[]) {
 
-    oxen::log::add_sink(oxen::log::Type::Print, "stderr");
     // NOTE: Setup default provider
     config = ethbls::get_config(ethbls::network_type::LOCAL);
     std::cout << "Note to run these tests, ensure that a local Ethereum development network is running at " << config.RPC_URL << "\n";
@@ -130,7 +128,6 @@ static void verifyEVMServiceNodesAgainstCPPState(const ServiceNodeList& snl)
 
 size_t test_count{0};
 TEST_CASE( "Rewards Contract", "[ethereum]" ) {
-    oxen::log::debug(oxen::log::Cat("ETH CONTRACT TESTS"), "Test case {} begin", ++test_count);
     REQUIRE(defaultProvider.evm_setAutomine(true));
     bool success_resetting_to_snapshot = defaultProvider.evm_revert(snapshot_id);
     snapshot_id = defaultProvider.evm_snapshot();
@@ -151,8 +148,6 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
     hash = signer.sendTransaction(tx, seckey);
     REQUIRE(hash != "");
     REQUIRE(defaultProvider.transactionSuccessful(hash));
-    oxen::log::debug(oxen::log::Cat("ETH CONTRACT TESTS"), "Test case {} SECTION begin", test_count);
-
     SECTION( "Add a public key to the smart contract" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 0);
 

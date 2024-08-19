@@ -47,6 +47,15 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     uint256 private _poolShareOfLiquidationRatio;
     uint256 private _recipientRatio;
 
+    struct TimeWeightedEMA {
+        uint256 value;
+        uint256 lastUpdateTime;
+        uint256 halfLife;
+    }
+
+    TimeWeightedEMA public globalClaimsEMA;
+    uint256 public claimEMAThreshold;
+
     /// @notice Constructor for the Service Node Rewards Contract
     ///
     /// @param token_ The token used for rewards
@@ -93,6 +102,14 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
         _serviceNodes[LIST_SENTINEL].prev = LIST_SENTINEL;
         _serviceNodes[LIST_SENTINEL].next = LIST_SENTINEL;
+
+        globalClaimsEMA = TimeWeightedEMA({
+            value: 0,
+            lastUpdateTime: 0,
+            halfLife: 12 hours
+        });
+        claimEMAThreshold = 2 * 1e6 * 1e9;
+
         __Ownable_init(msg.sender);
     }
 
@@ -135,6 +152,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
     event BLSNonSignerThresholdMaxUpdated(uint256 newMax);
+    event ClaimEMAThresholdUpdated(uint256 newMax);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address operator, BN256G1.G1Point pubkey);
     event ServiceNodeRemoval(
         uint64 indexed serviceNodeID,
@@ -151,6 +169,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
     error BLSPubkeyDoesNotMatch(uint64 serviceNodeID, BN256G1.G1Point pubkey);
     error CallerNotContributor(uint64 serviceNodeID, address contributor);
+    error ClaimEMAExceeded();
     error ContractAlreadyStarted();
     error ContractNotStarted();
     error ContributionTotalMismatch(uint256 required, uint256 provided);
@@ -230,6 +249,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         uint256 claimedRewards = recipients[claimingAddress].claimed;
         uint256 totalRewards = recipients[claimingAddress].rewards;
         uint256 amountToRedeem = totalRewards - claimedRewards;
+        updateEMA(globalClaimsEMA, amountToRedeem, block.timestamp);
+        console.log(globalClaimsEMA.value);
+        console.log(claimEMAThreshold);
+        if (globalClaimsEMA.value > claimEMAThreshold) revert ClaimEMAExceeded();
 
         recipients[claimingAddress].claimed = totalRewards;
         emit RewardsClaimed(claimingAddress, amountToRedeem);
@@ -758,6 +781,33 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         require(newMax > 0, "The new BLS non-signer threshold must be non-zero");
         blsNonSignerThresholdMax = newMax;
         emit BLSNonSignerThresholdMaxUpdated(newMax);
+    }
+
+    /// @notice Max Claim amount to use in the Exponential Moving Average check
+    /// before allowing the user to claim. If the claimed amount over 24 hours
+    /// exceeds this then the claim will fail
+    /// @param newMax The new maximum non-signer threshold
+    function setClaimEMAThreshold(uint256 newMax) public onlyOwner {
+        require(newMax > 0, "The new claim EMA threshold must be non-zero");
+        claimEMAThreshold = newMax;
+        emit ClaimEMAThresholdUpdated(newMax);
+    }
+
+    /// @notice Updates the Exponential Moving Average (EMA) with a new value
+    /// @dev This function calculates a time-weighted EMA using the provided new value and current time
+    /// @param ema The TimeWeightedEMA struct to update
+    /// @param newValue The new value to incorporate into the EMA.
+    /// @param currentTime The current timestamp, usually `block.timestamp`
+    /// @custom:formula EMA = EMA_old + α * (newValue - EMA_old)
+    /// where α = 1 - 0.5 ^ (timeDiff / halfLife)
+    function updateEMA(TimeWeightedEMA storage ema, uint256 newValue, uint256 currentTime) internal {
+        uint256 timeDiff = currentTime - ema.lastUpdateTime;
+        uint256 SCALING_FACTOR = 262144; // 2^18
+        if (timeDiff > 0) {
+            uint256 alpha = SCALING_FACTOR - (SCALING_FACTOR * SCALING_FACTOR) / (SCALING_FACTOR + (timeDiff * SCALING_FACTOR / ema.halfLife));
+            ema.value = ((SCALING_FACTOR - alpha) * ema.value / SCALING_FACTOR) + newValue;
+            ema.lastUpdateTime = currentTime;
+        }
     }
 
     //////////////////////////////////////////////////////////////

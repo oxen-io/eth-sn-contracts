@@ -6285,9 +6285,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
 
                 let receipt = await tx.wait();
                 totalgas += receipt.gasUsed;
-                console.log("gas to seed", i, "-", i+incr-1, ":", receipt.gasUsed);
             }
-            console.log("total seed gas for 2000 nodes:", totalgas);
 
             let expected_aggregate_pubkey = [
                 BigInt("0x171261667389eb57a7b6b49c8c73c5f8aa8dee75819bea34ad1215cb39672c13"),

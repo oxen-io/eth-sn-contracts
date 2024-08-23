@@ -7,8 +7,6 @@ pragma solidity ^0.8.20;
  * @dev Homepage: https://github.com/musalbas/solidity-BN256G2
  */
 
-import "hardhat/console.sol";
-
 library BN256G2 {
     uint256 internal constant CURVE_ORDER_FACTOR = 4965661367192848881; // this is also knows as z, generates prime definine base field (FIELD MODULUS) and order of the curve for BN curves
     uint256 internal constant FIELD_MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
@@ -602,10 +600,6 @@ library BN256G2 {
         for (uint8 increment = 0;; increment++) { // Iterate until we find a valid G2 point
             message_with_i[message_with_i.length - 1] = bytes1(increment);
 
-            // TODO: Has side-effects in devnet that causes the hashToField to
-            // generate the correct values. No-op on other networks.
-            console.logBytes(message_with_i);
-
             bool b;
             (x1, x2, b)                      = hashToField(message_with_i, hashToG2Tag);
             (uint256 yx,     uint256 yy)     = Get_yy_coordinate(x1, x2); // Try to get y^2
@@ -723,6 +717,9 @@ library BN256G2 {
                 let b0Payload := mload(0x40)
 
                 // payload[0..KECCAK256_BLOCKSIZE] = 0
+                for { let i := 0 } lt(i, KECCAK256_BLOCKSIZE) { i := add(i, 0x20) } {
+                    mstore(add(b0Payload, i), 0)
+                }
 
                 let b0PayloadO := KECCAK256_BLOCKSIZE // leave first block empty
                 let msg_o := 0x20 // skip length prefix

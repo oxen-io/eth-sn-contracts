@@ -261,8 +261,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             revert MaxClaimExceeded();
         
         updateEMA(globalClaimsEMA, amount, block.timestamp);
-        console.log(globalClaimsEMA.value);
-        console.log(claimEMAThreshold);
         if (globalClaimsEMA.value > claimEMAThreshold) revert ClaimEMAExceeded();
         
         recipients[claimingAddress].claimed += amount;

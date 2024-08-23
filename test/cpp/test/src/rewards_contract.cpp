@@ -128,7 +128,6 @@ static void verifyEVMServiceNodesAgainstCPPState(const ServiceNodeList& snl)
 
 size_t test_count{0};
 TEST_CASE( "Rewards Contract", "[ethereum]" ) {
-    REQUIRE(defaultProvider.evm_setAutomine(true));
     bool success_resetting_to_snapshot = defaultProvider.evm_revert(snapshot_id);
     snapshot_id = defaultProvider.evm_snapshot();
     REQUIRE(success_resetting_to_snapshot);
@@ -547,99 +546,4 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         resetContractToSnapshot();
     }
 
-/*
-    SECTION("Add the maximum permitted number of nodes registered in one block") {
-        REQUIRE(rewards_contract.serviceNodesLength() == 0);
-        defaultProvider.evm_setAutomine(false);
-        uint64_t maxNodesToBeAdded = rewards_contract.maxPermittedPubkeyAggregations();
-        std::cerr << "max nodes to be added: " << maxNodesToBeAdded << "\n";
-        ServiceNodeList snl(maxNodesToBeAdded);
-        for (size_t index = 0; index < snl.nodes.size(); index++) {
-            auto& node                     = snl.nodes[index];
-            tx                             = erc20_contract.approve(contract_address, std::numeric_limits<std::uint64_t>::max());;
-            REQUIRE_NOTHROW(hash                           = signer.sendTransaction(tx, seckey));
-            const auto pubkey              = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
-            tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
-            REQUIRE_NOTHROW(signer.sendTransaction(tx, seckey));
-        }
-        defaultProvider.evm_setAutomine(true);
-        REQUIRE(rewards_contract.serviceNodesLength() == maxNodesToBeAdded);
-        verifyEVMServiceNodesAgainstCPPState(snl);
-        resetContractToSnapshot();
-    }
-
-    SECTION("Exceed the maximum number of nodes registered in one block") {
-        REQUIRE(rewards_contract.serviceNodesLength() == 0);
-        defaultProvider.evm_setAutomine(false);
-        uint64_t maxNodesToBeAdded = rewards_contract.maxPermittedPubkeyAggregations();
-        std::cerr << "max nodes to be added: " << maxNodesToBeAdded << "\n";
-        ServiceNodeList snl(maxNodesToBeAdded + 1);
-        for (size_t index = 0; index < snl.nodes.size(); index++) {
-            auto& node                     = snl.nodes[index];
-            tx                             = erc20_contract.approve(contract_address, std::numeric_limits<std::uint64_t>::max());;
-            REQUIRE_NOTHROW(hash                           = signer.sendTransaction(tx, seckey));
-            const auto pubkey              = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
-            tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
-            if (index == snl.nodes.size() - 1) {
-                REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
-                defaultProvider.evm_setAutomine(true);
-                // NOTE: The last service node will exceed the number of
-                // permitted nodes, we will undo it in our C++ list as well.
-                snl.nodes.pop_back();
-                snl.next_service_node_id--;
-            } else {
-                REQUIRE_NOTHROW(signer.sendTransaction(tx, seckey));
-            }
-        }
-        REQUIRE(rewards_contract.serviceNodesLength() == maxNodesToBeAdded);
-        verifyEVMServiceNodesAgainstCPPState(snl);
-        resetContractToSnapshot();
-    }
-
-    SECTION("Check that the node limit is reset after 1 block") {
-        REQUIRE(rewards_contract.serviceNodesLength() == 0);
-
-        // NOTE: Add the max amount of nodes
-        defaultProvider.evm_setAutomine(false);
-        uint64_t maxNodesToBeAdded = rewards_contract.maxPermittedPubkeyAggregations();
-        std::cerr << "max nodes to be added: " << maxNodesToBeAdded << "\n";
-        ServiceNodeList snl(maxNodesToBeAdded);
-        for (size_t index = 0; index < snl.nodes.size(); index++) {
-            auto& node                     = snl.nodes[index];
-            tx                             = erc20_contract.approve(contract_address, std::numeric_limits<std::uint64_t>::max());;
-            REQUIRE_NOTHROW(hash                           = signer.sendTransaction(tx, seckey));
-            const auto pubkey              = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
-            tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
-            if (index == snl.nodes.size() - 1)
-                defaultProvider.evm_setAutomine(true);
-            REQUIRE_NOTHROW(signer.sendTransaction(tx, seckey));
-        }
-        REQUIRE(rewards_contract.serviceNodesLength() == maxNodesToBeAdded);
-        size_t prevServiceNodesLength = maxNodesToBeAdded;
-
-        // NOTE: Add the max amount of nodes again in the next block
-        defaultProvider.evm_setAutomine(false);
-        maxNodesToBeAdded = rewards_contract.maxPermittedPubkeyAggregations();
-        for (size_t index = 0; index < maxNodesToBeAdded; index++)
-            snl.addNode();
-
-        for (size_t index = prevServiceNodesLength; index < snl.nodes.size(); index++) {
-            auto& node                     = snl.nodes[index];
-            tx                             = erc20_contract.approve(contract_address, std::numeric_limits<std::uint64_t>::max());;
-            REQUIRE_NOTHROW(hash                           = signer.sendTransaction(tx, seckey));
-            const auto pubkey              = node.getPublicKeyHex();
-            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
-            tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
-            if (index == snl.nodes.size() - 1)
-                defaultProvider.evm_setAutomine(true);
-            signer.sendTransaction(tx, seckey);
-        }
-        REQUIRE(rewards_contract.serviceNodesLength() == prevServiceNodesLength + maxNodesToBeAdded);
-        verifyEVMServiceNodesAgainstCPPState(snl);
-        resetContractToSnapshot();
-    }
-*/
 }

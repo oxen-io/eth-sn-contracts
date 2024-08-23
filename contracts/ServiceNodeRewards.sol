@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import "./interfaces/IServiceNodeRewards.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
@@ -284,25 +283,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         BLSSignatureParams calldata blsSignature,
         ServiceNodeParams calldata serviceNodeParams,
         Contributor[] calldata contributors
-    ) public whenNotPaused {
-        _addBLSPublicKey(blsPubkey, blsSignature, msg.sender, serviceNodeParams, contributors);
-    }
-
-    function addBLSPublicKeyWithPermit(
-        BN256G1.G1Point calldata blsPubkey,
-        BLSSignatureParams calldata blsSignature,
-        ServiceNodeParams calldata serviceNodeParams,
-        Contributor[] calldata contributors,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
     ) external whenNotPaused {
-        // NOTE: Try catch makes the code tolerant to front-running, see:
-        // ServiceNodeContribution.sol
-        IERC20Permit token = IERC20Permit(address(designatedToken));
-        try token.permit(msg.sender, address(this), _stakingRequirement, deadline, v, r, s) {} catch {}
-        addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
+        _addBLSPublicKey(blsPubkey, blsSignature, msg.sender, serviceNodeParams, contributors);
     }
 
     /// @dev Internal function to add a BLS public key.

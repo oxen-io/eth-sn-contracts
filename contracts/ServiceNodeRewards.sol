@@ -147,26 +147,31 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event SignatureExpiryUpdated(uint256 newExpiry);
 
     // ERRORS
-    error DeleteSentinelNodeNotAllowed();
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
     error BLSPubkeyDoesNotMatch(uint64 serviceNodeID, BN256G1.G1Point pubkey);
     error CallerNotContributor(uint64 serviceNodeID, address contributor);
     error ContractAlreadyStarted();
     error ContractNotStarted();
     error ContributionTotalMismatch(uint256 required, uint256 provided);
+    error DeleteSentinelNodeNotAllowed();
     error EarlierLeaveRequestMade(uint64 serviceNodeID, address contributor);
-    error SmallContributorLeaveTooEarly(uint64 serviceNodeID, address contributor);
     error FirstContributorMismatch(address operator, address contributor);
     error InsufficientBLSSignatures(uint256 numSigners, uint256 requiredSigners);
+    error InsufficientContributors();
+    error InsufficientNodes();
     error InvalidBLSSignature();
     error InvalidBLSProofOfPossession();
     error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
     error MaxContributorsExceeded();
-    error NullRecipient();
+    error MaxPubkeyAggregationsExceeded();
+    error NullPublicKey();
+    error NullAddress();
+    error PositiveNumberRequirement();
     error RecipientAddressDoesNotMatch(address expectedRecipient, address providedRecipient, uint256 serviceNodeID);
     error RecipientRewardsTooLow();
     error ServiceNodeDoesntExist(uint64 serviceNodeID);
     error SignatureExpired(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
+    error SmallContributorLeaveTooEarly(uint64 serviceNodeID, address contributor);
 
     //////////////////////////////////////////////////////////////
     //                                                          //
@@ -204,7 +209,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         uint64[] memory ids
     ) external whenNotPaused whenStarted hasEnoughSigners(ids.length) {
         if (recipientAddress == address(0)) {
-            revert NullRecipient();
+            revert NullAddress();
         }
 
         if (recipients[recipientAddress].rewards >= recipientRewards) {
@@ -552,18 +557,19 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     ///
     /// @param nodes Array of service nodes to seed the smart contract with
     function seedPublicKeyList(SeedServiceNode[] calldata nodes) external onlyOwner {
-        require(!isStarted, "The rewards list can only be seeded after "
-                "deployment and before `start` is invoked on the contract.");
+        if (isStarted)
+            revert ContractAlreadyStarted();
 
         for (uint256 i = 0; i < nodes.length; i++) {
             SeedServiceNode calldata node = nodes[i];
 
             // NOTE: Basic sanity checks
-            require(node.pubkey.X != 0 && node.pubkey.Y != 0, "The zero public key is not permitted");
-            require(node.contributors.length > 0,
-                    "There must be at-least one contributor in the node. The first contributor is defined to be the operator.");
-            require(node.contributors.length <= 10,
-                    "Seeded service cannot have more than 10 contributors");
+            if (node.pubkey.X == 0 || node.pubkey.Y == 0)
+                revert NullPublicKey();
+            if (node.contributors.length <= 0)
+                revert InsufficientContributors();
+            if (node.contributors.length > maxContributors())
+                revert MaxContributorsExceeded();
 
             // NOTE: Add node to the smart contract
             (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(node.pubkey);
@@ -574,11 +580,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             for (uint256 contributorIndex = 0; contributorIndex < node.contributors.length; contributorIndex++) {
                 Contributor calldata contributor  = node.contributors[contributorIndex];
                 stakedAmountSum                  += contributor.stakedAmount;
-                require(contributor.addr         != address(0), "Contributor address cannot be the nil address (zero)");
+                if (contributor.addr == address(0))
+                    revert NullAddress();
                 sn.contributors.push(contributor);
             }
-            require(stakedAmountSum == _stakingRequirement,
-                    "Sum of the contributor(s) staked amounts do not match the staking requirement");
+            if (stakedAmountSum != _stakingRequirement) revert ContributionTotalMismatch(_stakingRequirement, stakedAmountSum);
 
             emit NewSeededServiceNode(allocID, node.pubkey);
         }
@@ -608,10 +614,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             _numPubkeyAggregationsForHeight++;
 
             uint256 limit = maxPermittedPubkeyAggregations();
-            require(_numPubkeyAggregationsForHeight <= limit,
-                    "The maximum number of new Session Nodes permitted per block has been "
-                    "exceeded. Session Node can not be added, please retry again in the next "
-                    "block.");
+            if (_numPubkeyAggregationsForHeight > limit)
+                revert MaxPubkeyAggregationsExceeded();
         }
 
         id = nextServiceNodeID++;
@@ -657,7 +661,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @notice Delete the service node with `nodeID`
     /// @param nodeID The ID of the service node to delete
     function serviceNodeDelete(uint64 nodeID) internal {
-        require(totalNodes > 0);
+        if (totalNodes <= 0)
+            revert InsufficientNodes();
         if (nodeID == LIST_SENTINEL) revert DeleteSentinelNodeNotAllowed();
 
         ServiceNode memory node = _serviceNodes[nodeID];
@@ -737,7 +742,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @notice Setter function for staking requirement, only callable by owner
     /// @param newRequirement the value being changed to
     function setStakingRequirement(uint256 newRequirement) public onlyOwner {
-        require(newRequirement > 0, "Staking requirement must be positive");
+        if (newRequirement <= 0)
+            revert PositiveNumberRequirement();
         _stakingRequirement = newRequirement;
         emit StakingRequirementUpdated(newRequirement);
     }
@@ -745,7 +751,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @notice Setter function for signature expiry, only callable by owner
     /// @param newExpiry the value being changed to
     function setSignatureExpiry(uint256 newExpiry) public onlyOwner {
-        require(newExpiry > 0, "signature expiry must be positive");
+        if (newExpiry <= 0)
+            revert PositiveNumberRequirement();
         signatureExpiry = newExpiry;
         emit SignatureExpiryUpdated(newExpiry);
     }
@@ -755,7 +762,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// the owner.
     /// @param newMax The new maximum non-signer threshold
     function setBLSNonSignerThresholdMax(uint256 newMax) public onlyOwner {
-        require(newMax > 0, "The new BLS non-signer threshold must be non-zero");
+        if (newMax <= 0)
+            revert PositiveNumberRequirement();
         blsNonSignerThresholdMax = newMax;
         emit BLSNonSignerThresholdMaxUpdated(newMax);
     }

@@ -171,6 +171,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error InvalidBLSProofOfPossession();
     error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
     error MaxContributorsExceeded();
+    error MaxClaimExceeded();
     error MaxPubkeyAggregationsExceeded();
     error NullPublicKey();
     error NullAddress();
@@ -237,30 +238,41 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     }
 
     /// @dev Internal function to handle reward claims. Will transfer the
-    /// available rewards worth of our token to claimingAddress
+    /// requested amount of our token to claimingAddress, up to the available rewards
     /// @param claimingAddress The address claiming the rewards.
-    function _claimRewards(address claimingAddress) internal {
+    /// @param amount The amount of rewards to claim.
+    function _claimRewards(address claimingAddress, uint256 amount) internal {
         uint256 claimedRewards = recipients[claimingAddress].claimed;
         uint256 totalRewards = recipients[claimingAddress].rewards;
-        uint256 amountToRedeem = totalRewards - claimedRewards;
+        uint256 maxAmount = totalRewards - claimedRewards;
+        if (amount > maxAmount)
+            revert MaxClaimExceeded();
 
         uint256 _epochDay = block.timestamp / 86400;
         if (_epochDay > epochDay) {
             epochDay = _epochDay;
             periodicClaims = 0;
         }
-        periodicClaims += amountToRedeem;
+        periodicClaims += amount;
         if (periodicClaims > claimThreshold) revert ClaimThresholdExceeded();
 
-        recipients[claimingAddress].claimed = totalRewards;
-        emit RewardsClaimed(claimingAddress, amountToRedeem);
-
-        SafeERC20.safeTransfer(designatedToken, claimingAddress, amountToRedeem);
+        recipients[claimingAddress].claimed += amount;
+        emit RewardsClaimed(claimingAddress, amount);
+        SafeERC20.safeTransfer(designatedToken, claimingAddress, amount);
     }
 
-    /// @notice Claim the rewards due for the active wallet invoking the claim.
+    /// @notice Claim all available rewards for the active wallet invoking the claim.
     function claimRewards() public {
-        _claimRewards(msg.sender);
+        uint256 claimedRewards = recipients[msg.sender].claimed;
+        uint256 totalRewards = recipients[msg.sender].rewards;
+        uint256 amountToRedeem = totalRewards - claimedRewards;
+        _claimRewards(msg.sender, amountToRedeem);
+    }
+
+    /// @notice Claim a specific amount of rewards for the active wallet invoking the claim.
+    /// @param amount The amount of rewards to claim.
+    function claimRewards(uint256 amount) public {
+        _claimRewards(msg.sender, amount);
     }
 
     /// MANAGING BLS PUBLIC KEY LIST

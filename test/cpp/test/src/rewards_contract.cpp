@@ -504,6 +504,110 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         resetContractToSnapshot();
     }
 
+    SECTION( "Successfully claim the rewards specifying the exact amount" ) {
+        REQUIRE(rewards_contract.serviceNodesLength() == 0);
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
+            signer.sendTransaction(tx, seckey);
+        }
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+        std::vector<unsigned char> secondseckey = ethyl::utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
+        const std::string recipientAddress = signer.secretKeyToAddressString(secondseckey);
+        const uint64_t recipientAmount = 1;
+        const auto signers = snl.randomSigners(snl.nodes.size() - 1);
+        const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
+        const auto non_signers = snl.findNonSigners(signers);
+        tx = rewards_contract.updateRewardsBalance(recipientAddress, recipientAmount, sig, non_signers);
+        hash = signer.sendTransaction(tx, seckey);
+        uint64_t amount = erc20_contract.balanceOf(recipientAddress);
+        REQUIRE(amount == 0);
+
+        tx = rewards_contract.claimRewards(recipientAmount);
+        hash = signer.sendTransaction(tx, secondseckey);
+        REQUIRE(hash != "");
+        REQUIRE(defaultProvider.transactionSuccessful(hash));
+
+        amount = erc20_contract.balanceOf(recipientAddress);
+        REQUIRE(amount == recipientAmount);
+
+        auto recipient = rewards_contract.viewRecipientData(recipientAddress);
+        REQUIRE(recipient.rewards == recipientAmount);
+        REQUIRE(recipient.claimed == amount);
+
+        verifyEVMServiceNodesAgainstCPPState(snl);
+        resetContractToSnapshot();
+    }
+
+    SECTION( "Successfully claim the rewards specifying a lower amount then maximum" ) {
+        REQUIRE(rewards_contract.serviceNodesLength() == 0);
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
+            signer.sendTransaction(tx, seckey);
+        }
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+        std::vector<unsigned char> secondseckey = ethyl::utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
+        const std::string recipientAddress = signer.secretKeyToAddressString(secondseckey);
+        const uint64_t recipientAmount = 2;
+        const uint64_t lowerAmount = 1;
+        const auto signers = snl.randomSigners(snl.nodes.size() - 1);
+        const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
+        const auto non_signers = snl.findNonSigners(signers);
+        tx = rewards_contract.updateRewardsBalance(recipientAddress, recipientAmount, sig, non_signers);
+        hash = signer.sendTransaction(tx, seckey);
+        uint64_t amount = erc20_contract.balanceOf(recipientAddress);
+        REQUIRE(amount == 0);
+
+        tx = rewards_contract.claimRewards(lowerAmount);
+        hash = signer.sendTransaction(tx, secondseckey);
+        REQUIRE(hash != "");
+        REQUIRE(defaultProvider.transactionSuccessful(hash));
+
+        amount = erc20_contract.balanceOf(recipientAddress);
+        REQUIRE(amount == lowerAmount);
+
+        auto recipient = rewards_contract.viewRecipientData(recipientAddress);
+        REQUIRE(recipient.rewards == recipientAmount);
+        REQUIRE(recipient.claimed == amount);
+
+        verifyEVMServiceNodesAgainstCPPState(snl);
+        resetContractToSnapshot();
+    }
+
+    SECTION( "Fail to claim the rewards specifying a higher amount then maximum" ) {
+        REQUIRE(rewards_contract.serviceNodesLength() == 0);
+        ServiceNodeList snl(3);
+        for(auto& node : snl.nodes) {
+            const auto pubkey = node.getPublicKeyHex();
+            const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
+            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
+            signer.sendTransaction(tx, seckey);
+        }
+        REQUIRE(rewards_contract.serviceNodesLength() == 3);
+        std::vector<unsigned char> secondseckey = ethyl::utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
+        const std::string recipientAddress = signer.secretKeyToAddressString(secondseckey);
+        const uint64_t recipientAmount = 2;
+        const uint64_t higherAmount = 3;
+        const auto signers = snl.randomSigners(snl.nodes.size() - 1);
+        const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
+        const auto non_signers = snl.findNonSigners(signers);
+        tx = rewards_contract.updateRewardsBalance(recipientAddress, recipientAmount, sig, non_signers);
+        hash = signer.sendTransaction(tx, seckey);
+        uint64_t amount = erc20_contract.balanceOf(recipientAddress);
+        REQUIRE(amount == 0);
+
+        tx = rewards_contract.claimRewards(higherAmount);
+        REQUIRE_THROWS(signer.sendTransaction(tx, secondseckey));
+
+        verifyEVMServiceNodesAgainstCPPState(snl);
+        resetContractToSnapshot();
+    }
+
     SECTION( "Claim too many rewards in a single transaction and trigger rate limiter" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 0);
         ServiceNodeList snl(3);

@@ -244,6 +244,20 @@ contract ServiceNodeContribution is Shared {
     }
 
     /**
+     * @notice Allows the operator to update the serviceNodeParams.
+     * @dev This function can only be called by the operator, before the contract is finalized,
+     * and when there are no other contributors besides the operator.
+     * @param newParams The new ServiceNodeParams to set.
+     */
+    function updateServiceNodeParams(IServiceNodeRewards.ServiceNodeParams memory newParams) public onlyOperator {
+        require(!finalized, "Cannot update params: Node has already been finalized.");
+        require(contributorAddresses.length == 1, "Cannot update params: Other contributors have already joined.");
+        require(contributorAddresses[0] == operator, "Cannot update params: Operator has not contributed yet.");
+
+        serviceNodeParams = newParams;
+    }
+
+    /**
      * @notice Function to allow owner to rescue any ERC20 tokens sent to the
      * contract after it has been finalized.
      *

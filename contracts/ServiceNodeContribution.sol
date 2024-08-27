@@ -329,7 +329,12 @@ contract ServiceNodeContribution is Shared {
         require(!finalized, "Cannot cancel a finalized node.");
         require(!cancelled, "Node has already been cancelled.");
         cancelled = true;
-        removeAndRefundContributor(msg.sender);
+        uint256 arrayLength = contributorAddresses.length;
+        address[] memory _contributorAddresses = contributorAddresses;
+        for (uint256 i = 0; i < arrayLength; i++) {
+            address entry = _contributorAddresses[i];
+            removeAndRefundContributor(entry);
+        }
         emit Cancelled(serviceNodeParams.serviceNodePubkey);
     }
 

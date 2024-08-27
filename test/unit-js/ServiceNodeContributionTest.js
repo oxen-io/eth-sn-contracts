@@ -394,15 +394,27 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                                                                          .equal(3);
                             });
 
-                            it("Cancel node and check contributors can withdraw", async function() {
+                            it("Cancel node and check contributor funds have been returned", async function() {
                                 const [owner, contributor1, contributor2] = await ethers.getSigners();
-                                await expect(snContribution.connect(owner).cancelNode());
+                                
+                                // Get initial balances
+                                const initialBalance1 = await sentToken.balanceOf(contributor1.address);
+                                const initialBalance2 = await sentToken.balanceOf(contributor2.address);
+                                
+                                // Get contribution amounts
+                                const contribution1 = await snContribution.contributions(contributor1.address);
+                                const contribution2 = await snContribution.contributions(contributor2.address);
 
-                                const contributorArray = [contributor1, contributor2];
-                                for (let i = 0; i < contributorArray.length; i++) {
-                                    const contributor = contributorArray[i];
-                                    await withdrawContributor(sentToken, snContribution, contributor);
-                                }
+                                // Cancel the node
+                                await expect(snContribution.connect(owner).cancelNode())
+                                    .to.emit(snContribution, "Cancelled");
+                                
+                                // Check final balances
+                                const finalBalance1 = await sentToken.balanceOf(contributor1.address);
+                                const finalBalance2 = await sentToken.balanceOf(contributor2.address);
+                                
+                                expect(finalBalance1).to.equal(initialBalance1 + contribution1);
+                                expect(finalBalance2).to.equal(initialBalance2 + contribution2);
                             });
                         });
                     });

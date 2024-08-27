@@ -687,7 +687,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         });
     });
 
-    describe("updateServiceNodeParams function", function () {
+    describe("updateServiceNodeParams and updateBLSPubkey functions", function () {
         let snContribution;
         let snOperator;
         let newParams;
@@ -712,6 +712,12 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 fee: 11,
             };
 
+            // Set up new pubkey for testing
+            newPubkey = {
+                X: 8,
+                Y: 9,
+            };
+
             // Contribute operator funds
             const minContribution = await snContribution.minimumContribution();
             await sentToken.transfer(snOperator, TEST_AMNT);
@@ -729,7 +735,16 @@ describe("ServiceNodeContribution Contract Tests", function () {
             expect(updatedParams.operatorSignature).to.deep.equal(newParams.operatorSignature);
         });
 
-        it("Should fail after another contributor has joined", async function () {
+        it("Should allow operator to update pubkey before other contributions", async function () {
+            await expect(snContribution.connect(snOperator).updateBLSPubkey(newPubkey))
+                .to.not.be.reverted;
+
+            const updatedPubkey = await snContribution.blsPubkey();
+            expect(updatedPubkey.X).to.equal(newPubkey.X);
+            expect(updatedPubkey.Y).to.equal(newPubkey.Y);
+        });
+
+        it("Should fail to update params after another contributor has joined", async function () {
             const [, contributor] = await ethers.getSigners();
             const minContribution = await snContribution.minimumContribution();
 
@@ -742,7 +757,20 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 .to.be.revertedWith("Cannot update params: Other contributors have already joined.");
         });
 
-        it("Should fail after contract is finalized", async function () {
+        it("Should fail to update pubkey after another contributor has joined", async function () {
+            const [, contributor] = await ethers.getSigners();
+            const minContribution = await snContribution.minimumContribution();
+
+            // Add another contributor
+            await sentToken.transfer(contributor, TEST_AMNT);
+            await sentToken.connect(contributor).approve(snContribution.target, minContribution);
+            await snContribution.connect(contributor).contributeFunds(minContribution);
+
+            await expect(snContribution.connect(snOperator).updateBLSPubkey(newPubkey))
+                .to.be.revertedWith("Cannot update pubkey: Other contributors have already joined.");
+        });
+
+        it("Should fail to update params after contract is finalized", async function () {
             // Finalize the contract
             const stakingRequirement = await snContribution.stakingRequirement();
             const currentContribution = await snContribution.totalContribution();
@@ -757,7 +785,22 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 .to.be.revertedWith("Cannot update params: Node has already been finalized.");
         });
 
-        it("Should work after contract reset", async function () {
+        it("Should fail to update pubkey after contract is finalized", async function () {
+            // Finalize the contract
+            const stakingRequirement = await snContribution.stakingRequirement();
+            const currentContribution = await snContribution.totalContribution();
+            const remainingContribution = stakingRequirement - currentContribution;
+
+            await sentToken.transfer(snOperator, remainingContribution);
+            await sentToken.connect(snOperator).approve(snContribution.target, remainingContribution);
+            await snContribution.connect(snOperator).contributeFunds(remainingContribution);
+
+            // Try to update pubkey after finalization
+            await expect(snContribution.connect(snOperator).updateBLSPubkey(newPubkey))
+                .to.be.revertedWith("Cannot update pubkey: Node has already been finalized.");
+        });
+
+        it("Should update params after contract reset", async function () {
             // Finalize the contract
             const stakingRequirement = await snContribution.stakingRequirement();
             const currentContribution = await snContribution.totalContribution();
@@ -780,6 +823,30 @@ describe("ServiceNodeContribution Contract Tests", function () {
             expect(updatedParams.serviceNodePubkey).to.equal(newParams.serviceNodePubkey);
             expect(updatedParams.operatorFee).to.equal(newParams.operatorFee);
             expect(updatedParams.operatorSignature).to.deep.equal(newParams.operatorSignature);
+        });
+
+        it("Should update pubkey after contract reset", async function () {
+            // Finalize the contract
+            const stakingRequirement = await snContribution.stakingRequirement();
+            const currentContribution = await snContribution.totalContribution();
+            const remainingContribution = stakingRequirement - currentContribution;
+
+            await sentToken.transfer(snOperator, remainingContribution);
+            await sentToken.connect(snOperator).approve(snContribution.target, remainingContribution);
+            await snContribution.connect(snOperator).contributeFunds(remainingContribution);
+
+            // Reset the contract
+            const minOperatorContribution = await snContribution.minimumOperatorContribution(stakingRequirement);
+            await sentToken.connect(snOperator).approve(snContribution.target, minOperatorContribution);
+            await snContribution.connect(snOperator).resetContract(minOperatorContribution);
+
+            // Update pubkey after reset
+            await expect(snContribution.connect(snOperator).updateBLSPubkey(newPubkey))
+                .to.not.be.reverted;
+
+            const updatedPubkey = await snContribution.blsPubkey();
+            expect(updatedPubkey.X).to.equal(newPubkey.X);
+            expect(updatedPubkey.Y).to.equal(newPubkey.Y);
         });
     });
 });

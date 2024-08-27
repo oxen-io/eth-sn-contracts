@@ -252,9 +252,21 @@ contract ServiceNodeContribution is Shared {
     function updateServiceNodeParams(IServiceNodeRewards.ServiceNodeParams memory newParams) public onlyOperator {
         require(!finalized, "Cannot update params: Node has already been finalized.");
         require(contributorAddresses.length == 1, "Cannot update params: Other contributors have already joined.");
-        require(contributorAddresses[0] == operator, "Cannot update params: Operator has not contributed yet.");
 
         serviceNodeParams = newParams;
+    }
+
+    /**
+     * @notice Allows the operator to update the blsPubkey.
+     * @dev This function can only be called by the operator, before the contract is finalized,
+     * and when there are no other contributors besides the operator.
+     * @param newBlsPubkey The new BLS Pubkey to set.
+     */
+    function updateBLSPubkey(BN256G1.G1Point memory newBlsPubkey) public onlyOperator {
+        require(!finalized, "Cannot update pubkey: Node has already been finalized.");
+        require(contributorAddresses.length == 1, "Cannot update pubkey: Other contributors have already joined.");
+
+        blsPubkey = newBlsPubkey;
     }
 
     /**

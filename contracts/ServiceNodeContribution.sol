@@ -244,6 +244,32 @@ contract ServiceNodeContribution is Shared {
     }
 
     /**
+     * @notice Allows the operator to update the serviceNodeParams.
+     * @dev This function can only be called by the operator, before the contract is finalized,
+     * and when there are no other contributors besides the operator.
+     * @param newParams The new ServiceNodeParams to set.
+     */
+    function updateServiceNodeParams(IServiceNodeRewards.ServiceNodeParams memory newParams) public onlyOperator {
+        require(!finalized, "Cannot update params: Node has already been finalized.");
+        require(contributorAddresses.length == 1, "Cannot update params: Other contributors have already joined.");
+
+        serviceNodeParams = newParams;
+    }
+
+    /**
+     * @notice Allows the operator to update the blsPubkey.
+     * @dev This function can only be called by the operator, before the contract is finalized,
+     * and when there are no other contributors besides the operator.
+     * @param newBlsPubkey The new BLS Pubkey to set.
+     */
+    function updateBLSPubkey(BN256G1.G1Point memory newBlsPubkey) public onlyOperator {
+        require(!finalized, "Cannot update pubkey: Node has already been finalized.");
+        require(contributorAddresses.length == 1, "Cannot update pubkey: Other contributors have already joined.");
+
+        blsPubkey = newBlsPubkey;
+    }
+
+    /**
      * @notice Function to allow owner to rescue any ERC20 tokens sent to the
      * contract after it has been finalized.
      *
@@ -303,7 +329,12 @@ contract ServiceNodeContribution is Shared {
         require(!finalized, "Cannot cancel a finalized node.");
         require(!cancelled, "Node has already been cancelled.");
         cancelled = true;
-        removeAndRefundContributor(msg.sender);
+        uint256 arrayLength = contributorAddresses.length;
+        address[] memory _contributorAddresses = contributorAddresses;
+        for (uint256 i = 0; i < arrayLength; i++) {
+            address entry = _contributorAddresses[i];
+            removeAndRefundContributor(entry);
+        }
         emit Cancelled(serviceNodeParams.serviceNodePubkey);
     }
 

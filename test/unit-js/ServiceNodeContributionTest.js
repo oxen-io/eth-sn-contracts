@@ -394,15 +394,27 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                                                                          .equal(3);
                             });
 
-                            it("Cancel node and check contributors can withdraw", async function() {
+                            it("Cancel node and check contributor funds have been returned", async function() {
                                 const [owner, contributor1, contributor2] = await ethers.getSigners();
-                                await expect(snContribution.connect(owner).cancelNode());
+                                
+                                // Get initial balances
+                                const initialBalance1 = await sentToken.balanceOf(contributor1.address);
+                                const initialBalance2 = await sentToken.balanceOf(contributor2.address);
+                                
+                                // Get contribution amounts
+                                const contribution1 = await snContribution.contributions(contributor1.address);
+                                const contribution2 = await snContribution.contributions(contributor2.address);
 
-                                const contributorArray = [contributor1, contributor2];
-                                for (let i = 0; i < contributorArray.length; i++) {
-                                    const contributor = contributorArray[i];
-                                    await withdrawContributor(sentToken, snContribution, contributor);
-                                }
+                                // Cancel the node
+                                await expect(snContribution.connect(owner).cancelNode())
+                                    .to.emit(snContribution, "Cancelled");
+                                
+                                // Check final balances
+                                const finalBalance1 = await sentToken.balanceOf(contributor1.address);
+                                const finalBalance2 = await sentToken.balanceOf(contributor2.address);
+                                
+                                expect(finalBalance1).to.equal(initialBalance1 + contribution1);
+                                expect(finalBalance2).to.equal(initialBalance2 + contribution2);
                             });
                         });
                     });
@@ -684,6 +696,169 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 const finalBalance = await sentToken.balanceOf(contributor.getAddress());
                 expect(finalBalance).to.equal(initialBalance + minContribution);
             });
+        });
+    });
+
+    describe("updateServiceNodeParams and updateBLSPubkey functions", function () {
+        let snContribution;
+        let snOperator;
+        let newParams;
+
+        beforeEach(async function () {
+            [snOperator] = await ethers.getSigners();
+
+            // Deploy the contract
+            const tx = await snContributionFactory.connect(snOperator)
+                .deployContributionContract([1,2],[3,4,5,6]);
+
+            const receipt = await tx.wait();
+            const event = receipt.logs[0];
+            const snContributionAddress = event.args[0];
+            snContribution = await ethers.getContractAt("ServiceNodeContribution", snContributionAddress);
+
+            // Set up new params for testing
+            newParams = {
+                serviceNodePubkey: 8,
+                serviceNodeSignature1: 9,
+                serviceNodeSignature2: 10,
+                fee: 11,
+            };
+
+            // Set up new pubkey for testing
+            newPubkey = {
+                X: 8,
+                Y: 9,
+            };
+
+            // Contribute operator funds
+            const minContribution = await snContribution.minimumContribution();
+            await sentToken.transfer(snOperator, TEST_AMNT);
+            await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
+            await snContribution.connect(snOperator).contributeOperatorFunds(minContribution, [3,4,5,6]);
+        });
+
+        it("Should allow operator to update params before other contributions", async function () {
+            await expect(snContribution.connect(snOperator).updateServiceNodeParams(newParams))
+                .to.not.be.reverted;
+
+            const updatedParams = await snContribution.serviceNodeParams();
+            expect(updatedParams.serviceNodePubkey).to.equal(newParams.serviceNodePubkey);
+            expect(updatedParams.operatorFee).to.equal(newParams.operatorFee);
+            expect(updatedParams.operatorSignature).to.deep.equal(newParams.operatorSignature);
+        });
+
+        it("Should allow operator to update pubkey before other contributions", async function () {
+            await expect(snContribution.connect(snOperator).updateBLSPubkey(newPubkey))
+                .to.not.be.reverted;
+
+            const updatedPubkey = await snContribution.blsPubkey();
+            expect(updatedPubkey.X).to.equal(newPubkey.X);
+            expect(updatedPubkey.Y).to.equal(newPubkey.Y);
+        });
+
+        it("Should fail to update params after another contributor has joined", async function () {
+            const [, contributor] = await ethers.getSigners();
+            const minContribution = await snContribution.minimumContribution();
+
+            // Add another contributor
+            await sentToken.transfer(contributor, TEST_AMNT);
+            await sentToken.connect(contributor).approve(snContribution.target, minContribution);
+            await snContribution.connect(contributor).contributeFunds(minContribution);
+
+            await expect(snContribution.connect(snOperator).updateServiceNodeParams(newParams))
+                .to.be.revertedWith("Cannot update params: Other contributors have already joined.");
+        });
+
+        it("Should fail to update pubkey after another contributor has joined", async function () {
+            const [, contributor] = await ethers.getSigners();
+            const minContribution = await snContribution.minimumContribution();
+
+            // Add another contributor
+            await sentToken.transfer(contributor, TEST_AMNT);
+            await sentToken.connect(contributor).approve(snContribution.target, minContribution);
+            await snContribution.connect(contributor).contributeFunds(minContribution);
+
+            await expect(snContribution.connect(snOperator).updateBLSPubkey(newPubkey))
+                .to.be.revertedWith("Cannot update pubkey: Other contributors have already joined.");
+        });
+
+        it("Should fail to update params after contract is finalized", async function () {
+            // Finalize the contract
+            const stakingRequirement = await snContribution.stakingRequirement();
+            const currentContribution = await snContribution.totalContribution();
+            const remainingContribution = stakingRequirement - currentContribution;
+
+            await sentToken.transfer(snOperator, remainingContribution);
+            await sentToken.connect(snOperator).approve(snContribution.target, remainingContribution);
+            await snContribution.connect(snOperator).contributeFunds(remainingContribution);
+
+            // Try to update params after finalization
+            await expect(snContribution.connect(snOperator).updateServiceNodeParams(newParams))
+                .to.be.revertedWith("Cannot update params: Node has already been finalized.");
+        });
+
+        it("Should fail to update pubkey after contract is finalized", async function () {
+            // Finalize the contract
+            const stakingRequirement = await snContribution.stakingRequirement();
+            const currentContribution = await snContribution.totalContribution();
+            const remainingContribution = stakingRequirement - currentContribution;
+
+            await sentToken.transfer(snOperator, remainingContribution);
+            await sentToken.connect(snOperator).approve(snContribution.target, remainingContribution);
+            await snContribution.connect(snOperator).contributeFunds(remainingContribution);
+
+            // Try to update pubkey after finalization
+            await expect(snContribution.connect(snOperator).updateBLSPubkey(newPubkey))
+                .to.be.revertedWith("Cannot update pubkey: Node has already been finalized.");
+        });
+
+        it("Should update params after contract reset", async function () {
+            // Finalize the contract
+            const stakingRequirement = await snContribution.stakingRequirement();
+            const currentContribution = await snContribution.totalContribution();
+            const remainingContribution = stakingRequirement - currentContribution;
+
+            await sentToken.transfer(snOperator, remainingContribution);
+            await sentToken.connect(snOperator).approve(snContribution.target, remainingContribution);
+            await snContribution.connect(snOperator).contributeFunds(remainingContribution);
+
+            // Reset the contract
+            const minOperatorContribution = await snContribution.minimumOperatorContribution(stakingRequirement);
+            await sentToken.connect(snOperator).approve(snContribution.target, minOperatorContribution);
+            await snContribution.connect(snOperator).resetContract(minOperatorContribution);
+
+            // Update params after reset
+            await expect(snContribution.connect(snOperator).updateServiceNodeParams(newParams))
+                .to.not.be.reverted;
+
+            const updatedParams = await snContribution.serviceNodeParams();
+            expect(updatedParams.serviceNodePubkey).to.equal(newParams.serviceNodePubkey);
+            expect(updatedParams.operatorFee).to.equal(newParams.operatorFee);
+            expect(updatedParams.operatorSignature).to.deep.equal(newParams.operatorSignature);
+        });
+
+        it("Should update pubkey after contract reset", async function () {
+            // Finalize the contract
+            const stakingRequirement = await snContribution.stakingRequirement();
+            const currentContribution = await snContribution.totalContribution();
+            const remainingContribution = stakingRequirement - currentContribution;
+
+            await sentToken.transfer(snOperator, remainingContribution);
+            await sentToken.connect(snOperator).approve(snContribution.target, remainingContribution);
+            await snContribution.connect(snOperator).contributeFunds(remainingContribution);
+
+            // Reset the contract
+            const minOperatorContribution = await snContribution.minimumOperatorContribution(stakingRequirement);
+            await sentToken.connect(snOperator).approve(snContribution.target, minOperatorContribution);
+            await snContribution.connect(snOperator).resetContract(minOperatorContribution);
+
+            // Update pubkey after reset
+            await expect(snContribution.connect(snOperator).updateBLSPubkey(newPubkey))
+                .to.not.be.reverted;
+
+            const updatedPubkey = await snContribution.blsPubkey();
+            expect(updatedPubkey.X).to.equal(newPubkey.X);
+            expect(updatedPubkey.Y).to.equal(newPubkey.Y);
         });
     });
 });

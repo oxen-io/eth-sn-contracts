@@ -316,7 +316,7 @@ std::string ServiceNodeList::updateRewardsBalance(const std::string& address, ui
     if (rewardAddressOutput.substr(0, 2) == "0x")
         rewardAddressOutput = rewardAddressOutput.substr(2);  // remove "0x"
     std::string fullTag = buildTag(rewardTag, chainID, contractAddress);
-    std::string message = "0x" + fullTag + ethyl::utils::padToNBytes(rewardAddressOutput, 20, ethyl::utils::PaddingDirection::LEFT) + ethyl::utils::padTo32Bytes(std::to_string(amount), ethyl::utils::PaddingDirection::LEFT);
+    std::string message = "0x" + fullTag + ethyl::utils::padToNBytes(rewardAddressOutput, 20, ethyl::utils::PaddingDirection::LEFT) + ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(amount), ethyl::utils::PaddingDirection::LEFT);
     bls::Signature aggSig;
     aggSig.clear();
     std::vector<uint8_t> messageBytes = ethyl::utils::fromHexString<uint8_t>(message);

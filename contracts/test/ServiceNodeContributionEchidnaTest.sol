@@ -146,6 +146,7 @@ contract ServiceNodeContributionEchidnaTest {
         IServiceNodeRewards.BLSSignatureParams memory _blsSignature
     ) public {
         mintTokensForTesting();
+        IServiceNodeRewards.Contributor[] memory reservedContributors;
         if (
             snOperator == msg.sender &&
             snContribution.operatorContribution() == 0 &&
@@ -159,7 +160,7 @@ contract ServiceNodeContributionEchidnaTest {
             assert(snContribution.totalContribution() == 0);
             assert(snContribution.contributorAddressesLength() == 0);
 
-            try snContribution.contributeOperatorFunds(_amount, _blsSignature) {} catch {
+            try snContribution.contributeOperatorFunds(_amount, _blsSignature, reservedContributors) {} catch {
                 assert(false); // Contribute must succeed as all necessary preconditions are met
             }
 
@@ -170,7 +171,7 @@ contract ServiceNodeContributionEchidnaTest {
 
             assert(sentToken.balanceOf(msg.sender) == balanceBeforeContribute - _amount);
         } else {
-            try snContribution.contributeOperatorFunds(_amount, _blsSignature) {
+            try snContribution.contributeOperatorFunds(_amount, _blsSignature, reservedContributors) {
                 assert(false); // Contribute as operator must not succeed
             } catch {}
         }
@@ -250,14 +251,15 @@ contract ServiceNodeContributionEchidnaTest {
     }
 
     function testResetContract(uint256 _amount) public {
+        IServiceNodeRewards.Contributor[] memory reservedContributors;
         if (!snContribution.finalized() || snContribution.cancelled()) {
-            try snContribution.resetContract(_amount) {
+            try snContribution.resetContract(_amount, reservedContributors) {
                 assert(false); // Can't reset until after finalized
             } catch {}
         } else {
             if (msg.sender == snOperator && _amount >= snContribution.minimumContribution()) {
                 uint256 balanceBeforeContribute = sentToken.balanceOf(msg.sender);
-                try snContribution.resetContract(_amount) {} catch {
+                try snContribution.resetContract(_amount, reservedContributors) {} catch {
                     assert(false); // Can reset if finalized
                 }
                 assert(!snContribution.finalized());
@@ -265,7 +267,7 @@ contract ServiceNodeContributionEchidnaTest {
                 assert(snContribution.operatorContribution() == _amount);
                 assert(sentToken.balanceOf(msg.sender) == balanceBeforeContribute - _amount);
             } else {
-                try snContribution.resetContract(_amount) {
+                try snContribution.resetContract(_amount, reservedContributors) {
                     assert(false); // Can not reset
                 } catch {}
             }

@@ -41,6 +41,10 @@ contract ServiceNodeContribution is Shared {
     address[] public contributorAddresses;
     uint256 public immutable maxContributors;
 
+    // Reserved Stakes
+    mapping(address => uint256) public reservedContributions;
+    address[] public reservedContributorAddresses;
+
     // Smart Contract
     bool public finalized = false;
     bool public cancelled = false;
@@ -108,15 +112,38 @@ contract ServiceNodeContribution is Shared {
      * is reverted.
      * @param _blsSignature 128 byte BLS proof of possession signature that
      * proves ownership of the `blsPubkey`.
+     * @param _reservedContributors array of address/amounts to reserve minimum stakes
+     * for the given addresses.  Can be empty to leave contributor spots open to anyone.
      */
     function contributeOperatorFunds(
         uint256 amount,
-        IServiceNodeRewards.BLSSignatureParams memory _blsSignature
+        IServiceNodeRewards.BLSSignatureParams memory _blsSignature,
+        IServiceNodeRewards.Contributor[] memory _reservedContributors
     ) public onlyOperator {
         require(contributorAddresses.length == 0, "Operator already contributed funds");
         require(!cancelled, "Node has been cancelled.");
         require(amount >= minimumContribution(), "Contribution is below minimum requirement");
         blsSignature = _blsSignature;
+
+        uint256 reservedAmounts = amount;
+        uint256 reservedAmount = 0;
+        uint256 reservedMinimumContribution = 0;
+        for (uint256 i = 0; i < _reservedContributors.length; i++) {
+            require(_reservedContributors[i].addr != msg.sender, "Cannot reserve for operator");
+            require(reservedContributions[_reservedContributors[i].addr] == 0, "duplicate address in reserved contributors");
+            reservedMinimumContribution = calcMinimumContribution(
+                stakingRequirement - reservedAmounts,
+                i + 1,
+                maxContributors
+            );
+            reservedAmount = _reservedContributors[i].stakedAmount;
+            require(reservedAmount >= reservedMinimumContribution, "Contribution is below minimum requirement");
+            reservedAmounts += reservedAmount;
+            reservedContributorAddresses.push(_reservedContributors[i].addr);
+            reservedContributions[_reservedContributors[i].addr] = reservedAmount;
+        }
+        require(totalReservedContribution() <= stakingRequirement, "Reserved contributions too high");
+
         contributeFunds(amount);
     }
 
@@ -155,8 +182,22 @@ contract ServiceNodeContribution is Shared {
                 "been changed. Please inform the operator and pre-existing contributors to cancel "
                 "the contract, withdraw their funds and to re-initiate a new contract.");
 
+        uint256 reserved = reservedContributions[msg.sender];
+        if (reserved > 0) {
+            require(amount >= reserved, "Insufficient contribution for reserved contributor");
+            reservedContributions[msg.sender] = 0;
+            uint256 arrayLength = reservedContributorAddresses.length;
+            for (uint256 index = 0; index < arrayLength; index++) {
+                if (msg.sender == reservedContributorAddresses[index]) {
+                    reservedContributorAddresses[index] = reservedContributorAddresses[arrayLength - 1];
+                    reservedContributorAddresses.pop();
+                    break;
+                }
+            }
+        }
+
         // NOTE: Check contract status and collateral
-        require(totalContribution() + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
+        require(totalContribution() + totalReservedContribution() + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
         require(!finalized, "Node has already been finalized.");
         require(!cancelled, "Node has been cancelled.");
 
@@ -225,8 +266,11 @@ contract ServiceNodeContribution is Shared {
      * amount must be greater than the minimum operator contribution which can
      * be calculated by calling `calcMinimumContribution` with the staking
      * requirement and 0 contributors.
+     * @param reservedContributors array of address/amounts to reserve minimum stakes
+     * for the given addresses.  Can be empty to leave contributor spots open to anyone.
      */
-    function resetContract(uint256 amount) external onlyOperator {
+    function resetContract(uint256 amount, IServiceNodeRewards.Contributor[] memory reservedContributors) external onlyOperator {
+            
         require(finalized, "You cannot reset a contract that hasn't been finalised yet");
 
         // NOTE: Zero out all addresses in `contributions`
@@ -241,7 +285,7 @@ contract ServiceNodeContribution is Shared {
 
         // NOTE: Re-init the contract with the operator contribution.
         finalized = false;
-        contributeOperatorFunds(amount, blsSignature);
+        contributeOperatorFunds(amount, blsSignature, reservedContributors);
     }
 
     /**
@@ -405,8 +449,8 @@ contract ServiceNodeContribution is Shared {
      */
     function minimumContribution() public view returns (uint256 result) {
         result = calcMinimumContribution(
-            stakingRequirement - totalContribution(),
-            contributorAddresses.length,
+            stakingRequirement - totalContribution() - totalReservedContribution(),
+            contributorAddresses.length + reservedContributorAddresses.length,
             maxContributors
         );
         return result;
@@ -491,6 +535,18 @@ contract ServiceNodeContribution is Shared {
         for (uint256 i = 0; i < arrayLength; i++) {
             address entry = contributorAddresses[i];
             result += contributions[entry];
+        }
+        return result;
+    }
+
+    /**
+     * @notice Sum up all the reserved contributions recorded in the reserved list
+     */
+    function totalReservedContribution() public view returns (uint256 result) {
+        uint256 arrayLength = reservedContributorAddresses.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
+            address entry = reservedContributorAddresses[i];
+            result += reservedContributions[entry];
         }
         return result;
     }

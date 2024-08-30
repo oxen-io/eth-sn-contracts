@@ -44,7 +44,7 @@ contract BN256G2EchidnaTest {
         Hm = BN256G2.hashToG2(message, dummyTag);
     }
 
-    function echidna_always_hashable() public returns (bool) {
+    function echidna_always_hashable() public view returns (bool) {
         return BN256G2.IsOnCurve(Hm.X[1], Hm.X[0], Hm.Y[1], Hm.Y[0]);
     }
 }

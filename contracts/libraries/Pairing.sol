@@ -29,7 +29,7 @@ library Pairing {
         assembly {
             success := call(sub(gas(), 2000), 8, 0, add(input, 0x20), mul(inputSize, 0x20), out, 0x20)
         }
-        require(success, "Call to precompiled contract for pairing failed");
+        require(success, "Invalid Signature");
         return out[0] != 0;
     }
 

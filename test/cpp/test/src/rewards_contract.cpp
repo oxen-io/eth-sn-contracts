@@ -636,7 +636,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         resetContractToSnapshot();
     }
 
-    SECTION( "Claim too much rewards over two transactions and trigger rate limiter" ) {
+    SECTION( "Claim too much rewards but over the waiting time should succeed" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 0);
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -648,7 +648,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
         std::vector<unsigned char> secondseckey = ethyl::utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
         const std::string recipientAddress = signer.secretKeyToAddressString(secondseckey);
-        const uint64_t recipientAmount = 1500000000000000;
+        const uint64_t recipientAmount = 500000000000000;
         const auto signers = snl.randomSigners(snl.nodes.size());
         const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
         const auto non_signers = snl.findNonSigners(signers);
@@ -657,7 +657,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         uint64_t amount = erc20_contract.balanceOf(recipientAddress);
         REQUIRE(amount == 0);
 
-        const uint64_t secondRecipientAmount = 3000000000000000;
+        const uint64_t secondRecipientAmount = 1100000000000000;
         tx = erc20_contract.transfer(contract_address, secondRecipientAmount);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
@@ -687,7 +687,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         resetContractToSnapshot();
     }
 
-    SECTION( "Claim too much rewards but over the waiting time should succeed" ) {
+    SECTION( "Claim too much rewards over two transactions and trigger rate limiter" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 0);
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -699,7 +699,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
         std::vector<unsigned char> secondseckey = ethyl::utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
         const std::string recipientAddress = signer.secretKeyToAddressString(secondseckey);
-        const uint64_t recipientAmount = 1500000000000000;
+        const uint64_t recipientAmount = 500000000000000;
         const auto signers = snl.randomSigners(snl.nodes.size());
         const auto sig = snl.updateRewardsBalance(recipientAddress, recipientAmount, config.CHAIN_ID, contract_address, signers);
         const auto non_signers = snl.findNonSigners(signers);
@@ -708,7 +708,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         uint64_t amount = erc20_contract.balanceOf(recipientAddress);
         REQUIRE(amount == 0);
 
-        const uint64_t secondRecipientAmount = 3000000000000000;
+        const uint64_t secondRecipientAmount = 1100000000000000;
         tx = erc20_contract.transfer(contract_address, secondRecipientAmount);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");

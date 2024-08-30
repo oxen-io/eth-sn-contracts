@@ -34,6 +34,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     uint256 public blsNonSignerThreshold;
     uint256 public blsNonSignerThresholdMax;
     uint256 public claimThreshold;
+    uint256 public claimCycle;
     uint256 public periodicClaims;
     uint256 public epochDay;
     uint256 public signatureExpiry;
@@ -78,7 +79,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         liquidateTag = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
         hashToG2Tag = buildTag("BLS_SIG_HASH_TO_FIELD_TAG");
         signatureExpiry = 10 minutes;
-        claimThreshold = 2_000_000 * 1e9;
+        claimThreshold = 1_000_000 * 1e9;
+        claimCycle = 12 hours;
         periodicClaims = 0;
         epochDay = 0;
 
@@ -248,7 +250,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         if (amount > maxAmount)
             revert MaxClaimExceeded();
 
-        uint256 _epochDay = block.timestamp / 86400;
+        uint256 _epochDay = block.timestamp / claimCycle;
         if (_epochDay > epochDay) {
             epochDay = _epochDay;
             periodicClaims = 0;

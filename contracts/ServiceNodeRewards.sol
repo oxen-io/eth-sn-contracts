@@ -33,6 +33,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     uint256 public totalNodes;
     uint256 public blsNonSignerThreshold;
     uint256 public blsNonSignerThresholdMax;
+    uint256 public claimThreshold;
+    uint256 public claimCycle;
+    uint256 public periodicClaims;
+    uint256 public epochDay;
     uint256 public signatureExpiry;
 
     bytes32 public proofOfPossessionTag;
@@ -75,6 +79,10 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         liquidateTag = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
         hashToG2Tag = buildTag("BLS_SIG_HASH_TO_FIELD_TAG");
         signatureExpiry = 10 minutes;
+        claimThreshold = 1_000_000 * 1e9;
+        claimCycle = 12 hours;
+        periodicClaims = 0;
+        epochDay = 0;
 
         designatedToken = IERC20(token_);
         foundationPool = IERC20(foundationPool_);
@@ -135,6 +143,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event RewardsBalanceUpdated(address indexed recipientAddress, uint256 amount, uint256 previousBalance);
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
     event BLSNonSignerThresholdMaxUpdated(uint256 newMax);
+    event ClaimThresholdUpdated(uint256 newThreshold);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address operator, BN256G1.G1Point pubkey);
     event ServiceNodeRemoval(
         uint64 indexed serviceNodeID,
@@ -150,6 +159,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
     error BLSPubkeyDoesNotMatch(uint64 serviceNodeID, BN256G1.G1Point pubkey);
     error CallerNotContributor(uint64 serviceNodeID, address contributor);
+    error ClaimThresholdExceeded();
     error ContractAlreadyStarted();
     error ContractNotStarted();
     error ContributionTotalMismatch(uint256 required, uint256 provided);
@@ -163,6 +173,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error InvalidBLSProofOfPossession();
     error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
     error MaxContributorsExceeded();
+    error MaxClaimExceeded();
     error MaxPubkeyAggregationsExceeded();
     error NullPublicKey();
     error NullAddress();
@@ -229,22 +240,41 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     }
 
     /// @dev Internal function to handle reward claims. Will transfer the
-    /// available rewards worth of our token to claimingAddress
+    /// requested amount of our token to claimingAddress, up to the available rewards
     /// @param claimingAddress The address claiming the rewards.
-    function _claimRewards(address claimingAddress) internal {
+    /// @param amount The amount of rewards to claim.
+    function _claimRewards(address claimingAddress, uint256 amount) internal {
         uint256 claimedRewards = recipients[claimingAddress].claimed;
         uint256 totalRewards = recipients[claimingAddress].rewards;
-        uint256 amountToRedeem = totalRewards - claimedRewards;
+        uint256 maxAmount = totalRewards - claimedRewards;
+        if (amount > maxAmount)
+            revert MaxClaimExceeded();
 
-        recipients[claimingAddress].claimed = totalRewards;
-        emit RewardsClaimed(claimingAddress, amountToRedeem);
+        uint256 _epochDay = block.timestamp / claimCycle;
+        if (_epochDay > epochDay) {
+            epochDay = _epochDay;
+            periodicClaims = 0;
+        }
+        periodicClaims += amount;
+        if (periodicClaims > claimThreshold) revert ClaimThresholdExceeded();
 
-        SafeERC20.safeTransfer(designatedToken, claimingAddress, amountToRedeem);
+        recipients[claimingAddress].claimed += amount;
+        emit RewardsClaimed(claimingAddress, amount);
+        SafeERC20.safeTransfer(designatedToken, claimingAddress, amount);
     }
 
-    /// @notice Claim the rewards due for the active wallet invoking the claim.
+    /// @notice Claim all available rewards for the active wallet invoking the claim.
     function claimRewards() public {
-        _claimRewards(msg.sender);
+        uint256 claimedRewards = recipients[msg.sender].claimed;
+        uint256 totalRewards = recipients[msg.sender].rewards;
+        uint256 amountToRedeem = totalRewards - claimedRewards;
+        _claimRewards(msg.sender, amountToRedeem);
+    }
+
+    /// @notice Claim a specific amount of rewards for the active wallet invoking the claim.
+    /// @param amount The amount of rewards to claim.
+    function claimRewards(uint256 amount) public {
+        _claimRewards(msg.sender, amount);
     }
 
     /// MANAGING BLS PUBLIC KEY LIST
@@ -766,6 +796,17 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             revert PositiveNumberRequirement();
         blsNonSignerThresholdMax = newMax;
         emit BLSNonSignerThresholdMaxUpdated(newMax);
+    }
+
+    /// @notice Max Claim amount to use in the check
+    /// before allowing the user to claim. If the claimed amount over 24 hours
+    /// exceeds this then the claim will fail
+    /// @param newMax The new maximum claim threshold
+    function setClaimThreshold(uint256 newMax) public onlyOwner {
+        if (newMax <= 0)
+            revert PositiveNumberRequirement();
+        claimThreshold = newMax;
+        emit ClaimThresholdUpdated(newMax);
     }
 
     //////////////////////////////////////////////////////////////

@@ -55,6 +55,7 @@ public:
     ethyl::Transaction removeBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
     ethyl::Transaction updateRewardsBalance(const std::string& address, const uint64_t amount, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
     ethyl::Transaction claimRewards();
+    ethyl::Transaction claimRewards(uint64_t amount);
     ethyl::Transaction start();
 
     /// Address of the ERC20 contract that must be set to the address of the

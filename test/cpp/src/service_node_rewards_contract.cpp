@@ -235,6 +235,14 @@ ethyl::Transaction ServiceNodeRewardsContract::claimRewards() {
     return tx;
 }
 
+ethyl::Transaction ServiceNodeRewardsContract::claimRewards(uint64_t amount) {
+    ethyl::Transaction tx(contractAddress, 0, 3000000);
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("claimRewards(uint256)");
+    std::string amount_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(amount), ethyl::utils::PaddingDirection::LEFT);
+    tx.data = functionSelector + amount_padded;
+    return tx;
+}
+
 ethyl::Transaction ServiceNodeRewardsContract::start() {
     ethyl::Transaction tx(contractAddress, 0, 3000000);
     std::string functionSelector = ethyl::utils::toEthFunctionSignature("start()");

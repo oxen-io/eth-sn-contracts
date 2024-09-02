@@ -3,12 +3,14 @@ pragma solidity ^0.8.26;
 
 import "./ServiceNodeContribution.sol";
 import "./interfaces/IServiceNodeRewards.sol";
+import "./interfaces/IServiceNodeContributionFactory.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract ServiceNodeContributionFactory {
+contract ServiceNodeContributionFactory is IServiceNodeContributionFactory {
     IERC20 public immutable SENT;
     IServiceNodeRewards public immutable stakingRewardsContract;
     uint256 public immutable maxContributors;
+    mapping(address => bool) public deployedContracts;
 
     // EVENTS
     event NewServiceNodeContributionContract(address indexed contributorContract, uint256 serviceNodePubkey);
@@ -29,6 +31,12 @@ contract ServiceNodeContributionFactory {
             blsPubkey,
             serviceNodeParams
         );
+        deployedContracts[address(newContract)] = true;
         emit NewServiceNodeContributionContract(address(newContract), serviceNodeParams.serviceNodePubkey);
+    }
+
+    // Function to check if a contract has been deployed
+    function isContractDeployed(address contractAddress) public view returns (bool) {
+        return deployedContracts[contractAddress];
     }
 }

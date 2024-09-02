@@ -90,4 +90,8 @@ contract MockServiceNodeRewards is Ownable {
     function serviceNodes(uint64 serviceNodeID) external view returns (IServiceNodeRewards.ServiceNode memory) {
         return _serviceNodes[serviceNodeID];
     }
+
+    function serviceNodeIDs(bytes calldata) external pure returns (uint64 ids) {
+        return 1;
+    }
 }

@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import "./libraries/Shared.sol";
 import "./interfaces/IServiceNodeRewards.sol";
+import "./interfaces/IServiceNodeContribution.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -20,7 +21,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  * This contract supports revoking of the contract prior to finalisation,
  * refunding the contribution to the contributors and the operator.
  */
-contract ServiceNodeContribution is Shared {
+contract ServiceNodeContribution is Shared, IServiceNodeContribution {
     using SafeERC20 for IERC20;
 
     // Staking

@@ -28,9 +28,15 @@ interface ITokenVestingStaking {
 
     function claimRewards() external;
 
+    function contributeFunds(address contributionContract, uint256 amount) external;
+
+    function withdrawContribution(address contributionContractAddress) external;
+
     function release(IERC20 token) external;
 
     function revoke(IERC20 token) external;
+
+    function updateContributionFactory(address newFactory) external;
 
     function retrieveRevokedFunds(IERC20 token) external;
 
@@ -47,4 +53,6 @@ interface ITokenVestingStaking {
     function getBeneficiary() external view returns (address);
 
     function getRevoker() external view returns (address);
+
+    function investorServiceNodesLength() external view returns (uint256);
 }

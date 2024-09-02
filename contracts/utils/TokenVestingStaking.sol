@@ -4,8 +4,9 @@ pragma solidity ^0.8.26;
 
 import "../libraries/Shared.sol";
 import "../interfaces/ITokenVestingStaking.sol";
+import "../interfaces/IServiceNodeContributionFactory.sol";
+import "../interfaces/IServiceNodeContribution.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
 /**
  * @title TokenVestingStaking
  * @dev A token holder contract that that vests its balance of any ERC20 token to the beneficiary.
@@ -35,8 +36,12 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     // solhint-disable-next-line var-name-mixedcase
     IERC20 public immutable SENT;
 
+
     // The contract that holds the reference addresses for staking purposes.
     IServiceNodeRewards public immutable stakingRewardsContract;
+
+    // The contract that deploys multi contributor contracts
+    IServiceNodeContributionFactory public contributionFactory;
 
     bool public revoked;
 
@@ -44,6 +49,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     struct ServiceNode {
         uint64 serviceNodeID;
         uint256 deposit;
+        address contributionContract;
     }
     ServiceNode[] public investorServiceNodes;
 
@@ -63,8 +69,9 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         uint256 end_,
         bool transferableBeneficiary_,
         IServiceNodeRewards stakingRewardsContract_,
+        IServiceNodeContributionFactory contributionFactory_,
         IERC20 sent_
-    ) nzAddr(beneficiary_) nzAddr(address(stakingRewardsContract_)) nzAddr(address(sent_)) {
+    ) nzAddr(beneficiary_) nzAddr(address(stakingRewardsContract_)) nzAddr(address(contributionFactory_)) nzAddr(address(sent_)) {
         require(start_ <= end_, "Vesting: start_ after end_");
         require(block.timestamp < start_, "Vesting: start before current time");
 
@@ -74,6 +81,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         end = end_;
         transferableBeneficiary = transferableBeneficiary_;
         stakingRewardsContract = stakingRewardsContract_;
+        contributionFactory = contributionFactory_;
         SENT = sent_;
     }
 
@@ -96,7 +104,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     ) external onlyBeneficiary notRevoked afterStart {
         uint256 stakingRequirement = stakingRewardsContract.stakingRequirement();
         uint64 serviceNodeID = stakingRewardsContract.nextServiceNodeID();
-        investorServiceNodes.push(ServiceNode(serviceNodeID, stakingRequirement));
+        investorServiceNodes.push(ServiceNode(serviceNodeID, stakingRequirement, address(0)));
         SENT.approve(address(stakingRewardsContract), stakingRequirement);
 
         // NOTE: Pass empty array, the contract will assume sender (this contract) as operator.
@@ -119,11 +127,25 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         uint256 unstaked = 0;
         uint256 length = investorServiceNodes.length;
         for (uint256 i = 1; i < length + 1; i++) {
-            IServiceNodeRewards.ServiceNode memory sn = stakingRewardsContract.serviceNodes(
-                investorServiceNodes[i - 1].serviceNodeID
-            );
+            ServiceNode memory investorNode = investorServiceNodes[i - 1];
+            uint64 serviceNodeID = investorNode.serviceNodeID;
+            IServiceNodeContribution contributionContract = IServiceNodeContribution(investorNode.contributionContract);
+            if (address(contributionContract) != address(0)) {
+                uint256 contributedAmount = contributionContract.contributions(address(this));
+                if (!contributionContract.finalized() && contributedAmount > 0)
+                    continue;
+                BN256G1.G1Point memory blsPubkey;
+                (blsPubkey.X, blsPubkey.Y) = contributionContract.blsPubkey();
+                bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
+                serviceNodeID = stakingRewardsContract.serviceNodeIDs(pubkeyBytes);
+                if (serviceNodeID != 0) {
+                    investorServiceNodes[i - 1].serviceNodeID = serviceNodeID;
+                    investorServiceNodes[i - 1].contributionContract = address(0);
+                }
+            }
+            IServiceNodeRewards.ServiceNode memory sn = stakingRewardsContract.serviceNodes(serviceNodeID);
             if (sn.deposit == 0) {
-                unstaked += investorServiceNodes[i - 1].deposit;
+                unstaked += investorNode.deposit;
 
                 // Remove service node from the array by swapping it with the last element and then popping the array
                 investorServiceNodes[i - 1] = investorServiceNodes[length - 1];
@@ -144,6 +166,51 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
             : 0;
 
         SENT.safeTransfer(beneficiary, amount);
+    }
+
+        /**
+     * @notice Contributes funds to a ServiceNodeContribution contract
+     * @param contributionContract The address of the ServiceNodeContribution contract
+     * @param amount The amount of SENT tokens to contribute
+     */
+    function contributeFunds(address contributionContract, uint256 amount) external onlyBeneficiary notRevoked afterStart {
+        bool contractDeployed = contributionFactory.isContractDeployed(contributionContract);
+        require(contractDeployed, "Invalid contribution contract");
+        IServiceNodeContribution contribution = IServiceNodeContribution(contributionContract);
+
+        bool isNewNode = true;
+        for (uint256 i = 0; i < investorServiceNodes.length; i++) {
+            if (investorServiceNodes[i].contributionContract == contributionContract) {
+                investorServiceNodes[i].deposit += amount;
+                isNewNode = false;
+                break;
+            }
+        }
+        if (isNewNode)
+            investorServiceNodes.push(ServiceNode(0, amount, contributionContract));
+
+        SENT.approve(contributionContract, amount);
+        contribution.contributeFunds(amount);
+    }
+
+    /**
+     * @notice Withdraws contribution from a ServiceNodeContribution contract
+     * @param contributionContractAddress The address of the ServiceNodeContribution contract
+     */
+    function withdrawContribution(address contributionContractAddress) external onlyBeneficiary notRevoked afterStart {
+        require(contributionFactory.isContractDeployed(contributionContractAddress), "Invalid contribution contract");
+        IServiceNodeContribution contributionContract = IServiceNodeContribution(contributionContractAddress);
+        bool foundNode = false;
+        for (uint256 i = 1; i < investorServiceNodes.length + 1; i++) {
+            if (investorServiceNodes[i - 1].contributionContract == contributionContractAddress) {
+                investorServiceNodes[i - 1] = investorServiceNodes[investorServiceNodes.length - 1];
+                investorServiceNodes.pop();
+                foundNode = true;
+                break;
+            }
+        }
+        require(foundNode, "No record of contributions to this contract");
+        contributionContract.withdrawContribution();
     }
 
     /**
@@ -175,6 +242,15 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
 
         emit TokenVestingRevoked(token, refund);
         token.safeTransfer(revoker, refund);
+    }
+
+    /**
+     * @notice Allows the revoker to change the multi-contributor factory which guides whether user provided
+     *         addresses are valid
+     * @param newFactory ServiceNodeContributionFactory address to update.
+     */
+    function updateContributionFactory(address newFactory) external override onlyRevoker notRevoked nzAddr(newFactory) {
+        contributionFactory = IServiceNodeContributionFactory(newFactory);
     }
 
     /**
@@ -229,6 +305,10 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
      */
     function getRevoker() external view override returns (address) {
         return revoker;
+    }
+
+    function investorServiceNodesLength() external view override returns (uint256) {
+        return investorServiceNodes.length;
     }
 
     //////////////////////////////////////////////////////////////

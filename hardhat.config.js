@@ -35,5 +35,8 @@ module.exports = {
       },
     },
   },
+  paths: {
+    tests: "./test/unit-js"
+  },
 };
 

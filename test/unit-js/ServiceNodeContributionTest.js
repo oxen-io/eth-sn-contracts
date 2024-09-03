@@ -304,6 +304,25 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     .to.equal(2);
             });
 
+            it("Should allow operator top-ups", async function() {
+                const minContribution = await snContribution.minimumContribution();
+                const topup = BigInt(9_000000000);
+                await expect(topup).to.be.below(minContribution)
+                const currTotal = await snContribution.totalContribution();
+                await sentToken.connect(snOperator).approve(snContribution, topup);
+                await expect(snContribution.connect(snOperator).contributeFunds(topup))
+                      .to.emit(snContribution, "NewContribution")
+                      .withArgs(await snOperator.getAddress(), topup);
+                await expect(await snContribution.operatorContribution())
+                    .to.equal(currTotal + topup);
+                await expect(await snContribution.totalContribution())
+                    .to.equal(currTotal + topup);
+                await expect(await snContribution.contributorAddressesLength())
+                    .to.equal(1);
+                await expect(await snContribution.minimumContribution()).to.equal(
+                    minContribution - BigInt(1_000000000));
+            });
+
             describe("Should be able to have multiple contributors w/min contribution", async function () {
                 beforeEach(async function () {
                     // NOTE: Get operator contribution
@@ -337,6 +356,39 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                                                     .equal(previousContribution + minContribution1 + minContribution2);
                     expect(await snContribution.contributorAddressesLength()).to
                                                                              .equal(3);
+                });
+
+                it("Should allow contributor top-ups", async function() {
+                    const [owner, contributor1, contributor2] = await ethers.getSigners();
+                    const minContribution = await snContribution.minimumContribution();
+                    const initialOperatorContrib = await snContribution.operatorContribution();
+                    const initialContribution = await snContribution.totalContribution();
+
+                    const topup1 = BigInt(1_000000000);
+                    await sentToken.transfer(contributor1, topup1);
+                    await expect(topup1).to.be.below(minContribution)
+                    await sentToken.connect(contributor1).approve(snContribution, topup1);
+                    await expect(snContribution.connect(contributor1).contributeFunds(topup1))
+                          .to.emit(snContribution, "NewContribution")
+                          .withArgs(await contributor1.getAddress(), topup1);
+
+                    const minContribution2 = await snContribution.minimumContribution();
+                    const topup2 = BigInt(13_000000000);
+                    await sentToken.transfer(contributor2, topup2);
+                    await expect(topup2).to.be.below(minContribution2)
+                    await sentToken.connect(contributor2).approve(snContribution, topup2);
+                    await expect(snContribution.connect(contributor2).contributeFunds(topup2))
+                          .to.emit(snContribution, "NewContribution")
+                          .withArgs(await contributor2.getAddress(), topup2);
+
+                    await expect(await snContribution.operatorContribution())
+                        .to.equal(initialOperatorContrib);
+                    await expect(await snContribution.totalContribution())
+                        .to.equal(initialContribution + topup1 + topup2);
+                    await expect(await snContribution.contributorAddressesLength())
+                        .to.equal(3);
+                    await expect(await snContribution.minimumContribution()).to.equal(
+                        minContribution - BigInt(2_000000000));
                 });
 
                 describe("Withdraw contributor 1", async function () {

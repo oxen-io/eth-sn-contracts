@@ -469,6 +469,21 @@ contract ServiceNodeContribution is Shared {
     }
 
     /**
+     * @notice Access the list of contributor addresses and corresponding contributions.  The
+     * first returned address (if any) is also the operator address.
+     */
+    function getContributions() public view returns (address[] memory addrs, uint256[] memory contribs) {
+        uint256 size = contributorAddresses.length;
+        addrs = new address[](size);
+        contribs = new uint256[](size);
+        for (uint256 i = 0; i < size; i++) {
+            addrs[i] = contributorAddresses[i];
+            contribs[i] = contributions[addrs[i]];
+        }
+        return (addrs, contribs);
+    }
+
+    /**
      * @notice Sum up all the contributions recorded in the contributors list
      */
     function totalContribution() public view returns (uint256 result) {

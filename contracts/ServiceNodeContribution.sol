@@ -156,15 +156,16 @@ contract ServiceNodeContribution is Shared {
                 "the contract, withdraw their funds and to re-initiate a new contract.");
 
         // NOTE: Check contract status and collateral
-        require(amount >= minimumContribution(), "Contribution is below the minimum requirement.");
         require(totalContribution() + amount <= stakingRequirement, "Contribution exceeds the funding goal.");
         require(!finalized, "Node has already been finalized.");
         require(!cancelled, "Node has been cancelled.");
 
         // NOTE: Add the contributor to the contract
         if (contributions[msg.sender] == 0) {
+            require(amount >= minimumContribution(), "Contribution is below the minimum requirement.");
             contributorAddresses.push(msg.sender);
         }
+        // else this is an existing contributor topping up an already-valid contribution
 
         // NOTE: Update the amount contributed and transfer the tokens
         contributions[msg.sender] += amount;

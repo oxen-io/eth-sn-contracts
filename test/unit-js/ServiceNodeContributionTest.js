@@ -321,6 +321,9 @@ describe("ServiceNodeContribution Contract Tests", function () {
                     .to.equal(1);
                 await expect(await snContribution.minimumContribution()).to.equal(
                     minContribution - BigInt(1_000000000));
+
+                await expect(await snContribution.getContributions()).to.deep.equal(
+                        [[snOperator.address], [BigInt(STAKING_TEST_AMNT / 4 + 9_000000000)]])
             });
 
             describe("Should be able to have multiple contributors w/min contribution", async function () {
@@ -389,6 +392,12 @@ describe("ServiceNodeContribution Contract Tests", function () {
                         .to.equal(3);
                     await expect(await snContribution.minimumContribution()).to.equal(
                         minContribution - BigInt(2_000000000));
+
+                    await expect(await snContribution.getContributions()).to.deep.equal(
+                        [
+                            [owner.address, contributor1.address, contributor2.address],
+                            [BigInt(STAKING_TEST_AMNT / 4), BigInt(STAKING_TEST_AMNT / 12 + 1_000000000), BigInt(STAKING_TEST_AMNT / 12 + 13_000000000)]
+                        ])
                 });
 
                 describe("Withdraw contributor 1", async function () {

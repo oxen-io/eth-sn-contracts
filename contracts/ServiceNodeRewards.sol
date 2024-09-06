@@ -23,7 +23,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     uint64 public constant LIST_SENTINEL = 0;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
-    uint256 public constant MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND = 5;
+    uint256 public constant MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND = 20;
     // A small contributor is one who contributes less than 1/DIVISOR of the total; such a
     // contributor may not initiate a leave request within the initial LEAVE_DELAY:
     uint256 public constant SMALL_CONTRIBUTOR_LEAVE_DELAY = 30 days;
@@ -869,7 +869,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @notice The maximum number of pubkey aggregations permitted for the
     /// current block height.
     ///
-    /// @dev This is currently defined as max(5, 2 percent of the network).
+    /// @dev This is currently defined as max(20, 2 percent of the network).
     ///
     /// This value is used in tandem with `_numPubkeyAggregationsForHeight`
     /// which tracks the current number of aggregations thus far for the current

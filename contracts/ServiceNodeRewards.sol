@@ -69,6 +69,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         uint256 recipientRatio_
     ) public initializer {
         if (recipientRatio_ < 1) revert RecipientRewardsTooLow();
+        if (liquidatorRewardRatio_< 1) revert LiquidatorRewardsTooLow();
         isStarted = false;
         totalNodes = 0;
         blsNonSignerThreshold = 0;
@@ -172,6 +173,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error InvalidBLSSignature();
     error InvalidBLSProofOfPossession();
     error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
+    error LiquidatorRewardsTooLow();
     error MaxContributorsExceeded();
     error MaxClaimExceeded();
     error MaxPubkeyAggregationsExceeded();

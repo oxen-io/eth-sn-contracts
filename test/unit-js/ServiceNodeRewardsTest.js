@@ -41,7 +41,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
             await foundationPool.getAddress(),         // foundation pool address
             staking_req,                    // testnet staking requirement
             10,                             // max contributors
-            0,                              // liquidator reward ratio
+            1,                              // liquidator reward ratio
             0,                              // pool share of liquidation ratio
             1                               // recipient ratio
             ]);

@@ -35,7 +35,7 @@ async function main() {
         await rewardRatePool.getAddress(),         // foundation pool address
         120_000_000_000,                           // staking requirement
         10,                                        // max contributors
-        0,                                         // liquidator reward ratio
+        1,                                         // liquidator reward ratio
         0,                                         // pool share of liquidation ratio
         1                                          // recipient ratio
     ]);

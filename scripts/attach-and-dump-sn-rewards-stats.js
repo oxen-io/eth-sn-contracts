@@ -1,7 +1,7 @@
 const { ethers } = require('hardhat');
 async function main() {
-    const sn_rewards_factory = await ethers.getContractFactory('ServiceNodeRewards');
-    const sn_rewards         = await sn_rewards_factory.attach('0xEF43cd64528eA89966E251d4FE17c660222D2c9d');
+    const sn_rewards_factory = await ethers.getContractFactory('TestnetServiceNodeRewards');
+    const sn_rewards         = await sn_rewards_factory.attach('0xb691e7C159369475D0a3d4694639ae0144c7bAB2');
 
     const aggregate_pubkey = await sn_rewards.aggregatePubkey();
     console.log("Total Nodes:                        " + await sn_rewards.totalNodes());

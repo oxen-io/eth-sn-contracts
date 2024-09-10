@@ -33,10 +33,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     uint256 public totalNodes;
     uint256 public blsNonSignerThreshold;
     uint256 public blsNonSignerThresholdMax;
-    uint256 public claimThreshold;
-    uint256 public claimCycle;
-    uint256 public periodicClaims;
-    uint256 public epochDay;
     uint256 public signatureExpiry;
 
     bytes32 public proofOfPossessionTag;
@@ -131,6 +127,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
         _;
     }
+
+    uint256 public claimThreshold;
+    uint256 public claimCycle;
+    uint256 public periodicClaims;
+    uint256 public epochDay;
 
     // EVENTS
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);

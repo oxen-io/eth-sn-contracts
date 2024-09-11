@@ -64,7 +64,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         uint256 poolShareOfLiquidationRatio_,
         uint256 recipientRatio_
     ) public initializer {
-        if (recipientRatio_ < 1) revert RecipientRewardsTooLow();
+        if (recipientRatio_ < 1) revert PositiveNumberRequirement();
         if (liquidatorRewardRatio_< 1) revert LiquidatorRewardsTooLow();
         isStarted = false;
         totalNodes = 0;
@@ -164,6 +164,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event ClaimThresholdUpdated(uint256 newThreshold);
     event ClaimCycleUpdated(uint256 newValue);
     event LiquidatorRewardRatioUpdated(uint256 newValue);
+    event PoolShareOfLiquidationRatioUpdated(uint256 newValue);
+    event RecipientRatioUpdated(uint256 newValue);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address operator, BN256G1.G1Point pubkey);
     event ServiceNodeRemoval(
         uint64 indexed serviceNodeID,
@@ -850,6 +852,19 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         _liquidatorRewardRatio = newValue;
         emit LiquidatorRewardRatioUpdated(newValue);
     }
+
+    function setPoolShareOfLiqudationRatio(uint256 newValue) public onlyOwner {
+        _poolShareOfLiquidationRatio = newValue;
+        emit PoolShareOfLiquidationRatioUpdated(newValue);
+    }
+
+    function setRecipientRatio(uint256 newValue) public onlyOwner {
+        if (newValue <= 0)
+            revert PositiveNumberRequirement();
+        _recipientRatio = newValue;
+        emit RecipientRatioUpdated(newValue);
+    }
+
 
     //////////////////////////////////////////////////////////////
     //                                                          //

@@ -76,10 +76,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         liquidateTag = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
         hashToG2Tag = buildTag("BLS_SIG_HASH_TO_FIELD_TAG");
         signatureExpiry = 10 minutes;
+
         claimThreshold = 1_000_000 * 1e9;
         claimCycle = 12 hours;
-        periodicClaims = 0;
-        epochDay = 0;
+        currentClaimTotal = 0;
+        currentClaimCycle = 0;
 
         designatedToken = IERC20(token_);
         foundationPool = IERC20(foundationPool_);
@@ -128,10 +129,25 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         _;
     }
 
+    // The amount of rewards that can be claimed for a given `claimCycle`.
+    // Claims are reverted if the amount of rewards exceeds this threshold until
+    // the next `claimCycle` has started.
     uint256 public claimThreshold;
+
+    // The amount of rewards that can be claimed is capped for a given period
+    // represented by the `claimCycle` which is represented in seconds. When the
+    // total cumulative claims for the given period exceed `claimThreshold` no
+    // further claims can be made until the next cycle.
     uint256 public claimCycle;
-    uint256 public periodicClaims;
-    uint256 public epochDay;
+
+    // Tracks the amount of rewards claimed for the current cycle.
+    uint256 public currentClaimTotal;
+
+    // The current claim cycle to which rewards redemptions are permitted whilst
+    // `currentClaimTotal` has not met the `claimThreshold`. Once
+    // `currentClaimTotal` meets the threshold, then no further redemptions are
+    // permitted until the next cycle, e.g: `currentClaimCycle + 1`.
+    uint256 public currentClaimCycle;
 
     // EVENTS
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point pubkey);
@@ -146,6 +162,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event RewardsClaimed(address indexed recipientAddress, uint256 amount);
     event BLSNonSignerThresholdMaxUpdated(uint256 newMax);
     event ClaimThresholdUpdated(uint256 newThreshold);
+    event ClaimCycleUpdated(uint256 newValue);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address operator, BN256G1.G1Point pubkey);
     event ServiceNodeRemoval(
         uint64 indexed serviceNodeID,
@@ -247,20 +264,25 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param claimingAddress The address claiming the rewards.
     /// @param amount The amount of rewards to claim.
     function _claimRewards(address claimingAddress, uint256 amount) internal {
+        // NOTE: Verify the claim amounts
         uint256 claimedRewards = recipients[claimingAddress].claimed;
         uint256 totalRewards = recipients[claimingAddress].rewards;
         uint256 maxAmount = totalRewards - claimedRewards;
         if (amount > maxAmount)
             revert MaxClaimExceeded();
 
-        uint256 _epochDay = block.timestamp / claimCycle;
-        if (_epochDay > epochDay) {
-            epochDay = _epochDay;
-            periodicClaims = 0;
+        // NOTE: Reset the total claims if we have entered a new cycle
+        uint256 nextClaimCycle = block.timestamp / claimCycle;
+        if (nextClaimCycle > currentClaimCycle) {
+            currentClaimCycle = nextClaimCycle;
+            currentClaimTotal = 0;
         }
-        periodicClaims += amount;
-        if (periodicClaims > claimThreshold) revert ClaimThresholdExceeded();
 
+        // NOTE: Accumulate the claims for the current cycle
+        currentClaimTotal += amount;
+        if (currentClaimTotal > claimThreshold) revert ClaimThresholdExceeded();
+
+        // NOTE: Allocate rewards
         recipients[claimingAddress].claimed += amount;
         emit RewardsClaimed(claimingAddress, amount);
         SafeERC20.safeTransfer(designatedToken, claimingAddress, amount);
@@ -801,15 +823,24 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         emit BLSNonSignerThresholdMaxUpdated(newMax);
     }
 
-    /// @notice Max Claim amount to use in the check
-    /// before allowing the user to claim. If the claimed amount over 24 hours
-    /// exceeds this then the claim will fail
-    /// @param newMax The new maximum claim threshold
+    /// @notice Set the maximum amount of rewards allowed to claimed for a given
+    /// cycle in atomic $SENT. If the claimed amount over the period of
+    /// `claimCycle` is exceeeded the rewards claim will revert.
     function setClaimThreshold(uint256 newMax) public onlyOwner {
         if (newMax <= 0)
             revert PositiveNumberRequirement();
         claimThreshold = newMax;
         emit ClaimThresholdUpdated(newMax);
+    }
+
+    /// @notice Set the duration in seconds of how long each cycle is. Each
+    /// cycle caps the maximum number of rewards allowed to be claimed for that
+    /// period.
+    function setClaimCycle(uint256 newValue) public onlyOwner {
+        if (newValue <= 0)
+            revert PositiveNumberRequirement();
+        claimCycle = newValue;
+        emit ClaimCycleUpdated(newValue);
     }
 
     //////////////////////////////////////////////////////////////

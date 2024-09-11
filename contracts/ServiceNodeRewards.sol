@@ -853,7 +853,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         emit LiquidatorRewardRatioUpdated(newValue);
     }
 
-    function setPoolShareOfLiqudationRatio(uint256 newValue) public onlyOwner {
+    function setPoolShareOfLiquidationRatio(uint256 newValue) public onlyOwner {
         _poolShareOfLiquidationRatio = newValue;
         emit PoolShareOfLiquidationRatioUpdated(newValue);
     }

@@ -163,6 +163,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event BLSNonSignerThresholdMaxUpdated(uint256 newMax);
     event ClaimThresholdUpdated(uint256 newThreshold);
     event ClaimCycleUpdated(uint256 newValue);
+    event LiquidatorRewardRatioUpdated(uint256 newValue);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address operator, BN256G1.G1Point pubkey);
     event ServiceNodeRemoval(
         uint64 indexed serviceNodeID,
@@ -841,6 +842,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             revert PositiveNumberRequirement();
         claimCycle = newValue;
         emit ClaimCycleUpdated(newValue);
+    }
+
+    function setLiquidatorRewardRatio(uint256 newValue) public onlyOwner {
+        if (newValue <= 0)
+            revert LiquidatorRewardsTooLow();
+        _liquidatorRewardRatio = newValue;
+        emit LiquidatorRewardRatioUpdated(newValue);
     }
 
     //////////////////////////////////////////////////////////////

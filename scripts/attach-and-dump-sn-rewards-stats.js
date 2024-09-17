@@ -4,15 +4,26 @@ async function main() {
     const sn_rewards         = await sn_rewards_factory.attach('0xb691e7C159369475D0a3d4694639ae0144c7bAB2');
 
     const aggregate_pubkey = await sn_rewards.aggregatePubkey();
-    console.log("Total Nodes:                        " + await sn_rewards.totalNodes());
-    console.log("Next Service Node ID:               " + await sn_rewards.nextServiceNodeID());
-    console.log("BLS Non Signer Threshold:           " + await sn_rewards.blsNonSignerThreshold());
-    console.log("BLS Non Signer Threshold Max:       " + await sn_rewards.blsNonSignerThresholdMax());
     console.log("Aggregate Pubkey:                   " + aggregate_pubkey[0].toString(16) + " " + aggregate_pubkey[1].toString(16));
+    console.log("BLS Non Signer Threshold Max:       " + await sn_rewards.blsNonSignerThresholdMax());
+    console.log("BLS Non Signer Threshold:           " + await sn_rewards.blsNonSignerThreshold());
+    console.log("Claim Threshold:                    " + await sn_rewards.claimThreshold());
+    console.log("Claim Cycle:                        " + await sn_rewards.claimCycle());
+    console.log("Current Claim Total:                " + await sn_rewards.currentClaimTotal());
+    console.log("Current Claim Cycle:                " + await sn_rewards.currentClaimCycle());
     console.log("Last Height Pubkey Aggregated:      " + await sn_rewards._lastHeightPubkeyWasAggregated());
+    console.log("Liquidator Reward Ratio:            " + await sn_rewards.liquidatorRewardRatio());
+    console.log("Max Contributors:                   " + await sn_rewards.maxContributors());
+    console.log("Max Permitted Pubkey Aggregations:  " + await sn_rewards.maxPermittedPubkeyAggregations());
+    console.log("Next Service Node ID:               " + await sn_rewards.nextServiceNodeID());
     console.log("Num Pubkey Aggregations For Height: " + await sn_rewards._numPubkeyAggregationsForHeight());
+    console.log("Pool Share of Liquidation Ratio:    " + await sn_rewards.poolShareOfLiquidationRatio());
+    console.log("Recipient Ratio:                    " + await sn_rewards.recipientRatio());
     console.log("Removal Tag:                        " + await sn_rewards.removalTag());
     console.log("Reward Tag:                         " + await sn_rewards.rewardTag());
+    console.log("Staking Requirement:                " + await sn_rewards.stakingRequirement());
+    console.log("Service Nodes Length:               " + await sn_rewards.serviceNodesLength());
+    console.log("Total Nodes:                        " + await sn_rewards.totalNodes());
 
     // NOTE: Print all the Session Node IDs via 'allServiceNodeIDs' into a JS structure
     const all_sn_ids       = await sn_rewards.allServiceNodeIDs(); // -> (sn_id[], (bls_x, bls_y)[])

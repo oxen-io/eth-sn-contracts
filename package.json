@@ -39,6 +39,7 @@
     "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "@openzeppelin/hardhat-upgrades": "^3.0.5",
     "dotenv": "^16.4.5",
+    "hardhat-diamond-abi": "^3.0.1",
     "prettier": "^3.2.5",
     "prettier-plugin-solidity": "^1.3.1"
   },

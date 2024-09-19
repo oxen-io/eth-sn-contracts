@@ -20,6 +20,9 @@ importers:
       dotenv:
         specifier: ^16.4.5
         version: 16.4.5
+      hardhat-diamond-abi:
+        specifier: ^3.0.1
+        version: 3.0.1(hardhat@2.22.10(ts-node@10.9.1(@types/node@20.10.0)(typescript@5.3.2))(typescript@5.3.2))
       prettier:
         specifier: ^3.2.5
         version: 3.2.5
@@ -1342,6 +1345,12 @@ packages:
     resolution: {integrity: sha512-vafaFqs8MZkRrSX7sFVUdo3ap/eNiLnb4IakshzvP56X5Nr1iGKAIqdX6tMlm6HcNRIkr6AxO5jFEoJzzpT8aQ==}
     engines: {node: '>=0.4.7'}
     hasBin: true
+
+  hardhat-diamond-abi@3.0.1:
+    resolution: {integrity: sha512-t+skBGX8lK3qH/YQB8L/QJVIINyuji/2r4q9JcZQ0rX9oEZzgfJMka2ttZ4gyuNcYRT95KyfDSuCCwSQX1cVDA==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      hardhat: ^2.0.0
 
   hardhat-gas-reporter@1.0.9:
     resolution: {integrity: sha512-INN26G3EW43adGKBNzYWOlI3+rlLnasXTwW79YNnUhXPDa+yHESgt639dJEs37gCjhkbNKcRRJnomXEuMFBXJg==}
@@ -4209,6 +4218,16 @@ snapshots:
       wordwrap: 1.0.0
     optionalDependencies:
       uglify-js: 3.17.4
+
+  hardhat-diamond-abi@3.0.1(hardhat@2.22.10(ts-node@10.9.1(@types/node@20.10.0)(typescript@5.3.2))(typescript@5.3.2)):
+    dependencies:
+      debug: 4.3.4(supports-color@8.1.1)
+      ethers: 5.7.2
+      hardhat: 2.22.10(ts-node@10.9.1(@types/node@20.10.0)(typescript@5.3.2))(typescript@5.3.2)
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
 
   hardhat-gas-reporter@1.0.9(hardhat@2.22.10(ts-node@10.9.1(@types/node@20.10.0)(typescript@5.3.2))(typescript@5.3.2)):
     dependencies:

@@ -1,6 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require('@openzeppelin/hardhat-upgrades');
 require("hardhat-diamond-abi");
+require("@nomicfoundation/hardhat-verify");
 
 require("dotenv/config");
 
@@ -15,7 +16,7 @@ module.exports = {
          chainId: 42161,
          accounts: arb_account,
       },
-      sepoliaarbitrum: {
+      arbitrumSepolia: {
          url: "https://sepolia-rollup.arbitrum.io/rpc",
          chainId: 421614,
          accounts: arb_sepolia_account,
@@ -35,6 +36,18 @@ module.exports = {
         bytecodeHash: 'none',
       },
     },
+  },
+  etherscan: {
+    apiKey: {
+      mainnet: process.env.ETHERSCAN_API_KEY,
+      arbitrumOne: process.env.ARBISCAN_API_KEY,
+      arbitrumSepolia: process.env.ARBISCAN_API_KEY,
+      holesky: process.env.ETHERSCAN_API_KEY,
+      sepolia: process.env.ETHERSCAN_API_KEY,
+    },
+  },
+  sourcify: {
+    enabled: true,
   },
   diamondAbi: {
     name: "ServiceNodeRewardsCombined",

@@ -25,8 +25,8 @@ fuzz:
 deploy-local:
 	npx hardhat run scripts/deploy-local-test.js --network localhost
 
-deploy-sepolia:
-	npx hardhat run scripts/deploy.js --network sepolia
+deploy-testnet:
+	npx hardhat run scripts/deploy-testnet.js --network arbitrumSepolia
 
 otterscan:
 	docker run --rm -p 5100:80 --name otterscan --env ERIGON_URL="http://127.0.0.1:8545" otterscan/otterscan:latest

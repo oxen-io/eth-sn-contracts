@@ -72,6 +72,51 @@ async function main() {
         'deployed to:',
         chalk.greenBright(await snContributionFactory.getAddress()),
     )
+
+    // Add verify task runners
+    console.log("\nVerifying contracts...");
+
+    console.log(chalk.yellow("\n--- Verifying mockERC20 ---\n"));
+    mockERC20.waitForDeployment();
+    try {
+        await hre.run("verify:verify", {
+            address: await mockERC20.getAddress(),
+            constructorArguments: ["SENT Token", "SENT", 9],
+            force: true,
+        });
+    } catch (error) {}
+
+    console.log(chalk.yellow("\n--- Verifying rewardRatePool ---\n"));
+    rewardRatePool.waitForDeployment();
+    try {
+        await hre.run("verify:verify", {
+            address: await rewardRatePool.getAddress(),
+            constructorArguments: [],
+            force: true,
+        });
+    } catch (error) {}
+
+    console.log(chalk.yellow("\n--- Verifying serviceNodeRewards ---\n"));
+    serviceNodeRewards.waitForDeployment();
+    try {
+        await hre.run("verify:verify", {
+            address: await serviceNodeRewards.getAddress(),
+            constructorArguments: [],
+            force: true,
+        });
+    } catch (error) {}
+
+    console.log(chalk.yellow("\n--- Verifying snContributionFactory ---\n"));
+    snContributionFactory.waitForDeployment();
+    try {
+        await hre.run("verify:verify", {
+            address: await snContributionFactory.getAddress(),
+            constructorArguments: [await serviceNodeRewards.getAddress()],
+            force: true,
+        });
+    } catch (error) {}
+
+    console.log("Contract verification complete.");
 }
 
 // We recommend this pattern to be able to use async/await everywhere

@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
 require('@openzeppelin/hardhat-upgrades');
+require("hardhat-diamond-abi");
 
 require("dotenv/config");
 
@@ -34,6 +35,11 @@ module.exports = {
         bytecodeHash: 'none',
       },
     },
+  },
+  diamondAbi: {
+    name: "ServiceNodeRewardsCombined",
+    include: ["ServiceNodeRewards", "IERC20"],
+    strict: false,
   },
   paths: {
     tests: "./test/unit-js"

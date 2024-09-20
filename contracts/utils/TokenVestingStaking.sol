@@ -138,9 +138,26 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
                 (blsPubkey.X, blsPubkey.Y) = contributionContract.blsPubkey();
                 bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
                 serviceNodeID = stakingRewardsContract.serviceNodeIDs(pubkeyBytes);
+                IServiceNodeRewards.ServiceNode memory serviceNode = stakingRewardsContract.serviceNodes(serviceNodeID);
+                uint256 ourContribution = 0;
+                for (uint256 j = 0; j < serviceNode.contributors.length; j++) {
+                    if (serviceNode.contributors[i].addr == address(this))
+                        ourContribution = serviceNode.contributors[i].stakedAmount;
+                }
                 if (serviceNodeID != 0) {
                     investorServiceNodes[i - 1].serviceNodeID = serviceNodeID;
                     investorServiceNodes[i - 1].contributionContract = address(0);
+                    investorServiceNodes[i - 1].deposit = ourContribution;
+                } else {
+                    unstaked += investorNode.deposit;
+                    // Remove service node from the array by swapping it with the last element and then popping the array
+                    investorServiceNodes[i - 1] = investorServiceNodes[length - 1];
+                    investorServiceNodes.pop();
+
+                    // Adjust loop variables since we modified the array
+                    i--;
+                    length--;
+                    continue;
                 }
             }
             IServiceNodeRewards.ServiceNode memory sn = stakingRewardsContract.serviceNodes(serviceNodeID);
@@ -181,7 +198,8 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         bool isNewNode = true;
         for (uint256 i = 0; i < investorServiceNodes.length; i++) {
             if (investorServiceNodes[i].contributionContract == contributionContract) {
-                investorServiceNodes[i].deposit += amount;
+                uint256 contributedAmount = contribution.contributions(address(this));
+                investorServiceNodes[i].deposit = contributedAmount + amount;
                 isNewNode = false;
                 break;
             }

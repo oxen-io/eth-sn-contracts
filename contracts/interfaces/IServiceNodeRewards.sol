@@ -11,8 +11,9 @@ interface IServiceNodeRewards {
     }
 
     struct SeedServiceNode {
-        BN256G1.G1Point pubkey;
-        Contributor[] contributors;
+        BN256G1.G1Point blsPubkey;
+        uint256         ed25519Pubkey;
+        Contributor[]   contributors;
     }
 
     /// @notice Represents a service node in the network.

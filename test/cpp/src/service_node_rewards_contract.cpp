@@ -22,72 +22,71 @@ ethyl::Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string
 
 ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
 {
-nlohmann::json callResult;
-try {
-    std::string  indexABI            = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(index), ethyl::utils::PaddingDirection::LEFT);
-    auto data                    = ethyl::utils::toEthFunctionSignature("serviceNodes(uint64)") + indexABI;
-    callResult    = provider.callReadFunctionJSON(contractAddress, data);
-    const std::string& callResultHex = callResult.get_ref<nlohmann::json::string_t&>();
-    std::string_view   callResultIt  = ethyl::utils::trimPrefix(callResultHex, "0x");
+    nlohmann::json callResult;
+    try {
+        std::string  indexABI            = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(index), ethyl::utils::PaddingDirection::LEFT);
+        auto data                        = ethyl::utils::toEthFunctionSignature("serviceNodes(uint64)") + indexABI;
+        callResult                       = provider.callReadFunctionJSON(contractAddress, data);
+        const std::string& callResultHex = callResult.get_ref<nlohmann::json::string_t&>();
+        std::string_view   callResultIt  = ethyl::utils::trimPrefix(callResultHex, "0x");
 
-    const size_t        U256_HEX_SIZE                  = (256 / 8) * 2;
-    const size_t        BLS_PKEY_XY_COMPONENT_HEX_SIZE = 32 * 2;
-    const size_t        BLS_PKEY_HEX_SIZE              = BLS_PKEY_XY_COMPONENT_HEX_SIZE + BLS_PKEY_XY_COMPONENT_HEX_SIZE;
-    const size_t        ADDRESS_HEX_SIZE               = 32 * 2;
-    const size_t        ETH_ADDRESS_HEX_SIZE           = 20 * 2;
+        const size_t        U256_HEX_SIZE                  = (256 / 8) * 2;
+        const size_t        BLS_PKEY_XY_COMPONENT_HEX_SIZE = 32 * 2;
+        const size_t        BLS_PKEY_HEX_SIZE              = BLS_PKEY_XY_COMPONENT_HEX_SIZE + BLS_PKEY_XY_COMPONENT_HEX_SIZE;
+        const size_t        ADDRESS_HEX_SIZE               = 32 * 2;
+        const size_t        ETH_ADDRESS_HEX_SIZE           = 20 * 2;
 
-    ContractServiceNode result                   = {};
-    size_t              walkIt                   = 0;
-    std::string_view    initialElementOffset                = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += initialElementOffset.size();
-    std::string_view    nextHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += nextHex.size();
-    std::string_view    prevHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += prevHex.size();
-    std::string_view    operatorAddressHex             = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);  walkIt += operatorAddressHex.size();
-    std::string_view    pubkeyHex                = callResultIt.substr(walkIt, BLS_PKEY_HEX_SIZE); walkIt += pubkeyHex.size();
-    std::string_view    addedTimestampHex = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += addedTimestampHex.size();
-    std::string_view    leaveRequestTimestampHex = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += leaveRequestTimestampHex.size();
-    std::string_view    depositHex               = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += depositHex.size();
-    std::string_view    weirdOffsetHex               = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += weirdOffsetHex.size();
-    std::string_view    contributorCountHex               = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += contributorCountHex.size();
+        ContractServiceNode result                   = {};
+        size_t              walkIt                   = 0;
+        std::string_view    initialElementOffset     = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += initialElementOffset.size();
+        std::string_view    nextHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += nextHex.size();
+        std::string_view    prevHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += prevHex.size();
+        std::string_view    operatorAddressHex       = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);  walkIt += operatorAddressHex.size();
+        std::string_view    pubkeyHex                = callResultIt.substr(walkIt, BLS_PKEY_HEX_SIZE); walkIt += pubkeyHex.size();
+        std::string_view    addedTimestampHex        = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += addedTimestampHex.size();
+        std::string_view    leaveRequestTimestampHex = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += leaveRequestTimestampHex.size();
+        std::string_view    depositHex               = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += depositHex.size();
+        std::string_view    weirdOffsetHex           = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += weirdOffsetHex.size();
+        std::string_view    contributorCountHex      = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += contributorCountHex.size();
 
-    // NOTE: Deserialize linked list
-    result.next                = ethyl::utils::hexStringToU64(nextHex);
-    result.prev                = ethyl::utils::hexStringToU64(prevHex);
+        // NOTE: Deserialize linked list
+        result.next                = ethyl::utils::hexStringToU64(nextHex);
+        result.prev                = ethyl::utils::hexStringToU64(prevHex);
 
-    // only need to fill in next and prev for sentinel, and probably not even those
-    if (index == 0) return result;
+        // only need to fill in next and prev for sentinel, and probably not even those
+        if (index == 0) return result;
 
-    size_t contributor_count = ethyl::utils::hexStringToU64(contributorCountHex);
-    for (size_t i=0; i < contributor_count; i++) {
-        Contributor c;
-        std::string_view contributorAddressHex = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);    walkIt += contributorAddressHex.size();
-        std::string_view contributorAmountHex  = callResultIt.substr(walkIt, U256_HEX_SIZE);       walkIt += contributorAmountHex.size();
+        size_t contributor_count = ethyl::utils::hexStringToU64(contributorCountHex);
+        for (size_t i=0; i < contributor_count; i++) {
+            Contributor c;
+            std::string_view contributorAddressHex = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);    walkIt += contributorAddressHex.size();
+            std::string_view contributorAmountHex  = callResultIt.substr(walkIt, U256_HEX_SIZE);       walkIt += contributorAmountHex.size();
 
-        std::vector<unsigned char> addressBytes = ethyl::utils::fromHexString(contributorAddressHex.substr(contributorAddressHex.size() - ETH_ADDRESS_HEX_SIZE, ETH_ADDRESS_HEX_SIZE));
-        assert(addressBytes.size() == sizeof(Contributor::address));
-        std::memcpy(c.address.data(), addressBytes.data(), addressBytes.size());
+            std::vector<unsigned char> addressBytes = ethyl::utils::fromHexString(contributorAddressHex.substr(contributorAddressHex.size() - ETH_ADDRESS_HEX_SIZE, ETH_ADDRESS_HEX_SIZE));
+            assert(addressBytes.size() == sizeof(Contributor::address));
+            std::memcpy(c.address.data(), addressBytes.data(), addressBytes.size());
 
-        c.amount = ethyl::utils::hexStringToU64(contributorAmountHex);
-        result.contributors.push_back(std::move(c));
+            c.amount = ethyl::utils::hexStringToU64(contributorAmountHex);
+            result.contributors.push_back(std::move(c));
+        }
+        assert(walkIt == callResultIt.size());
+
+        // NOTE: Deserialise recipient
+        std::vector<unsigned char> recipientBytes = ethyl::utils::fromHexString(operatorAddressHex.substr(operatorAddressHex.size() - ETH_ADDRESS_HEX_SIZE, ETH_ADDRESS_HEX_SIZE));
+        assert(recipientBytes.size() == result.recipient.max_size());
+        std::memcpy(result.recipient.data(), recipientBytes.data(), recipientBytes.size());
+
+        // NOTE: Deserialise key hex into BLS key
+        result.pubkey = utils::HexToBLSPublicKey(pubkeyHex);
+
+        // NOTE: Deserialise metadata
+        result.addedTimestamp = ethyl::utils::hexStringToU64(addedTimestampHex);
+        result.leaveRequestTimestamp = ethyl::utils::hexStringToU64(leaveRequestTimestampHex);
+        result.deposit               = depositHex;
+        return result;
+    } catch (const std::exception& e) {
+        throw std::runtime_error{std::string("response: ") + callResult.dump()};
     }
-    
-    assert(walkIt == callResultIt.size());
-
-    // NOTE: Deserialise recipient
-    std::vector<unsigned char> recipientBytes = ethyl::utils::fromHexString(operatorAddressHex.substr(operatorAddressHex.size() - ETH_ADDRESS_HEX_SIZE, ETH_ADDRESS_HEX_SIZE));
-    assert(recipientBytes.size() == result.recipient.max_size());
-    std::memcpy(result.recipient.data(), recipientBytes.data(), recipientBytes.size());
-
-    // NOTE: Deserialise key hex into BLS key
-    result.pubkey = utils::HexToBLSPublicKey(pubkeyHex);
-
-    // NOTE: Deserialise metadata
-    result.addedTimestamp = ethyl::utils::hexStringToU64(addedTimestampHex);
-    result.leaveRequestTimestamp = ethyl::utils::hexStringToU64(leaveRequestTimestampHex);
-    result.deposit               = depositHex;
-    return result;
-} catch (const std::exception& e) {
-    throw std::runtime_error{std::string("response: ") + callResult.dump()};
-}
 }
 
 uint64_t ServiceNodeRewardsContract::serviceNodeIDs(const bls::PublicKey& pKey)

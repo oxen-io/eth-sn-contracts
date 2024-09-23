@@ -58,12 +58,14 @@ describe("ServiceNodeRewards Contract Tests", function () {
     describe("Seeding the public key as owner", function () {
 
         it("Should correctly seed public key list with a single item", async function () {
+            let ed25519Generator = 1n;
             const seedData = [
                 {
-                    pubkey: {
+                    blsPubkey: {
                         X: "0x0b5e634d0407c021e9e9dd9d03c4965810e236fef0955ab345e1d049a0438ec6",
                         Y: "0x1dbb7bf2b1f5340d4b5c466a0641b00cd3a9d9588c7bcad1c3158bdcc65c3332",
                     },
+                    ed25519Pubkey: ed25519Generator++,
                     contributors: [
                         {
                             addr: "0x66d801a70615979d82c304b7db374d11c232db66",
@@ -76,18 +78,20 @@ describe("ServiceNodeRewards Contract Tests", function () {
             await serviceNodeRewards.connect(owner).seedPublicKeyList(seedData);
             expect(await serviceNodeRewards.serviceNodesLength()).to.equal(1);
             let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
-            expect(aggregate_pubkey[0]).to.equal(seedData[0].pubkey.X)
-            expect(aggregate_pubkey[1]).to.equal(seedData[0].pubkey.Y)
+            expect(aggregate_pubkey[0]).to.equal(seedData[0].blsPubkey.X)
+            expect(aggregate_pubkey[1]).to.equal(seedData[0].blsPubkey.Y)
             verifySeedData(await serviceNodeRewards.serviceNodes(1), seedData[0]);
         });
 
         it("Should correctly seed public key list with multiple items", async function () {
+            let ed25519Generator = 1n;
             const seedData = [
                 {
-                    pubkey: {
+                    blsPubkey: {
                         X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    ed25519Pubkey: ed25519Generator++,
                     contributors: [
                         {
                             addr: "0x66d801a70615979d82c304b7db374d11c232db66",
@@ -96,11 +100,12 @@ describe("ServiceNodeRewards Contract Tests", function () {
                     ]
                 },
                 {
-                    pubkey: {
+                    blsPubkey: {
                         X: "0x2ef6b73ab4486484de80681753a6a90c6a88a71f60aace9520fe6bb8bb8de34e",
                         Y: "0x29b8f2a87a758a89c394b121298b946dce9ada3226b5d008e54e54ddcd9e5227",
                     },
                     deposit: 2000,
+                    ed25519Pubkey: ed25519Generator++,
                     contributors: [
                         {
                             addr: "0x66d801a70615979d82c304b7db374d11c232db66",
@@ -132,12 +137,14 @@ describe("ServiceNodeRewards Contract Tests", function () {
         });
 
         it("Should fail to seed public key list with duplicate items", async function () {
+            let ed25519Generator = 1n;
             const seedData = [
                 {
-                    pubkey: {
+                    blsPubkey: {
                         X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    ed25519Pubkey: ed25519Generator++,
                     contributors: [
                         {
                             addr: "0x66d801a70615979d82c304b7db374d11c232db66",
@@ -146,10 +153,11 @@ describe("ServiceNodeRewards Contract Tests", function () {
                     ]
                 },
                 {
-                    pubkey: {
+                    blsPubkey: {
                         X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    ed25519Pubkey: ed25519Generator++,
                     contributors: [
                         {
                             addr: "0x66d801a70615979d82c304b7db374d11c232db66",
@@ -164,12 +172,14 @@ describe("ServiceNodeRewards Contract Tests", function () {
         });
 
         it("Fails when sum of contributor stakes do not add up the staking requirement", async function () {
+            let ed25519Generator = 1n;
             const seedData = [
                 {
-                    pubkey: {
+                    blsPubkey: {
                         X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    ed25519Pubkey: ed25519Generator++,
                     contributors: [
                         {
                             addr: "0x66d801a70615979d82c304b7db374d11c232db66",
@@ -182,13 +192,14 @@ describe("ServiceNodeRewards Contract Tests", function () {
             await expect(serviceNodeRewards.connect(owner).seedPublicKeyList(seedData)).to.be.reverted;
         });
 
-        it("Fails if the BLS pubkey is the zero key", async function () {
+        it("Fails if the Ed25519 pubkey is the zero key", async function () {
             const seedData = [
                 {
-                    pubkey: {
-                        X: "0x0000000000000000000000000000000000000000000000000000000000000000",
-                        Y: "0x0000000000000000000000000000000000000000000000000000000000000000",
+                    blsPubkey: {
+                        X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
+                        Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    ed25519Pubkey: 0n,
                     contributors: [
                         {
                             addr: "0x66d801a70615979d82c304b7db374d11c232db66",
@@ -201,13 +212,156 @@ describe("ServiceNodeRewards Contract Tests", function () {
             await expect(serviceNodeRewards.connect(owner).seedPublicKeyList(seedData)).to.be.reverted;
         });
 
-        it("Fails if there are no contributors", async function () {
+        it("Fails if the BLS pubkey is the zero key", async function () {
+            let ed25519Generator = 1n;
             const seedData = [
                 {
-                    pubkey: {
+                    blsPubkey: {
+                        X: "0x0000000000000000000000000000000000000000000000000000000000000000",
+                        Y: "0x0000000000000000000000000000000000000000000000000000000000000000",
+                    },
+                    ed25519Pubkey: ed25519Generator++,
+                    contributors: [
+                        {
+                            addr: "0x66d801a70615979d82c304b7db374d11c232db66",
+                            stakedAmount: staking_req,
+                        }
+                    ]
+                },
+            ];
+
+            await expect(serviceNodeRewards.connect(owner).seedPublicKeyList(seedData)).to.be.reverted;
+        });
+
+        it("Fails if the BLS pubkey X component is zero", async function () {
+            let ed25519Generator = 1n;
+            const seedData = [
+                {
+                    blsPubkey: {
+                        X: "0x0000000000000000000000000000000000000000000000000000000000000000",
+                        Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
+                    },
+                    ed25519Pubkey: ed25519Generator++,
+                    contributors: [
+                        {
+                            addr: "0x66d801a70615979d82c304b7db374d11c232db66",
+                            stakedAmount: staking_req,
+                        }
+                    ]
+                },
+            ];
+
+            await expect(serviceNodeRewards.connect(owner).seedPublicKeyList(seedData)).to.be.reverted;
+        });
+
+        it("Fails if the BLS pubkey Y component is zero", async function () {
+            let ed25519Generator = 1n;
+            const seedData = [
+                {
+                    blsPubkey: {
+                        X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
+                        Y: "0x0000000000000000000000000000000000000000000000000000000000000000",
+                    },
+                    ed25519Pubkey: ed25519Generator++,
+                    contributors: [
+                        {
+                            addr: "0x66d801a70615979d82c304b7db374d11c232db66",
+                            stakedAmount: staking_req,
+                        }
+                    ]
+                },
+            ];
+
+            await expect(serviceNodeRewards.connect(owner).seedPublicKeyList(seedData)).to.be.reverted;
+        });
+
+        it("Fails if the BLS pubkey is repeated", async function () {
+            let ed25519Generator = 1n;
+            const seedData = [
+                {
+                    blsPubkey: {
                         X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    ed25519Pubkey: ed25519Generator++,
+                    contributors: [
+                        {
+                            addr: "0x66d801a70615979d82c304b7db374d11c232db66",
+                            stakedAmount: staking_req,
+                        }
+                    ]
+                },
+                {
+                    blsPubkey: {
+                        X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
+                        Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
+                    },
+                    deposit: 2000,
+                    ed25519Pubkey: ed25519Generator++,
+                    contributors: [
+                        {
+                            addr: "0x66d801a70615979d82c304b7db374d11c232db66",
+                            stakedAmount: staking_req,
+                        }
+                    ]
+                },
+            ];
+
+            await expect(serviceNodeRewards.connect(owner)
+                                           .seedPublicKeyList(seedData))
+                  .to
+                  .be
+                  .revertedWithCustomError(serviceNodeRewards, "BLSPubkeyAlreadyExists");
+        });
+
+        it("Fails if the Ed25519 pubkey is repeated", async function () {
+            let ed25519Generator = 1n;
+            const seedData = [
+                {
+                    blsPubkey: {
+                        X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
+                        Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
+                    },
+                    ed25519Pubkey: ed25519Generator,
+                    contributors: [
+                        {
+                            addr: "0x66d801a70615979d82c304b7db374d11c232db66",
+                            stakedAmount: staking_req,
+                        }
+                    ]
+                },
+                {
+                    blsPubkey: {
+                        X: "0x2ef6b73ab4486484de80681753a6a90c6a88a71f60aace9520fe6bb8bb8de34e",
+                        Y: "0x29b8f2a87a758a89c394b121298b946dce9ada3226b5d008e54e54ddcd9e5227",
+                    },
+                    deposit: 2000,
+                    ed25519Pubkey: ed25519Generator,
+                    contributors: [
+                        {
+                            addr: "0x66d801a70615979d82c304b7db374d11c232db66",
+                            stakedAmount: staking_req,
+                        }
+                    ]
+                },
+            ];
+
+            await expect(serviceNodeRewards.connect(owner)
+                                           .seedPublicKeyList(seedData))
+                  .to
+                  .be
+                  .revertedWithCustomError(serviceNodeRewards, "Ed25519PubkeyHasPairedBLSPubkey");
+        });
+
+        it("Fails if there are no contributors", async function () {
+            let ed25519Generator = 1n;
+            const seedData = [
+                {
+                    blsPubkey: {
+                        X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
+                        Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
+                    },
+                    ed25519Pubkey: ed25519Generator++,
                     contributors: []
                 },
             ];
@@ -216,12 +370,14 @@ describe("ServiceNodeRewards Contract Tests", function () {
         });
 
         it("Supports 10 contributors", async function () {
+            let ed25519Generator = 1n;
             seedData = [
                 {
-                    pubkey: {
+                    blsPubkey: {
                         X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    ed25519Pubkey: ed25519Generator++,
                     contributors: []
                 },
             ];
@@ -239,12 +395,14 @@ describe("ServiceNodeRewards Contract Tests", function () {
         });
 
         it("Fails if there are 11 contributors (pre-migration Oxen has a 10 contributor limit)", async function () {
+            let ed25519Generator = 1n;
             seedData = [
                 {
-                    pubkey: {
+                    blsPubkey: {
                         X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    ed25519Pubkey: ed25519Generator++,
                     contributors: []
                 },
             ];
@@ -261,6 +419,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
         });
 
         it("Should handle a huge seed list", async function () {
+            let ed25519Generator = 1n;
             let Px = [
                 BigInt("0x001c7e60fb1f6ce4c33be823d1e246c04df8fc7a7bcd28dd4d7360a68044de0c"),
                 BigInt("0x0025532e9cd87d9d6e5afd2277443faf6a1a90fabe47183098ca0a8c05aa510c"),
@@ -6278,8 +6437,12 @@ describe("ServiceNodeRewards Contract Tests", function () {
             for (let i = 0; i < 2000; i += incr) {
                 let seed_sns = [];
                 for (let j = 0; j < incr; j++) {
-                    seed_sns.push({"pubkey": [Px[i+j], Py[i+j]], "deposit": 120000000000n,
-                        "contributors": contributors[i+j]});
+                    seed_sns.push({
+                        "blsPubkey": [Px[i+j], Py[i+j]],
+                        "deposit": 120000000000n,
+                        "ed25519Pubkey": ed25519Generator++,
+                        "contributors": contributors[i+j]
+                    });
                 }
                 let tx = await contract.seedPublicKeyList(seed_sns);
 

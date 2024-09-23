@@ -2,8 +2,8 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 async function verifySeedData(contractSN, seedEntry) {
-    expect(contractSN.pubkey[0]).to.equal(BigInt(seedEntry.pubkey.X));
-    expect(contractSN.pubkey[1]).to.equal(BigInt(seedEntry.pubkey.Y));
+    expect(contractSN.pubkey[0]).to.equal(BigInt(seedEntry.blsPubkey.X));
+    expect(contractSN.pubkey[1]).to.equal(BigInt(seedEntry.blsPubkey.Y));
     expect(contractSN.deposit).to.equal(BigInt(seedEntry.deposit));
     expect(contractSN.contributors.length).to.equal(seedEntry.contributors.length);
     for (let contributorIndex = 0; contributorIndex < contractSN.contributors.length; contributorIndex++) {
@@ -37,23 +37,25 @@ describe("TestnetServiceNodeRewards Contract Tests", function () {
 
         ServiceNodeRewardsMaster = await ethers.getContractFactory("TestnetServiceNodeRewards");
         serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,
-            [ await mockERC20.getAddress(),              // token address
-            await foundationPool.getAddress(),         // foundation pool address
-            staking_req,                    // testnet staking requirement
-            10,                             // max contributors
-            1,                              // liquidator reward ratio
-            0,                              // pool share of liquidation ratio
-            1                               // recipient ratio
+            [ await mockERC20.getAddress(),    // token address
+            await foundationPool.getAddress(), // foundation pool address
+            staking_req,                       // testnet staking requirement
+            10,                                // max contributors
+            1,                                 // liquidator reward ratio
+            0,                                 // pool share of liquidation ratio
+            1                                  // recipient ratio
             ]);
     });
 
     it("Seed and test the admin removal", async function () {
+        let ed25519_generator = 1n;
         const seedData = [
             {
-                pubkey: {
+                blsPubkey: {
                     X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                     Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                 },
+                ed25519Pubkey: ed25519_generator++,
                 contributors: [
                     {
                         addr: "0x66d801a70615979d82c304b7db374d11c232db66",
@@ -66,8 +68,8 @@ describe("TestnetServiceNodeRewards Contract Tests", function () {
         await serviceNodeRewards.connect(owner).seedPublicKeyList(seedData);
         expect(await serviceNodeRewards.serviceNodesLength()).to.equal(1);
         let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
-        expect(aggregate_pubkey[0]).to.equal(seedData[0].pubkey.X);
-        expect(aggregate_pubkey[1]).to.equal(seedData[0].pubkey.Y);
+        expect(aggregate_pubkey[0]).to.equal(seedData[0].blsPubkey.X);
+        expect(aggregate_pubkey[1]).to.equal(seedData[0].blsPubkey.Y);
         verifySeedData(await serviceNodeRewards.serviceNodes(1), seedData[0]);
         await serviceNodeRewards.connect(owner).start();
 

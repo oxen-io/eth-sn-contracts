@@ -169,10 +169,10 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 0);
         ServiceNodeList snl(2);
         for(auto& node : snl.nodes) {
-            const auto pubkey = node.getPublicKeyHex();
+            const auto pubkey              = node.getPublicKeyHex();
             const auto proof_of_possession = node.proofOfPossession(config.CHAIN_ID, contract_address, senderAddress, "pubkey");
-            tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
-            hash = signer.sendTransaction(tx, seckey);
+            tx                             = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey", "sig", 0);
+            hash                           = signer.sendTransaction(tx, seckey);
             REQUIRE(hash != "");
             REQUIRE(defaultProvider.transactionSuccessful(hash));
         }

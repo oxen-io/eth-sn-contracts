@@ -41,11 +41,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     bytes32 public liquidateTag;
     bytes32 public hashToG2Tag;
 
-    uint256 private _stakingRequirement;
-    uint256 private _maxContributors;
-    uint256 private _liquidatorRewardRatio;
-    uint256 private _poolShareOfLiquidationRatio;
-    uint256 private _recipientRatio;
+    uint256 public stakingRequirement;
+    uint256 public maxContributors;
+    uint256 public liquidatorRewardRatio;
+    uint256 public poolShareOfLiquidationRatio;
+    uint256 public recipientRatio;
 
     /// @notice Constructor for the Service Node Rewards Contract
     ///
@@ -84,11 +84,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
         designatedToken = IERC20(token_);
         foundationPool = IERC20(foundationPool_);
-        _stakingRequirement = stakingRequirement_;
-        _maxContributors = maxContributors_;
-        _liquidatorRewardRatio = liquidatorRewardRatio_;
-        _poolShareOfLiquidationRatio = poolShareOfLiquidationRatio_;
-        _recipientRatio = recipientRatio_;
+        stakingRequirement = stakingRequirement_;
+        maxContributors = maxContributors_;
+        liquidatorRewardRatio = liquidatorRewardRatio_;
+        poolShareOfLiquidationRatio = poolShareOfLiquidationRatio_;
+        recipientRatio = recipientRatio_;
         nextServiceNodeID = LIST_SENTINEL + 1;
 
         // Doubly-linked list with sentinel that points to itself.
@@ -107,9 +107,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     // Maps a bls public key (G1Point) to a serviceNodeID
     mapping(bytes blsPubkey => uint64 serviceNodeID) public serviceNodeIDs;
 
-    BN256G1.G1Point public _aggregatePubkey;
-    uint256         public _lastHeightPubkeyWasAggregated;
-    uint256         public _numPubkeyAggregationsForHeight;
+    BN256G1.G1Point private _aggregatePubkey;
+    uint256         public lastHeightPubkeyWasAggregated;
+    uint256         public numPubkeyAggregationsForHeight;
 
     // MODIFIERS
     modifier whenStarted() {
@@ -392,16 +392,16 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         ServiceNodeParams calldata serviceNodeParams,
         Contributor[] memory contributors
     ) internal whenStarted {
-        if (contributors.length > maxContributors()) revert MaxContributorsExceeded();
+        if (contributors.length > maxContributors) revert MaxContributorsExceeded();
         if (contributors.length > 0) {
             uint256 totalAmount = 0;
             for (uint256 i = 0; i < contributors.length; i++) {
                 totalAmount += contributors[i].stakedAmount;
             }
-            if (totalAmount != _stakingRequirement) revert ContributionTotalMismatch(_stakingRequirement, totalAmount);
+            if (totalAmount != stakingRequirement) revert ContributionTotalMismatch(stakingRequirement, totalAmount);
         } else {
             contributors = new Contributor[](1);
-            contributors[0] = Contributor(caller, _stakingRequirement);
+            contributors[0] = Contributor(caller, stakingRequirement);
         }
         uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(blsPubkey)];
         if (serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
@@ -412,11 +412,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         for (uint256 i = 0; i < contributors.length; i++) {
             sn.contributors.push(contributors[i]);
         }
-        sn.deposit = _stakingRequirement;
+        sn.deposit = stakingRequirement;
 
         updateBLSNonSignerThreshold();
         emit NewServiceNode(allocID, caller, blsPubkey, serviceNodeParams, contributors);
-        SafeERC20.safeTransferFrom(designatedToken, caller, address(this), _stakingRequirement);
+        SafeERC20.safeTransferFrom(designatedToken, caller, address(this), stakingRequirement);
     }
 
     /// @notice Validates the proof of possession for a given BLS public key.
@@ -607,18 +607,18 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
         // Calculating how much liquidator is paid out
         emit ServiceNodeLiquidated(serviceNodeID, node.operator, node.pubkey);
-        uint256 ratioSum = _poolShareOfLiquidationRatio + _liquidatorRewardRatio + _recipientRatio;
+        uint256 ratioSum = poolShareOfLiquidationRatio + liquidatorRewardRatio + recipientRatio;
         uint256 deposit = node.deposit;
-        uint256 liquidatorAmount = (deposit * _liquidatorRewardRatio) / ratioSum;
-        uint256 poolAmount = deposit * _poolShareOfLiquidationRatio == 0
+        uint256 liquidatorAmount = (deposit * liquidatorRewardRatio) / ratioSum;
+        uint256 poolAmount = deposit * poolShareOfLiquidationRatio == 0
             ? 0
-            : (_poolShareOfLiquidationRatio - 1) / ratioSum + 1;
+            : (poolShareOfLiquidationRatio - 1) / ratioSum + 1;
 
         _removeBLSPublicKey(serviceNodeID, deposit - liquidatorAmount - poolAmount);
 
         // Transfer funds to pool and liquidator
-        if (_liquidatorRewardRatio > 0) SafeERC20.safeTransfer(designatedToken, msg.sender, liquidatorAmount);
-        if (_poolShareOfLiquidationRatio > 0)
+        if (liquidatorRewardRatio > 0) SafeERC20.safeTransfer(designatedToken, msg.sender, liquidatorAmount);
+        if (poolShareOfLiquidationRatio > 0)
             SafeERC20.safeTransfer(designatedToken, address(foundationPool), poolAmount);
     }
 
@@ -649,12 +649,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             // NOTE: Basic sanity checks
             if (node.contributors.length <= 0)
                 revert InsufficientContributors();
-            if (node.contributors.length > maxContributors())
+            if (node.contributors.length > maxContributors)
                 revert MaxContributorsExceeded();
 
             // NOTE: Add node to the smart contract
             (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(node.blsPubkey, node.ed25519Pubkey);
-            sn.deposit  = _stakingRequirement;
+            sn.deposit  = stakingRequirement;
             sn.operator = node.contributors[0].addr;
 
             uint256 stakedAmountSum = 0;
@@ -665,7 +665,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
                     revert NullAddress();
                 sn.contributors.push(contributor);
             }
-            if (stakedAmountSum != _stakingRequirement) revert ContributionTotalMismatch(_stakingRequirement, stakedAmountSum);
+            if (stakedAmountSum != stakingRequirement) revert ContributionTotalMismatch(stakingRequirement, stakedAmountSum);
 
             emit NewSeededServiceNode(allocID, node.blsPubkey, node.ed25519Pubkey);
         }
@@ -709,14 +709,14 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // seeded) we limit the number of public keys permitted to be aggregated
         // within a single block.
         if (isStarted) {
-            if (_lastHeightPubkeyWasAggregated < block.number) {
-                _lastHeightPubkeyWasAggregated  = block.number;
-                _numPubkeyAggregationsForHeight = 0;
+            if (lastHeightPubkeyWasAggregated < block.number) {
+                lastHeightPubkeyWasAggregated  = block.number;
+                numPubkeyAggregationsForHeight = 0;
             }
-            _numPubkeyAggregationsForHeight++;
+            numPubkeyAggregationsForHeight++;
 
             uint256 limit = maxPermittedPubkeyAggregations();
-            if (_numPubkeyAggregationsForHeight > limit)
+            if (numPubkeyAggregationsForHeight > limit)
                 revert MaxPubkeyAggregationsExceeded();
         }
 
@@ -856,7 +856,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     function setStakingRequirement(uint256 newRequirement) public onlyOwner {
         if (newRequirement <= 0)
             revert PositiveNumberRequirement();
-        _stakingRequirement = newRequirement;
+        stakingRequirement = newRequirement;
         emit StakingRequirementUpdated(newRequirement);
     }
 
@@ -903,19 +903,19 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     function setLiquidatorRewardRatio(uint256 newValue) public onlyOwner {
         if (newValue <= 0)
             revert LiquidatorRewardsTooLow();
-        _liquidatorRewardRatio = newValue;
+        liquidatorRewardRatio = newValue;
         emit LiquidatorRewardRatioUpdated(newValue);
     }
 
     function setPoolShareOfLiquidationRatio(uint256 newValue) public onlyOwner {
-        _poolShareOfLiquidationRatio = newValue;
+        poolShareOfLiquidationRatio = newValue;
         emit PoolShareOfLiquidationRatioUpdated(newValue);
     }
 
     function setRecipientRatio(uint256 newValue) public onlyOwner {
         if (newValue <= 0)
             revert PositiveNumberRequirement();
-        _recipientRatio = newValue;
+        recipientRatio = newValue;
         emit RecipientRatioUpdated(newValue);
     }
 
@@ -982,7 +982,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     ///
     /// @dev This is currently defined as max(20, 2 percent of the network).
     ///
-    /// This value is used in tandem with `_numPubkeyAggregationsForHeight`
+    /// This value is used in tandem with `numPubkeyAggregationsForHeight`
     /// which tracks the current number of aggregations thus far for the current
     /// block in the blockchain. This counter gets reset to 0 for each new
     /// block.
@@ -998,6 +998,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @return Service Node Struct from the linked list of all nodes
     function serviceNodes(uint64 serviceNodeID) external view returns (ServiceNode memory) {
         return _serviceNodes[serviceNodeID];
+    }
+
+    /// @notice Getter function for the aggregatePubkey
+    function aggregatePubkey() external view returns (BN256G1.G1Point memory) {
+        return _aggregatePubkey;
     }
 
     /// @notice Getter for obtaining all registered service node unique ids + pubkeys at once
@@ -1030,37 +1035,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
 
         return pubkeys;
-    }
-
-    /// @notice Getter function for liquidatorRewardRatio
-    function liquidatorRewardRatio() external view returns (uint256) {
-        return _liquidatorRewardRatio;
-    }
-
-    /// @notice Getter function for poolShareofLiquidationRatio
-    function poolShareOfLiquidationRatio() external view returns (uint256) {
-        return _poolShareOfLiquidationRatio;
-    }
-
-    /// @notice Getter function for recipientRatio
-    function recipientRatio() external view returns (uint256) {
-        return _recipientRatio;
-    }
-
-    /// @notice Getter function for stakingRequirement
-    function stakingRequirement() external view returns (uint256) {
-        return _stakingRequirement;
-    }
-
-    /// @notice Getter function for maxContributors
-    /// @dev If this is changed the size of contributors in IServiceNodeRewards needs to also be changed.
-    function maxContributors() public view returns (uint256) {
-        return _maxContributors;
-    }
-
-    /// @notice Getter function for the aggregatePubkey
-    function aggregatePubkey() external view returns (BN256G1.G1Point memory) {
-        return _aggregatePubkey;
     }
 
     /// @dev Builds a tag string using a base tag and contract-specific

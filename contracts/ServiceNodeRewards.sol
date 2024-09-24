@@ -370,28 +370,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         BN256G1.G1Point calldata blsPubkey,
         BLSSignatureParams calldata blsSignature,
         ServiceNodeParams calldata serviceNodeParams,
-        Contributor[] calldata contributors
-    ) external whenNotPaused {
-        _addBLSPublicKey(blsPubkey, blsSignature, msg.sender, serviceNodeParams, contributors);
-    }
-
-    /// @dev Internal function to add a BLS public key.
-    ///
-    /// @param blsPubkey 64 byte BLS public key for the service node.
-    /// @param blsSignature 128 byte BLS proof of possession signature that
-    /// proves ownership of the `blsPubkey`.
-    /// @param caller The address calling this function
-    /// @param serviceNodeParams Service node public key, signature proving
-    /// ownership of public key and fee that operator is charging
-    /// @param contributors An optional list of contributors to the service
-    /// node, first is always the operator.
-    function _addBLSPublicKey(
-        BN256G1.G1Point calldata blsPubkey,
-        BLSSignatureParams calldata blsSignature,
-        address caller,
-        ServiceNodeParams calldata serviceNodeParams,
         Contributor[] memory contributors
-    ) internal whenStarted {
+    ) external whenNotPaused whenStarted {
         if (contributors.length > maxContributors) revert MaxContributorsExceeded();
         if (contributors.length > 0) {
             uint256 totalAmount = 0;
@@ -401,11 +381,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             if (totalAmount != stakingRequirement) revert ContributionTotalMismatch(stakingRequirement, totalAmount);
         } else {
             contributors = new Contributor[](1);
-            contributors[0] = Contributor(caller, stakingRequirement);
+            contributors[0] = Contributor(msg.sender, stakingRequirement);
         }
         uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(blsPubkey)];
         if (serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
-        validateProofOfPossession(blsPubkey, blsSignature, caller, serviceNodeParams.serviceNodePubkey);
+        validateProofOfPossession(blsPubkey, blsSignature, msg.sender, serviceNodeParams.serviceNodePubkey);
 
         (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(blsPubkey, serviceNodeParams.serviceNodePubkey);
         sn.operator = contributors[0].addr;
@@ -415,8 +395,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         sn.deposit = stakingRequirement;
 
         updateBLSNonSignerThreshold();
-        emit NewServiceNode(allocID, caller, blsPubkey, serviceNodeParams, contributors);
-        SafeERC20.safeTransferFrom(designatedToken, caller, address(this), stakingRequirement);
+        emit NewServiceNode(allocID, msg.sender, blsPubkey, serviceNodeParams, contributors);
+        SafeERC20.safeTransferFrom(designatedToken, msg.sender, address(this), stakingRequirement);
     }
 
     /// @notice Validates the proof of possession for a given BLS public key.

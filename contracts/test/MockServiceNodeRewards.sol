@@ -34,6 +34,14 @@ contract MockServiceNodeRewards is Ownable {
         return _maxContributors;
     }
 
+    function validateProofOfPossession(
+        BN256G1.G1Point memory blsPubkey,
+        IServiceNodeRewards.BLSSignatureParams calldata blsSignature,
+        address caller,
+        uint256 serviceNodePubkey
+    ) external {
+    }
+
     function addBLSPublicKey(
         BN256G1.G1Point calldata pubkey,
         IServiceNodeRewards.BLSSignatureParams calldata,
@@ -49,11 +57,9 @@ contract MockServiceNodeRewards is Ownable {
         require(contributorsLength <= maxContributors(), "Exceeds maximum contributors");
 
         for (uint256 i = 0; i < contributorsLength; i++) {
-            //_serviceNodes[nextServiceNodeID].contributors[i] = contributors[i];
             _serviceNodes[nextServiceNodeID].contributors.push(contributors[i]);
         }
         if (contributorsLength == 0) {
-            //_serviceNodes[nextServiceNodeID].contributors[0] = IServiceNodeRewards.Contributor(msg.sender, stakingRequirement);
             _serviceNodes[nextServiceNodeID].contributors.push(
                 IServiceNodeRewards.Contributor(msg.sender, stakingRequirement)
             );

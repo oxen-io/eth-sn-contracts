@@ -371,7 +371,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
         uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(blsPubkey)];
         if (serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
-        validateProofOfPossession(blsPubkey, blsSignature, msg.sender, serviceNodeParams.serviceNodePubkey);
+        _validateProofOfPossession(blsPubkey, blsSignature, msg.sender, serviceNodeParams.serviceNodePubkey);
 
         (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(blsPubkey, serviceNodeParams.serviceNodePubkey);
         sn.operator = contributors[0].addr;
@@ -385,18 +385,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         SafeERC20.safeTransferFrom(designatedToken, msg.sender, address(this), stakingRequirement);
     }
 
-    /// @notice Validates the proof of possession for a given BLS public key.
-    /// @param blsPubkey 64 byte BLS public key for the service node.
-    /// @param blsSignature 128 byte BLS proof of possession signature that
-    /// proves ownership of the `blsPubkey`.
-    /// @param caller The address calling the `addBLSPublicKey` function
-    /// @param serviceNodePubkey Service node's 32 byte public key.
-    function validateProofOfPossession(
+    function _validateProofOfPossession(
         BN256G1.G1Point memory blsPubkey,
         BLSSignatureParams calldata blsSignature,
         address caller,
         uint256 serviceNodePubkey
-    ) internal {
+    ) private {
         bytes memory encodedMessage = abi.encodePacked(
             proofOfPossessionTag,
             blsPubkey.X,
@@ -413,6 +407,15 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(blsPubkey), Hm)) {
             revert InvalidBLSProofOfPossession();
         }
+    }
+
+    function validateProofOfPossession(
+        BN256G1.G1Point memory blsPubkey,
+        BLSSignatureParams calldata blsSignature,
+        address caller,
+        uint256 serviceNodePubkey
+    ) external {
+        _validateProofOfPossession(blsPubkey, blsSignature, caller, serviceNodePubkey);
     }
 
     /// @notice Initiates a request for the service node to leave the network by

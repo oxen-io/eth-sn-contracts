@@ -453,9 +453,9 @@ contract ServiceNodeContribution is Shared {
      * contributors and maintain the same keys for the node after
      * a deregistration or exit.
      */
-    function resetUpdateParamsReservedAndContribute(uint16 fee,
-                                                    IServiceNodeRewards.Contributor[] memory reserved,
-                                                    uint256 amount) external onlyOperator {
+    function resetUpdateFeeReservedAndContribute(uint16 fee,
+                                                 IServiceNodeRewards.Contributor[] memory reserved,
+                                                 uint256 amount) external onlyOperator {
         _reset();
         _updateFee(fee);
         _updateReservedContributors(reserved);

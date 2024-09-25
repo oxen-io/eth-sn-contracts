@@ -205,7 +205,7 @@ contract ServiceNodeContribution is Shared {
      * @notice See `updateReservedContributors`
      */
     function _updateReservedContributors(IServiceNodeRewards.Contributor[] memory reserved) private {
-        require(status == Status.WaitForOperatorContrib);
+        require(status == Status.WaitForOperatorContrib, "Contract can not accept new reserved contributors, already received operator contribution");
 
         // NOTE: Remove old reserved contributions
         {
@@ -489,7 +489,7 @@ contract ServiceNodeContribution is Shared {
         // mistakenly been sent throughout the lifetime of the contract without
         // giving them access to contributor tokens.
         require(status == Status.Finalized ||
-                status == Status.WaitForOperatorContrib);
+                status == Status.WaitForOperatorContrib, "Cannot rescue tokens unless contract is finalized or reset");
 
         IERC20 token = IERC20(tokenAddress);
         uint256 balance = token.balanceOf(address(this));

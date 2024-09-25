@@ -15,20 +15,23 @@ contract ServiceNodeContributionFactory {
 
     constructor(address _stakingRewardsContract) {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
-        SENT = IERC20(stakingRewardsContract.designatedToken());
-        maxContributors = stakingRewardsContract.maxContributors();
+        SENT                   = IERC20(stakingRewardsContract.designatedToken());
+        maxContributors        = stakingRewardsContract.maxContributors();
     }
 
-    function deployContributionContract(
-        BN256G1.G1Point memory blsPubkey,
-        IServiceNodeRewards.ServiceNodeParams memory serviceNodeParams
+    function deployContributionContract(BN256G1.G1Point calldata key,
+                                        IServiceNodeRewards.BLSSignatureParams calldata sig,
+                                        IServiceNodeRewards.ServiceNodeParams calldata params,
+                                        IServiceNodeRewards.Contributor[] calldata reserved
     ) public {
         ServiceNodeContribution newContract = new ServiceNodeContribution(
             address(stakingRewardsContract),
             maxContributors,
-            blsPubkey,
-            serviceNodeParams
+            key,
+            sig,
+            params,
+            reserved
         );
-        emit NewServiceNodeContributionContract(address(newContract), serviceNodeParams.serviceNodePubkey);
+        emit NewServiceNodeContributionContract(address(newContract), params.serviceNodePubkey);
     }
 }

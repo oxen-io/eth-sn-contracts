@@ -46,7 +46,7 @@ interface IServiceNodeRewards {
         uint256 serviceNodePubkey;
         uint256 serviceNodeSignature1;
         uint256 serviceNodeSignature2;
-        uint16 fee;
+        uint16  fee;
     }
     // Public Variables
     function aggregatePubkey() external view returns (BN256G1.G1Point memory);
@@ -85,6 +85,7 @@ interface IServiceNodeRewards {
         ServiceNodeParams calldata serviceNodeParams,
         Contributor[] calldata contributors
     ) external;
+    function validateProofOfPossession(BN256G1.G1Point memory blsPubkey, BLSSignatureParams calldata blsSignature, address caller, uint256 serviceNodePubkey) external;
     function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external;
     function removeBLSPublicKeyWithSignature(
         BN256G1.G1Point calldata blsPubkey,

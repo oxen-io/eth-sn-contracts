@@ -5,21 +5,19 @@ import "./libraries/Shared.sol";
 import "./interfaces/IServiceNodeRewards.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/**
- * @title Service Node Contribution Contract
- *
- * @dev This contract allows for the collection of contributions towards
- * a service node. Operators usually generate one of these smart contracts using
- * the parent factory contract `ServiceNodeContributionFactory` for each service
- * node they start and wish to collateralise with funds from the public.
- *
- * Contributors can fund the service node until the staking requirement is met.
- * Once the staking requirement is met, the contract is automatically finalized
- * and send the service node registration `ServiceNodeRewards` contract.
- *
- * This contract supports revoking of the contract prior to finalisation,
- * refunding the contribution to the contributors and the operator.
- */
+/// @title Service Node Contribution Contract
+///
+/// @dev This contract allows for the collection of contributions towards
+/// a service node. Operators usually generate one of these smart contracts using
+/// the parent factory contract `ServiceNodeContributionFactory` for each service
+/// node they start and wish to collateralise with funds from the public.
+///
+/// Contributors can fund the service node until the staking requirement is met.
+/// Once the staking requirement is met, the contract is automatically finalized
+/// and send the service node registration `ServiceNodeRewards` contract.
+///
+/// This contract supports revoking of the contract prior to finalisation,
+/// refunding the contribution to the contributors and the operator.
 contract ServiceNodeContribution is Shared {
     // Definitions
     using SafeERC20 for IERC20;
@@ -73,36 +71,34 @@ contract ServiceNodeContribution is Shared {
     Status                      public status                    = Status.WaitForOperatorContrib;
     uint64                      public constant WITHDRAWAL_DELAY = 1 days;
 
-    // MODIFIERS
+    // Modifers
     modifier onlyOperator() {
         require(msg.sender == operator, "Only the operator can perform this action.");
         _;
     }
 
-    // EVENTS
+    // Events
     event Finalized(uint256 indexed serviceNodePubkey);
     event NewContribution(address indexed contributor, uint256 amount);
     event OpenForPublicContribution(uint256 indexed serviceNodePubkey, address indexed operator, uint16 fee);
     event Filled(uint256 indexed serviceNodePubkey, address indexed operator);
     event WithdrawContribution(address indexed contributor, uint256 amount);
 
-    /**
-     * @notice Constructs a multi-contribution node contract for the
-     * specified `_stakingRewardsContract`.
-     *
-     * @dev This contract should typically be invoked from the parent
-     * contribution factory `ServiceNodeContributionFactory`.
-     *
-     * @param _stakingRewardsContract Address of the staking rewards contract.
-     * @param _maxContributors Maximum number of contributors allowed.
-     * @param key 64 byte BLS public key for the node.
-     * @param sig 128 byte BLS proof-of-posession signature that proves the
-     * caller knows the secret component of `key`.
-     * @param params Node registration parameters including the Ed25519 public
-     * key, a signature and the fee the operator is charging.
-     * @param reserved The new array of reserved contributors with their
-     * proportion of stake they must fulfill in the node.
-     */
+    /// @notice Constructs a multi-contribution node contract for the
+    /// specified `_stakingRewardsContract`.
+    ///
+    /// @dev This contract should typically be invoked from the parent
+    /// contribution factory `ServiceNodeContributionFactory`.
+    ///
+    /// @param _stakingRewardsContract Address of the staking rewards contract.
+    /// @param _maxContributors Maximum number of contributors allowed.
+    /// @param key 64 byte BLS public key for the node.
+    /// @param sig 128 byte BLS proof-of-posession signature that proves the
+    /// caller knows the secret component of `key`.
+    /// @param params Node registration parameters including the Ed25519 public
+    /// key, a signature and the fee the operator is charging.
+    /// @param reserved The new array of reserved contributors with their
+    /// proportion of stake they must fulfill in the node.
     constructor(
         address _stakingRewardsContract,
         uint256 _maxContributors,
@@ -125,35 +121,29 @@ contract ServiceNodeContribution is Shared {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    /**
-     * @notice Update the node fee held in this contract.
-     *
-     * This can only be called prior to the operator contributing funds to the
-     * contract or alternatively after they have called `reset`.
-     */
+    /// @notice Update the node fee held in this contract.
+    ///
+    /// This can only be called prior to the operator contributing funds to the
+    /// contract or alternatively after they have called `reset`.
     function updateFee(uint16 fee) external onlyOperator { _updateFee(fee); }
 
-    /**
-     * @notice See `updateFee`
-     */
+    /// @notice See `updateFee`
     function _updateFee(uint16 fee) private {
         require(status == Status.WaitForOperatorContrib, "Contract can not accept new fee, already received operator contribution");
         serviceNodeParams.fee = fee;
     }
 
-    /**
-     * @notice Update the public keys and their proofs held in the contract.
-     *
-     * This can only be called prior to the operator contributing funds to the
-     * contract or alternatively after they have called `reset`.
-     *
-     * @param newBLSPubkey The new 64 byte BLS public key for the node.
-     * @param newBLSSig The new 128 byte BLS proof-of-posession signature that proves
-     * the caller knows the secret component of `key`.
-     * @param ed25519Pubkey The new 32 byte Ed25519 public key for the node.
-     * @param ed25519Sig0 First 32 byte component of the signature for the Ed25519 key.
-     * @param ed25519Sig1 Second 32 byte component of the signature for the Ed25519 key.
-     */
+    /// @notice Update the public keys and their proofs held in the contract.
+    ///
+    /// This can only be called prior to the operator contributing funds to the
+    /// contract or alternatively after they have called `reset`.
+    ///
+    /// @param newBLSPubkey The new 64 byte BLS public key for the node.
+    /// @param newBLSSig The new 128 byte BLS proof-of-posession signature that proves
+    /// the caller knows the secret component of `key`.
+    /// @param ed25519Pubkey The new 32 byte Ed25519 public key for the node.
+    /// @param ed25519Sig0 First 32 byte component of the signature for the Ed25519 key.
+    /// @param ed25519Sig1 Second 32 byte component of the signature for the Ed25519 key.
     function updatePubkeys(BN256G1.G1Point memory newBLSPubkey,
                            IServiceNodeRewards.BLSSignatureParams memory newBLSSig,
                            uint256 ed25519Pubkey,
@@ -162,9 +152,7 @@ contract ServiceNodeContribution is Shared {
         _updatePubkeys(newBLSPubkey, newBLSSig, ed25519Pubkey, ed25519Sig0, ed25519Sig1);
     }
 
-    /**
-     * @notice See `updatePubkeys`
-     */
+    /// @notice See `updatePubkeys`
     function _updatePubkeys(BN256G1.G1Point memory newBLSPubkey,
                             IServiceNodeRewards.BLSSignatureParams memory newBLSSig,
                             uint256 ed25519Pubkey,
@@ -184,27 +172,23 @@ contract ServiceNodeContribution is Shared {
         serviceNodeParams.serviceNodeSignature2 = ed25519Sig1;
     }
 
-    /**
-     * @notice Update the reservation slots for contributors held in this contract.
-     *
-     * This can only be called prior to the operator contributing funds to the
-     * contract or alternatively after they have called `reset`.
-     *
-     * The list of reservations can be empty which will reset the contract,
-     * deleting any reservation data that is currently held. The list cannot
-     * specify more reservations than `maxContributors` or otherwise the
-     * function reverts.
-     *
-     * @param reserved The new array of reserved contributors with their
-     * proportion of stake they must fulfill in the node.
-     */
+    /// @notice Update the reservation slots for contributors held in this contract.
+    ///
+    /// This can only be called prior to the operator contributing funds to the
+    /// contract or alternatively after they have called `reset`.
+    ///
+    /// The list of reservations can be empty which will reset the contract,
+    /// deleting any reservation data that is currently held. The list cannot
+    /// specify more reservations than `maxContributors` or otherwise the
+    /// function reverts.
+    ///
+    /// @param reserved The new array of reserved contributors with their
+    /// proportion of stake they must fulfill in the node.
     function updateReservedContributors(IServiceNodeRewards.Contributor[] memory reserved) external onlyOperator {
         _updateReservedContributors(reserved);
     }
 
-    /**
-     * @notice See `updateReservedContributors`
-     */
+    /// @notice See `updateReservedContributors`
     function _updateReservedContributors(IServiceNodeRewards.Contributor[] memory reserved) private {
         require(status == Status.WaitForOperatorContrib, "Contract can not accept new reserved contributors, already received operator contribution");
 
@@ -240,29 +224,25 @@ contract ServiceNodeContribution is Shared {
         }
     }
 
-    /**
-     * @notice Contribute funds to the contract for the node run by
-     * `operator`. The `amount` of SENT token must be at least the
-     * `minimumContribution` or their amount specified in their reserved
-     * contribution (if applicable) otherwise the contribution is reverted.
-     *
-     * Node registration parameters must be assigned prior to the operator
-     * contribution or alternatively after `reset` is invoked.
-     *
-     * The operator must contribute their minimum contribution/reservation
-     * before the public or reserved contributors can contribute to the node.
-     * The minimum an operator can contribute is 25% of the staking requirement
-     * regardless of having a reservation or not.
-     *
-     * @param amount The amount of SENT token to contribute to the contract.
-     */
+    /// @notice Contribute funds to the contract for the node run by
+    /// `operator`. The `amount` of SENT token must be at least the
+    /// `minimumContribution` or their amount specified in their reserved
+    /// contribution (if applicable) otherwise the contribution is reverted.
+    ///
+    /// Node registration parameters must be assigned prior to the operator
+    /// contribution or alternatively after `reset` is invoked.
+    ///
+    /// The operator must contribute their minimum contribution/reservation
+    /// before the public or reserved contributors can contribute to the node.
+    /// The minimum an operator can contribute is 25% of the staking requirement
+    /// regardless of having a reservation or not.
+    ///
+    /// @param amount The amount of SENT token to contribute to the contract.
     function contributeFunds(uint256 amount) external {
         _contributeFunds(msg.sender, amount);
     }
 
-    /**
-     * @notice See `contributeFunds`
-     */
+    /// @notice See `contributeFunds`
     function _contributeFunds(address caller, uint256 amount) private {
         require(status == Status.WaitForOperatorContrib || status == Status.OpenForPublicContrib, "Contract can not accept contributions");
 
@@ -335,13 +315,11 @@ contract ServiceNodeContribution is Shared {
         }
     }
 
-    /**
-     * @notice Activate the node by transferring the registration details and
-     * tokens to the `stakingRewardsContract`.
-     *
-     * After finalisation the contract can be reused by invoking
-     * `reset`.
-     */
+    /// @notice Activate the node by transferring the registration details and
+    /// tokens to the `stakingRewardsContract`.
+    ///
+    /// After finalisation the contract can be reused by invoking
+    /// `reset`.
     function finalize() external onlyOperator {
         require(status              == Status.WaitForFinalized, "Contract can not be finalized yet, staking requirement not met");
         require(totalContribution() == stakingRequirement,      "Staking requirement has not been met");
@@ -365,20 +343,16 @@ contract ServiceNodeContribution is Shared {
         stakingRewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
     }
 
-    /**
-     * @notice Reset the contract allowing it to be reused to re-register the
-     * pre-existing node by refunding and removing all stored contributions.
-     *
-     * This function can be called any point in the lifetime of the contract to
-     * bring it to its initial state. Node parameters (Ed25519 key, sig, fee)
-     * and the BLS key and signature are preserved across reset and can be
-     * updated piecemeal via the `update...` family of functions.
-     */
+    /// @notice Reset the contract allowing it to be reused to re-register the
+    /// pre-existing node by refunding and removing all stored contributions.
+    ///
+    /// This function can be called any point in the lifetime of the contract to
+    /// bring it to its initial state. Node parameters (Ed25519 key, sig, fee)
+    /// and the BLS key and signature are preserved across reset and can be
+    /// updated piecemeal via the `update...` family of functions.
     function reset() external onlyOperator { _reset(); }
 
-    /**
-     * @notice See `reset`
-     */
+    /// @notice See `reset`
     function _reset() private {
         {
             for (uint256 i = 0; i < contributorAddresses.length; i++)
@@ -396,23 +370,21 @@ contract ServiceNodeContribution is Shared {
         }
     }
 
-    /**
-     * @notice Helper function that invokes a reset and updates all possible
-     * parameters for the registration.
-     *
-     * This function is equivalent to calling in sequence:
-     *
-     *   - `reset`
-     *   - `updatePubkeys`
-     *   - `updateFee`
-     *   - `updateReservedContributors`
-     *   - `contributeFunds`
-     *
-     * If reserved contributors are not desired, an empty array is accepted.
-     *
-     * If the operator wishes to withhold their initial contribution, a `0`
-     * amount is accepted.
-     */
+    /// @notice Helper function that invokes a reset and updates all possible
+    /// parameters for the registration.
+    ///
+    /// This function is equivalent to calling in sequence:
+    ///
+    ///   - `reset`
+    ///   - `updatePubkeys`
+    ///   - `updateFee`
+    ///   - `updateReservedContributors`
+    ///   - `contributeFunds`
+    ///
+    /// If reserved contributors are not desired, an empty array is accepted.
+    ///
+    /// If the operator wishes to withhold their initial contribution, a `0`
+    /// amount is accepted.
     function resetUpdateAndContribute(BN256G1.G1Point memory key,
                                       IServiceNodeRewards.BLSSignatureParams memory sig,
                                       IServiceNodeRewards.ServiceNodeParams memory params,
@@ -421,9 +393,7 @@ contract ServiceNodeContribution is Shared {
         _resetUpdateAndContribute(key, sig, params, reserved, amount);
     }
 
-    /**
-     * @notice See `resetUpdateAndContribute`
-     */
+    /// @notice See `resetUpdateAndContribute`
     function _resetUpdateAndContribute(BN256G1.G1Point memory key,
                                        IServiceNodeRewards.BLSSignatureParams memory sig,
                                        IServiceNodeRewards.ServiceNodeParams memory params,
@@ -437,26 +407,24 @@ contract ServiceNodeContribution is Shared {
             _contributeFunds(operator, amount);
     }
 
-    /**
-     * @notice Helper function that updates the fee and contribution of the
-     * node.
-     *
-     * This function is equivalent to calling in sequence:
-     *
-     *   - `reset`
-     *   - `updateFee`
-     *   - `updateReservedContributors`
-     *   - `contributeFunds`
-     *
-     * If reserved contributors are not desired, the empty array is accepted.
-     *
-     * If the operator wishes to withhold their initial contribution, a `0`
-     * amount is accepted.
-     *
-     * @dev Useful to conduct exactly 1 transaction to re-use a node with new
-     * contributors and maintain the same keys for the node after
-     * a deregistration or exit.
-     */
+    /// @notice Helper function that updates the fee and contribution of the
+    /// node.
+    ///
+    /// This function is equivalent to calling in sequence:
+    ///
+    ///   - `reset`
+    ///   - `updateFee`
+    ///   - `updateReservedContributors`
+    ///   - `contributeFunds`
+    ///
+    /// If reserved contributors are not desired, the empty array is accepted.
+    ///
+    /// If the operator wishes to withhold their initial contribution, a `0`
+    /// amount is accepted.
+    ///
+    /// @dev Useful to conduct exactly 1 transaction to re-use a node with new
+    /// contributors and maintain the same keys for the node after
+    /// a deregistration or exit.
     function resetUpdateFeeReservedAndContribute(uint16 fee,
                                                  IServiceNodeRewards.Contributor[] memory reserved,
                                                  uint256 amount) external onlyOperator {
@@ -467,17 +435,15 @@ contract ServiceNodeContribution is Shared {
             _contributeFunds(operator, amount);
     }
 
-    /**
-     * @notice Function to allow owner to rescue any ERC20 tokens sent to the
-     * contract after it has been finalized.
-     *
-     * @dev Rescue is only allowed when finalized or no contribution has been
-     * made to the contract so any token balance from contributors are either
-     * absent or have been transferred to the `stakingRewardsContract` and the
-     * remaining tokens can be sent without risking contributor collateral.
-     *
-     * @param tokenAddress The ERC20 token to rescue from the contract.
-     */
+    /// @notice Function to allow owner to rescue any ERC20 tokens sent to the
+    /// contract after it has been finalized.
+    ///
+    /// @dev Rescue is only allowed when finalized or no contribution has been
+    /// made to the contract so any token balance from contributors are either
+    /// absent or have been transferred to the `stakingRewardsContract` and the
+    /// remaining tokens can be sent without risking contributor collateral.
+    ///
+    /// @param tokenAddress The ERC20 token to rescue from the contract.
     function rescueERC20(address tokenAddress) external onlyOperator {
         // NOTE: ERC20 tokens sent to the contract can only be rescued after the
         // contract is finalized or the contract has been reset
@@ -502,14 +468,12 @@ contract ServiceNodeContribution is Shared {
         token.safeTransfer(operator, balance);
     }
 
-    /**
-     * @notice Allows the contributor or operator to withdraw their contribution
-     * from the contract.
+    /// @notice Allows the contributor or operator to withdraw their contribution
+    /// from the contract.
 
-     * After finalization, the registration is transferred to the
-     * `stakingRewardsContract` and withdrawal by or the operator contributors
-     * must be done through that contract.
-     */
+    /// After finalization, the registration is transferred to the
+    /// `stakingRewardsContract` and withdrawal by or the operator contributors
+    /// must be done through that contract.
     function withdrawContribution() external {
         if (msg.sender == operator) {
             _reset();
@@ -527,19 +491,17 @@ contract ServiceNodeContribution is Shared {
             emit WithdrawContribution(msg.sender, refundAmount);
     }
 
-    /**
-     * @dev Remove the contributor by address specified by `toRemove` from the
-     * smart contract. This updates all contributor related smart contract
-     * variables including the:
-     *
-     *   1) Removing contributor from contribution mapping
-     *   2) Removing their address from the contribution array
-     *   3) Refunding the SENT amount contributed to the contributor
-     *
-     * @return result The amount of SENT refunded for the given `toRemove`
-     * address. If `toRemove` is not a contributor/does not exist, 0 is returned
-     * as the refunded amount.
-     */
+    /// @dev Remove the contributor by address specified by `toRemove` from the
+    /// smart contract. This updates all contributor related smart contract
+    /// variables including the:
+    ///
+    ///   1) Removing contributor from contribution mapping
+    ///   2) Removing their address from the contribution array
+    ///   3) Refunding the SENT amount contributed to the contributor
+    ///
+    /// @return result The amount of SENT refunded for the given `toRemove`
+    /// address. If `toRemove` is not a contributor/does not exist, 0 is returned
+    /// as the refunded amount.
     function removeAndRefundContributor(address toRemove) private returns (uint256 result) {
         result = contributions[toRemove];
         if (result == 0)
@@ -576,16 +538,14 @@ contract ServiceNodeContribution is Shared {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    /**
-     * @notice Calculates the minimum contribution amount given the current
-     * contribution status of the contract.
-     *
-     * @dev The minimum contribution is dynamically calculated based on the
-     * number of contributors and the staking requirement. It returns
-     * math.ceilDiv of the calculation
-     *
-     * @return result The minimum contribution amount.
-     */
+    /// @notice Calculates the minimum contribution amount given the current
+    /// contribution status of the contract.
+    ///
+    /// @dev The minimum contribution is dynamically calculated based on the
+    /// number of contributors and the staking requirement. It returns
+    /// math.ceilDiv of the calculation
+    ///
+    /// @return result The minimum contribution amount.
     function minimumContribution() public view returns (uint256 result) {
         result = calcMinimumContribution(
             stakingRequirement - totalContribution() - totalReservedContribution(),
@@ -595,20 +555,18 @@ contract ServiceNodeContribution is Shared {
         return result;
     }
 
-    /**
-     * @notice Function to calculate the minimum contribution given the staking
-     * parameters.
-     *
-     * This function reverts if invalid parameters are given such that the
-     * operations would wrap or divide by 0.
-     *
-     * @param contributionRemaining The amount of contribution still available
-     * to be contributed to this contract.
-     * @param numContributors The number of contributors that have contributed
-     * to the contract already including the operator.
-     * @param maxNumContributors The maximum number of contributors allowed to
-     * contribute to this contract.
-     */
+    /// @notice Function to calculate the minimum contribution given the staking
+    /// parameters.
+    ///
+    /// This function reverts if invalid parameters are given such that the
+    /// operations would wrap or divide by 0.
+    ///
+    /// @param contributionRemaining The amount of contribution still available
+    /// to be contributed to this contract.
+    /// @param numContributors The number of contributors that have contributed
+    /// to the contract already including the operator.
+    /// @param maxNumContributors The maximum number of contributors allowed to
+    /// contribute to this contract.
     function calcMinimumContribution(
         uint256 contributionRemaining,
         uint256 numContributors,
@@ -624,37 +582,29 @@ contract ServiceNodeContribution is Shared {
         return result;
     }
 
-    /**
-     * @notice Calculates the minimum operator contribution given the staking
-     * requirement.
-     */
+    /// @notice Calculates the minimum operator contribution given the staking
+    /// requirement.
     function minimumOperatorContribution(uint256 _stakingRequirement) public pure returns (uint256 result) {
         result = calcMinimumContribution(_stakingRequirement, 0, 1);
         return result;
     }
 
-    /**
-     * @dev This function allows unit-tests to query the length without having
-     * to know the storage slot of the array size.
-     */
+    /// @dev This function allows unit-tests to query the length without having
+    /// to know the storage slot of the array size.
     function contributorAddressesLength() public view returns (uint256 result) {
         result = contributorAddresses.length;
         return result;
     }
 
-    /**
-     * @notice Get the contribution by the operator, defined to always be the
-     * first contribution in the contract.
-     */
+    /// @notice Get the contribution by the operator, defined to always be the
+    /// first contribution in the contract.
     function operatorContribution() public view returns (uint256 result) {
         result = contributorAddresses.length > 0 ? contributions[contributorAddresses[0]] : 0;
         return result;
     }
 
-    /**
-     * @notice Access the list of contributor addresses and corresponding contributions.  The
-     * first returned address (if any) is also the operator address.
-     */
+    /// @notice Access the list of contributor addresses and corresponding contributions.  The
+    /// first returned address (if any) is also the operator address.
     function getContributions() public view returns (address[] memory addrs, uint256[] memory contribs) {
         uint256 size = contributorAddresses.length;
         addrs = new address[](size);
@@ -666,9 +616,7 @@ contract ServiceNodeContribution is Shared {
         return (addrs, contribs);
     }
 
-    /**
-     * @notice Sum up all the contributions recorded in the contributors list
-     */
+    /// @notice Sum up all the contributions recorded in the contributors list
     function totalContribution() public view returns (uint256 result) {
         uint256 arrayLength = contributorAddresses.length;
         for (uint256 i = 0; i < arrayLength; i++) {
@@ -678,9 +626,7 @@ contract ServiceNodeContribution is Shared {
         return result;
     }
 
-    /**
-     * @notice Sum up all the reserved contributions recorded in the reserved list
-     */
+    /// @notice Sum up all the reserved contributions recorded in the reserved list
     function totalReservedContribution() public view returns (uint256 result) {
         uint256 arrayLength = reservedContributionsAddresses.length;
         for (uint256 i = 0; i < arrayLength; i++) {

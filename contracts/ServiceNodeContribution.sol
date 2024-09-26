@@ -355,8 +355,10 @@ contract ServiceNodeContribution is Shared {
     /// @notice See `reset`
     function _reset() private {
         {
-            for (uint256 i = 0; i < contributorAddresses.length; i++)
-                removeAndRefundContributor(contributorAddresses[i]);
+            address[] memory copy = contributorAddresses;
+            uint256 length        = copy.length;
+            for (uint256 i = 0; i < length; i++)
+                removeAndRefundContributor(copy[i]);
             delete contributorAddresses;
         }
 

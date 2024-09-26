@@ -82,7 +82,8 @@ contract ServiceNodeContribution is Shared {
     // EVENTS
     event Finalized(uint256 indexed serviceNodePubkey);
     event NewContribution(address indexed contributor, uint256 amount);
-    event OpenForPublicContribution(address indexed);
+    event OpenForPublicContribution(uint256 indexed serviceNodePubkey, address indexed operator, uint16 fee);
+    event Filled(uint256 indexed serviceNodePubkey, address indexed operator);
     event WithdrawContribution(address indexed contributor, uint256 amount);
 
     /**
@@ -150,8 +151,8 @@ contract ServiceNodeContribution is Shared {
      * @param newBLSSig The new 128 byte BLS proof-of-posession signature that proves
      * the caller knows the secret component of `key`.
      * @param ed25519Pubkey The new 32 byte Ed25519 public key for the node.
-     * @param ed25519Sig0 First 64 byte component of the signature for the Ed25519 key.
-     * @param ed25519Sig1 Second 64 byte component of the signature for the Ed25519 key.
+     * @param ed25519Sig0 First 32 byte component of the signature for the Ed25519 key.
+     * @param ed25519Sig1 Second 32 byte component of the signature for the Ed25519 key.
      */
     function updatePubkeys(BN256G1.G1Point memory newBLSPubkey,
                            IServiceNodeRewards.BLSSignatureParams memory newBLSSig,
@@ -282,6 +283,7 @@ contract ServiceNodeContribution is Shared {
             require(caller == operator,
                     "The operator must initially contribute to open the contract for contribution");
             status = Status.OpenForPublicContrib;
+            emit OpenForPublicContribution(serviceNodeParams.serviceNodePubkey, operator, serviceNodeParams.fee);
         }
 
         // NOTE: Verify the contribution
@@ -327,8 +329,10 @@ contract ServiceNodeContribution is Shared {
         SENT.safeTransferFrom(caller, address(this), amount);
 
         // NOTE: Allow finalizing the node if the staking requirement is met
-        if (totalContribution() == stakingRequirement)
+        if (totalContribution() == stakingRequirement) {
+            emit Filled(serviceNodeParams.serviceNodePubkey, operator);
             status = Status.WaitForFinalized;
+        }
     }
 
     /**

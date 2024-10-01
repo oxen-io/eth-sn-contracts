@@ -154,7 +154,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     // EVENTS
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point blsPubkey, uint256 ed25519Pubkey);
-    event NewServiceNode(
+    event NewServiceNodeV2(
         uint64 indexed serviceNodeID,
         address initiator,
         BN256G1.G1Point pubkey,
@@ -346,12 +346,14 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param serviceNodeParams The service node to add including the x25519
     /// public key and signature that proves ownership of the private component
     /// of the public key and the desired fee the operator is charging.
-    /// @param contributors An optional list of contributors for
-    /// multi-contribution service nodes. The first contributor's information
-    /// must be set to the operator (the current interacting wallet).
+    /// @param contributors Optional array of contributors for
+    /// multi-contribution nodes. If specified, the first entry must be set to
+    /// the operator of the node (the current interacting wallet e.g:
+    /// `msg.sender`).
     ///
-    /// If this list of empty, it is assumed that the service node is ran in
-    /// a solo configuration under the current interacting wallet.
+    /// If this list is empty, it is assumed that the node is to be registered
+    /// as a solo node with the beneficiary set to the current interacting
+    /// wallet.
     function addBLSPublicKey(
         BN256G1.G1Point calldata blsPubkey,
         BLSSignatureParams calldata blsSignature,
@@ -361,27 +363,29 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         if (contributors.length > maxContributors) revert MaxContributorsExceeded();
         if (contributors.length > 0) {
             uint256 totalAmount = 0;
-            for (uint256 i = 0; i < contributors.length; i++) {
+            for (uint256 i = 0; i < contributors.length; i++)
                 totalAmount += contributors[i].stakedAmount;
-            }
-            if (totalAmount != stakingRequirement) revert ContributionTotalMismatch(stakingRequirement, totalAmount);
+            if (totalAmount != stakingRequirement)
+                revert ContributionTotalMismatch(stakingRequirement, totalAmount);
         } else {
-            contributors = new Contributor[](1);
-            contributors[0] = Contributor(msg.sender, stakingRequirement);
+            contributors    = new Contributor[](1);
+            contributors[0] = Contributor(Staker(/*addr*/ msg.sender, /*beneficiary*/ msg.sender), stakingRequirement);
         }
+
         uint64 serviceNodeID = serviceNodeIDs[BN256G1.getKeyForG1Point(blsPubkey)];
-        if (serviceNodeID != 0) revert BLSPubkeyAlreadyExists(serviceNodeID);
+        if (serviceNodeID != 0)
+            revert BLSPubkeyAlreadyExists(serviceNodeID);
+
         _validateProofOfPossession(blsPubkey, blsSignature, msg.sender, serviceNodeParams.serviceNodePubkey);
 
         (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(blsPubkey, serviceNodeParams.serviceNodePubkey);
-        sn.operator = contributors[0].addr;
-        for (uint256 i = 0; i < contributors.length; i++) {
+        sn.deposit                               = stakingRequirement;
+        sn.operator                              = contributors[0].staker.addr;
+        for (uint256 i = 0; i < contributors.length; i++)
             sn.contributors.push(contributors[i]);
-        }
-        sn.deposit = stakingRequirement;
 
         updateBLSNonSignerThreshold();
-        emit NewServiceNode(allocID, msg.sender, blsPubkey, serviceNodeParams, contributors);
+        emit NewServiceNodeV2(allocID, msg.sender, blsPubkey, serviceNodeParams, contributors);
         SafeERC20.safeTransferFrom(designatedToken, msg.sender, address(this), stakingRequirement);
     }
 
@@ -440,7 +444,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         bool isContributor = false;
         bool isSmall = false; // "small" means less than 25% of the SN total stake
         for (uint256 i = 0; i < _serviceNodes[serviceNodeID].contributors.length; i++) {
-            if (_serviceNodes[serviceNodeID].contributors[i].addr == caller) {
+            if (_serviceNodes[serviceNodeID].contributors[i].staker.addr == caller) {
                 isContributor = true;
                 isSmall =
                     SMALL_CONTRIBUTOR_DIVISOR * _serviceNodes[serviceNodeID].contributors[i].stakedAmount
@@ -623,14 +627,14 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
             // NOTE: Add node to the smart contract
             (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(node.blsPubkey, node.ed25519Pubkey);
-            sn.deposit  = stakingRequirement;
-            sn.operator = node.contributors[0].addr;
+            sn.deposit                               = stakingRequirement;
+            sn.operator                              = node.contributors[0].staker.addr;
 
             uint256 stakedAmountSum = 0;
             for (uint256 contributorIndex = 0; contributorIndex < node.contributors.length; contributorIndex++) {
                 Contributor calldata contributor  = node.contributors[contributorIndex];
                 stakedAmountSum                  += contributor.stakedAmount;
-                if (contributor.addr == address(0))
+                if (contributor.staker.addr == address(0))
                     revert NullAddress();
                 sn.contributors.push(contributor);
             }

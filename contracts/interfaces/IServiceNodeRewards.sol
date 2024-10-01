@@ -5,9 +5,14 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../libraries/BN256G1.sol";
 
 interface IServiceNodeRewards {
+    struct Staker {
+        address addr;        // Address that is contributing the stake
+        address beneficiary; // Address rewards are paid out to
+    }
+
     struct Contributor {
-        address addr;         // The address of the contributor
-        uint256 stakedAmount; // The amount staked by the contributor
+        Staker staker;        // Address details for contributor
+        uint256 stakedAmount; // Amount staked by the contributor
     }
 
     struct SeedServiceNode {
@@ -16,7 +21,7 @@ interface IServiceNodeRewards {
         Contributor[]   contributors;
     }
 
-    /// @notice Represents a service node in the network.
+    /// @notice Represents a node in the network.
     struct ServiceNode {
         uint64          next;
         uint64          prev;

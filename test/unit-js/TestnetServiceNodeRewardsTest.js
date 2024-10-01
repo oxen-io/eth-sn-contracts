@@ -58,7 +58,10 @@ describe("TestnetServiceNodeRewards Contract Tests", function () {
                 ed25519Pubkey: ed25519_generator++,
                 contributors: [
                     {
-                        addr: "0x66d801a70615979d82c304b7db374d11c232db66",
+                        staker: {
+                            addr:        "0x66d801a70615979d82c304b7db374d11c232db66",
+                            beneficiary: "0x66d801a70615979d82c304b7db374d11c232db66",
+                        },
                         stakedAmount: staking_req,
                     }
                 ]

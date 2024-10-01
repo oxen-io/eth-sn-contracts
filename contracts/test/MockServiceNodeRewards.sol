@@ -61,7 +61,7 @@ contract MockServiceNodeRewards is Ownable {
         }
         if (contributorsLength == 0) {
             _serviceNodes[nextServiceNodeID].contributors.push(
-                IServiceNodeRewards.Contributor(msg.sender, stakingRequirement)
+                IServiceNodeRewards.Contributor(IServiceNodeRewards.Staker(msg.sender, msg.sender), stakingRequirement)
             );
         }
 

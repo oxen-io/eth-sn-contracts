@@ -152,8 +152,16 @@ contract ServiceNodeContributionEchidnaTest {
     //                  Contract Wrapper                        //
     //                                                          //
     //////////////////////////////////////////////////////////////
-    function testContributeOperatorFunds(uint256 _amount) public {
+    function testContributeOperatorFunds(
+        uint256 _amount,
+        bool useRandomBeneficiary,
+        address randomBeneficiary
+    ) public {
         mintTokensForTesting();
+        ServiceNodeContribution.ContributeData memory data;
+        data.setBeneficiary = useRandomBeneficiary;
+        data.beneficiary = randomBeneficiary;
+
         if (
             snOperator == msg.sender &&
             snContribution.operatorContribution() == 0 &&
@@ -166,7 +174,7 @@ contract ServiceNodeContributionEchidnaTest {
             assert(snContribution.totalContribution() == 0);
             assert(snContribution.contributorAddressesLength() == 0);
 
-            try snContribution.contributeFunds(_amount) {} catch {
+            try snContribution.contributeFunds(_amount, data) {} catch {
                 assert(false); // Contribute must succeed as all necessary preconditions are met
             }
 
@@ -177,22 +185,26 @@ contract ServiceNodeContributionEchidnaTest {
 
             assert(sentToken.balanceOf(msg.sender) == balanceBeforeContribute - _amount);
         } else {
-            try snContribution.contributeFunds(_amount) {
+            try snContribution.contributeFunds(_amount, data) {
                 assert(false); // Contribute as operator must not succeed
             } catch {}
         }
     }
 
-    function testContributeFunds(uint256 amount) public {
+    function testContributeFunds(uint256 amount, bool useRandomBeneficiary, address randomBeneficiary) public {
         mintTokensForTesting();
         uint256 balanceBeforeContribute = sentToken.balanceOf(msg.sender);
 
+        ServiceNodeContribution.ContributeData memory data;
+        data.setBeneficiary = useRandomBeneficiary;
+        data.beneficiary = randomBeneficiary;
+
         if (snContribution.totalContribution() < STAKING_REQUIREMENT) {
-            try snContribution.contributeFunds(amount) {} catch {
+            try snContribution.contributeFunds(amount, data) {} catch {
                 assert(false); // Contribute must not fail as we have tokens and are under the staking requirement
             }
         } else {
-            try snContribution.contributeFunds(amount) {
+            try snContribution.contributeFunds(amount, data) {
                 assert(false); // Contribute must not succeed as we have hit the staking requirement
             } catch {}
         }

@@ -45,31 +45,36 @@ contract ServiceNodeContribution is Shared {
         Finalized
     }
 
+    struct ContributeData {
+        bool setBeneficiary;
+        address beneficiary;
+    }
+
     // Staking
     // solhint-disable-next-line var-name-mixedcase
-    IERC20              public immutable SENT;
-    IServiceNodeRewards public immutable stakingRewardsContract;
-    uint256             public immutable stakingRequirement;
+    IERC20                                        public immutable SENT;
+    IServiceNodeRewards                           public immutable stakingRewardsContract;
+    uint256                                       public immutable stakingRequirement;
 
     // Service Node
-    BN256G1.G1Point                        public blsPubkey;
-    IServiceNodeRewards.ServiceNodeParams  public serviceNodeParams;
-    IServiceNodeRewards.BLSSignatureParams public blsSignature;
+    BN256G1.G1Point                               public blsPubkey;
+    IServiceNodeRewards.ServiceNodeParams         public serviceNodeParams;
+    IServiceNodeRewards.BLSSignatureParams        public blsSignature;
 
     // Contributions
-    address                     public immutable operator;
-    mapping(address => uint256) public contributions;
-    mapping(address => uint256) public contributionTimestamp;
-    address[]                   public contributorAddresses;
-    uint256                     public immutable maxContributors;
+    address                                       public immutable operator;
+    mapping(address stakerAddr => uint256 amount) public           contributions;
+    mapping(address stakerAddr => uint256 amount) public           contributionTimestamp;
+    IServiceNodeRewards.Staker[]                  public           contributorAddresses;
+    uint256                                       public immutable maxContributors;
 
     // Reserved Stakes
-    mapping(address => uint256) public reservedContributions;
-    address[]                   public reservedContributionsAddresses;
+    mapping(address stakerAddr => uint256 amount) public reservedContributions;
+    address[]                                     public reservedContributionsAddresses;
 
     // Smart Contract
-    Status                      public status                    = Status.WaitForOperatorContrib;
-    uint64                      public constant WITHDRAWAL_DELAY = 1 days;
+    Status                                        public          status           = Status.WaitForOperatorContrib;
+    uint64                                        public constant WITHDRAWAL_DELAY = 1 days;
 
     // Prevents the contract from automatically invoking `finalize` when a
     // contribution to the contract fulfills the staking requirement. When true,
@@ -93,6 +98,7 @@ contract ServiceNodeContribution is Shared {
     event OpenForPublicContribution(uint256 indexed serviceNodePubkey, address indexed operator, uint16 fee);
     event Filled(uint256 indexed serviceNodePubkey, address indexed operator);
     event WithdrawContribution(address indexed contributor, uint256 amount);
+    event UpdateStakerBeneficiary(address indexed staker, address beneficiary);
 
     /// @notice Constructs a multi-contribution node contract for the
     /// specified `_stakingRewardsContract`.
@@ -128,7 +134,9 @@ contract ServiceNodeContribution is Shared {
         SENT                   = IERC20(stakingRewardsContract.designatedToken());
         maxContributors        = _maxContributors;
         operator               = tx.origin; // NOTE: Creation is delegated by operator through factory
-        _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, 0);
+
+        ContributeData memory nilContribData;
+        _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, nilContribData, 0);
     }
 
     //////////////////////////////////////////////////////////////
@@ -233,9 +241,9 @@ contract ServiceNodeContribution is Shared {
         require(reserved.length <= maxContributors, "Max contributors exceeded in the specified reserved contributors");
         for (uint256 i = 0; i < reserved.length; i++) {
             if (i == 0)
-                require(reserved[i].addr == operator,             "The first reservation must be the operator if reserved contributors are given");
-            require(reserved[i].addr != address(0),               "Zero address given for contributor");
-            require(reservedContributions[reserved[i].addr] == 0, "Duplicate address in reserved contributors");
+                require(reserved[i].staker.addr == operator,             "The first reservation must be the operator if reserved contributors are given");
+            require(reserved[i].staker.addr != address(0),               "Zero address given for contributor");
+            require(reservedContributions[reserved[i].staker.addr] == 0, "Duplicate address in reserved contributors");
 
             // NOTE: Check contribution meets min requirements and running sum
             // doesn't exceed a full stake
@@ -246,9 +254,27 @@ contract ServiceNodeContribution is Shared {
             remaining         -= contribAmount;
 
             // NOTE: Store the reservation in the contract
-            reservedContributionsAddresses.push(reserved[i].addr);
-            reservedContributions[reserved[i].addr] = contribAmount;
+            reservedContributionsAddresses.push(reserved[i].staker.addr);
+            reservedContributions[reserved[i].staker.addr] = contribAmount;
         }
+    }
+
+    function updateBeneficiary(address newBeneficiary) external { _updateBeneficiary(msg.sender, newBeneficiary); }
+
+    /// @notice See `updateBeneficiary`
+    function _updateBeneficiary(address stakerAddr, address newBeneficiary) private {
+        bool updated   = false;
+        uint256 length = contributorAddresses.length;
+        for (uint256 i = 0; i < length; i++) {
+            IServiceNodeRewards.Staker storage staker = contributorAddresses[i];
+            if (staker.addr == stakerAddr) {
+                updated            = true;
+                staker.beneficiary = newBeneficiary;
+                break;
+            }
+        }
+        require(updated, "Address to update beneficiary for is not a current contributor to this node");
+        emit UpdateStakerBeneficiary(stakerAddr, newBeneficiary);
     }
 
     /// @notice Contribute funds to the contract for the node run by
@@ -265,10 +291,10 @@ contract ServiceNodeContribution is Shared {
     /// regardless of having a reservation or not.
     ///
     /// @param amount The amount of SENT token to contribute to the contract.
-    function contributeFunds(uint256 amount) external { _contributeFunds(msg.sender, amount); }
+    function contributeFunds(uint256 amount, ContributeData memory data) external { _contributeFunds(msg.sender, data, amount); }
 
     /// @notice See `contributeFunds`
-    function _contributeFunds(address caller, uint256 amount) private {
+    function _contributeFunds(address caller, ContributeData memory data, uint256 amount) private {
         require(status == Status.WaitForOperatorContrib || status == Status.OpenForPublicContrib, "Contract can not accept contributions");
 
         // NOTE: Check if parent contract invariants changed
@@ -317,7 +343,10 @@ contract ServiceNodeContribution is Shared {
 
         // NOTE: Add the contributor to the contract
         if (contributions[caller] == 0)
-            contributorAddresses.push(caller);
+            contributorAddresses.push(IServiceNodeRewards.Staker(caller, caller));
+
+        if (data.setBeneficiary)
+            _updateBeneficiary(caller, data.beneficiary);
 
         // NOTE: Update the amount contributed and transfer the tokens
         contributions[caller]         += amount;
@@ -358,14 +387,11 @@ contract ServiceNodeContribution is Shared {
         status = Status.Finalized;
         emit Finalized(serviceNodeParams.serviceNodePubkey);
 
-        // NOTE: Setup the contributors for the `stakingRewardsContract`
-        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](
-            contributorAddresses.length
-        );
-        uint256 arrayLength = contributorAddresses.length;
-        for (uint256 i = 0; i < arrayLength; i++) {
-            address contributorAddress = contributorAddresses[i];
-            contributors[i]            = IServiceNodeRewards.Contributor(contributorAddress, contributions[contributorAddress]);
+        uint256 length                                        = contributorAddresses.length;
+        IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](length);
+        for (uint256 i = 0; i < length; i++) {
+            IServiceNodeRewards.Staker storage entry = contributorAddresses[i];
+            contributors[i]                          = IServiceNodeRewards.Contributor(entry, contributions[entry.addr]);
         }
 
         // NOTE: Transfer tokens and register the node on the `stakingRewardsContract`
@@ -385,10 +411,10 @@ contract ServiceNodeContribution is Shared {
     /// @notice See `reset`
     function _reset() private {
         {
-            address[] memory copy = contributorAddresses;
-            uint256 length        = copy.length;
+            IServiceNodeRewards.Staker[] memory copy = contributorAddresses;
+            uint256 length                           = copy.length;
             for (uint256 i = 0; i < length; i++)
-                removeAndRefundContributor(copy[i]);
+                removeAndRefundContributor(copy[i].addr);
             delete contributorAddresses;
         }
 
@@ -423,8 +449,9 @@ contract ServiceNodeContribution is Shared {
                                       IServiceNodeRewards.ServiceNodeParams memory params,
                                       IServiceNodeRewards.Contributor[] memory reserved,
                                       bool _manualFinalize,
+                                      ContributeData memory contribData,
                                       uint256 amount) external onlyOperator {
-        _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, amount);
+        _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, contribData, amount);
     }
 
     /// @notice See `resetUpdateAndContribute`
@@ -433,6 +460,7 @@ contract ServiceNodeContribution is Shared {
                                        IServiceNodeRewards.ServiceNodeParams memory params,
                                        IServiceNodeRewards.Contributor[] memory reserved,
                                        bool _manualFinalize,
+                                       ContributeData memory contribData,
                                        uint256 amount) private {
         _reset();
         _updatePubkeys(key, sig, params.serviceNodePubkey, params.serviceNodeSignature1, params.serviceNodeSignature2);
@@ -440,7 +468,7 @@ contract ServiceNodeContribution is Shared {
         _updateReservedContributors(reserved);
         _updateManualFinalize(_manualFinalize);
         if (amount > 0)
-            _contributeFunds(operator, amount);
+            _contributeFunds(operator, contribData, amount);
     }
 
     /// @notice Helper function that updates the fee, reserved contributors,
@@ -465,13 +493,14 @@ contract ServiceNodeContribution is Shared {
     function resetUpdateFeeReservedAndContribute(uint16 fee,
                                                  IServiceNodeRewards.Contributor[] memory reserved,
                                                  bool _manualFinalize,
+                                                 ContributeData calldata contribData,
                                                  uint256 amount) external onlyOperator {
         _reset();
         _updateFee(fee);
         _updateReservedContributors(reserved);
         _updateManualFinalize(_manualFinalize);
         if (amount > 0)
-            _contributeFunds(operator, amount);
+            _contributeFunds(operator, contribData, amount);
     }
 
     /// @notice Function to allow owner to rescue any ERC20 tokens sent to the
@@ -553,7 +582,7 @@ contract ServiceNodeContribution is Shared {
         // 2) Removing their address from the contribution array
         uint256 arrayLength = contributorAddresses.length;
         for (uint256 index = 0; index < arrayLength; index++) {
-            if (toRemove == contributorAddresses[index]) {
+            if (toRemove == contributorAddresses[index].addr) {
                 contributorAddresses[index] = contributorAddresses[arrayLength - 1];
                 contributorAddresses.pop();
                 break;
@@ -638,28 +667,31 @@ contract ServiceNodeContribution is Shared {
     /// @notice Get the contribution by the operator, defined to always be the
     /// first contribution in the contract.
     function operatorContribution() public view returns (uint256 result) {
-        result = contributorAddresses.length > 0 ? contributions[contributorAddresses[0]] : 0;
+        result = contributorAddresses.length > 0 ? contributions[contributorAddresses[0].addr] : 0;
         return result;
     }
 
     /// @notice Access the list of contributor addresses and corresponding contributions.  The
     /// first returned address (if any) is also the operator address.
-    function getContributions() public view returns (address[] memory addrs, uint256[] memory contribs) {
+    function getContributions() public view returns (address[] memory addrs, address[] memory beneficiaries, uint256[] memory contribs) {
         uint256 size = contributorAddresses.length;
-        addrs = new address[](size);
-        contribs = new uint256[](size);
+        addrs         = new address[](size);
+        beneficiaries = new address[](size);
+        contribs      = new uint256[](size);
         for (uint256 i = 0; i < size; i++) {
-            addrs[i] = contributorAddresses[i];
-            contribs[i] = contributions[addrs[i]];
+            IServiceNodeRewards.Staker storage staker = contributorAddresses[i];
+            addrs[i]         = staker.addr;
+            beneficiaries[i] = staker.beneficiary;
+            contribs[i]      = contributions[addrs[i]];
         }
-        return (addrs, contribs);
+        return (addrs, beneficiaries, contribs);
     }
 
     /// @notice Sum up all the contributions recorded in the contributors list
     function totalContribution() public view returns (uint256 result) {
         uint256 arrayLength = contributorAddresses.length;
         for (uint256 i = 0; i < arrayLength; i++) {
-            address entry = contributorAddresses[i];
+            address entry = contributorAddresses[i].addr;
             result += contributions[entry];
         }
         return result;

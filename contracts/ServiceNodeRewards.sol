@@ -343,7 +343,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param blsPubkey 64 byte BLS public key for the service node.
     /// @param blsSignature 128 byte BLS proof of possession signature that
     /// proves ownership of the `blsPubkey`.
-    /// @param serviceNodeParams The service node to add including the x25519
+    /// @param serviceNodeParams The service node to add including the ed25519
     /// public key and signature that proves ownership of the private component
     /// of the public key and the desired fee the operator is charging.
     /// @param contributors Optional array of contributors for
@@ -355,9 +355,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// as a solo node with the beneficiary set to the current interacting
     /// wallet.
     function addBLSPublicKey(
-        BN256G1.G1Point calldata blsPubkey,
-        BLSSignatureParams calldata blsSignature,
-        ServiceNodeParams calldata serviceNodeParams,
+        BN256G1.G1Point memory blsPubkey,
+        BLSSignatureParams memory blsSignature,
+        ServiceNodeParams memory serviceNodeParams,
         Contributor[] memory contributors
     ) external whenNotPaused whenStarted {
         if (contributors.length > maxContributors) revert MaxContributorsExceeded();
@@ -391,7 +391,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     function _validateProofOfPossession(
         BN256G1.G1Point memory blsPubkey,
-        BLSSignatureParams calldata blsSignature,
+        BLSSignatureParams memory blsSignature,
         address caller,
         uint256 serviceNodePubkey
     ) private {
@@ -415,7 +415,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     function validateProofOfPossession(
         BN256G1.G1Point memory blsPubkey,
-        BLSSignatureParams calldata blsSignature,
+        BLSSignatureParams memory blsSignature,
         address caller,
         uint256 serviceNodePubkey
     ) external {

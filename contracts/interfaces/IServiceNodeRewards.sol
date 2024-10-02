@@ -88,14 +88,18 @@ interface IServiceNodeRewards {
         BLSSignatureParams calldata blsSignature,
         uint64[] memory ids
     ) external;
+
     function claimRewards() external;
+
+    function claimRewards(uint256 amount) external;
+
     function addBLSPublicKey(
-        BN256G1.G1Point calldata blsPubkey,
-        BLSSignatureParams calldata blsSignature,
-        ServiceNodeParams calldata serviceNodeParams,
-        Contributor[] calldata contributors
+        BN256G1.G1Point memory blsPubkey,
+        BLSSignatureParams memory blsSignature,
+        ServiceNodeParams memory serviceNodeParams,
+        Contributor[] memory contributors
     ) external;
-    function validateProofOfPossession(BN256G1.G1Point memory blsPubkey, BLSSignatureParams calldata blsSignature, address caller, uint256 serviceNodePubkey) external;
+    function validateProofOfPossession(BN256G1.G1Point memory blsPubkey, BLSSignatureParams memory blsSignature, address caller, uint256 serviceNodePubkey) external;
     function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external;
     function removeBLSPublicKeyWithSignature(
         BN256G1.G1Point calldata blsPubkey,

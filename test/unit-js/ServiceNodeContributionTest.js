@@ -161,11 +161,11 @@ describe("ServiceNodeContribution Contract Tests", function () {
         const [owner, operator] = await ethers.getSigners();
         const node = BLS_NODES[0];
         await expect(snContributionFactory.connect(operator)
-                                          .deployContributionContract(node.blsPubkey,
-                                                                      node.blsSig,
-                                                                      node.snParams,
-                                                                      node.reserved,
-                                                                      false /*manualFinalize*/)).to.emit(snContributionFactory, 'NewServiceNodeContributionContract');
+                                          .deploy(node.blsPubkey,
+                                                  node.blsSig,
+                                                  node.snParams,
+                                                  node.reserved,
+                                                  false /*manualFinalize*/)).to.emit(snContributionFactory, 'NewServiceNodeContributionContract');
     });
 
     describe("Deploy a contribution contract", function () {
@@ -179,7 +179,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             // NOTE: Deploy the contract
             const node = BLS_NODES[0];
             const tx = await snContributionFactory.connect(snOperator)
-                                                  .deployContributionContract(node.blsPubkey,
+                                                  .deploy(node.blsPubkey,
                                                                               node.blsSig,
                                                                               node.snParams,
                                                                               node.reserved,
@@ -826,11 +826,11 @@ describe("ServiceNodeContribution Contract Tests", function () {
             [snOperator, reservedContributor1, reservedContributor2, reservedContributor3] = await ethers.getSigners();
             const node = BLS_NODES[0];
             let tx = await snContributionFactory.connect(snOperator)
-                .deployContributionContract(node.blsPubkey,
-                                            node.blsSig,
-                                            node.snParams,
-                                            [],
-                                            false /*manualFinalize*/);
+                                                .deploy(node.blsPubkey,
+                                                        node.blsSig,
+                                                        node.snParams,
+                                                        [],
+                                                        false /*manualFinalize*/);
 
             const receipt = await tx.wait();
             const event = receipt.logs[0];
@@ -960,11 +960,11 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
             const node = BLS_NODES[0];
             const tx = await snContributionFactory.connect(snOperator)
-                .deployContributionContract(node.blsPubkey,
-                                            node.blsSig,
-                                            node.snParams,
-                                            reservedContributors,
-                                            false /*manualFinalize*/);
+                                                  .deploy(node.blsPubkey,
+                                                          node.blsSig,
+                                                          node.snParams,
+                                                          reservedContributors,
+                                                          false /*manualFinalize*/);
 
             const receipt         = await tx.wait();
             const event           = receipt.logs[0];
@@ -1067,11 +1067,11 @@ describe("ServiceNodeContribution Contract Tests", function () {
             // Deploy the contract
             const node = BLS_NODES[0];
             const tx = await snContributionFactory.connect(snOperator)
-                  .deployContributionContract(oldNode.blsPubkey,
-                                              oldNode.blsSig,
-                                              oldNode.snParams,
-                                              [],
-                                              false /*manualFinalize*/);
+                                                  .deploy(oldNode.blsPubkey,
+                                                          oldNode.blsSig,
+                                                          oldNode.snParams,
+                                                          [],
+                                                          false /*manualFinalize*/);
 
             const receipt = await tx.wait();
             const event = receipt.logs[0];

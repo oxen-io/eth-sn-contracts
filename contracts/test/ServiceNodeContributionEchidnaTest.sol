@@ -158,7 +158,7 @@ contract ServiceNodeContributionEchidnaTest {
         address randomBeneficiary
     ) public {
         mintTokensForTesting();
-        ServiceNodeContribution.ContributeData memory data;
+        ServiceNodeContribution.BeneficiaryData memory data;
         data.setBeneficiary = useRandomBeneficiary;
         data.beneficiary = randomBeneficiary;
 
@@ -195,7 +195,7 @@ contract ServiceNodeContributionEchidnaTest {
         mintTokensForTesting();
         uint256 balanceBeforeContribute = sentToken.balanceOf(msg.sender);
 
-        ServiceNodeContribution.ContributeData memory data;
+        ServiceNodeContribution.BeneficiaryData memory data;
         data.setBeneficiary = useRandomBeneficiary;
         data.beneficiary = randomBeneficiary;
 

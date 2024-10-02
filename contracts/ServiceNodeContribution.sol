@@ -45,7 +45,7 @@ contract ServiceNodeContribution is Shared {
         Finalized
     }
 
-    struct ContributeData {
+    struct BeneficiaryData {
         bool setBeneficiary;
         address beneficiary;
     }
@@ -75,6 +75,7 @@ contract ServiceNodeContribution is Shared {
     // Smart Contract
     Status                                        public          status           = Status.WaitForOperatorContrib;
     uint64                                        public constant WITHDRAWAL_DELAY = 1 days;
+    uint16                                        public constant MAX_FEE          = 10000;
 
     // Prevents the contract from automatically invoking `finalize` when a
     // contribution to the contract fulfills the staking requirement. When true,
@@ -88,7 +89,8 @@ contract ServiceNodeContribution is Shared {
 
     // Modifers
     modifier onlyOperator() {
-        require(msg.sender == operator, "Only the operator can perform this action.");
+        if (msg.sender != operator)
+            revert OnlyOperatorIsAuthorised(msg.sender, operator);
         _;
     }
 
@@ -99,6 +101,56 @@ contract ServiceNodeContribution is Shared {
     event Filled(uint256 indexed serviceNodePubkey, address indexed operator);
     event WithdrawContribution(address indexed contributor, uint256 amount);
     event UpdateStakerBeneficiary(address indexed staker, address beneficiary);
+
+    // Errors
+    error CalcMinContributionGivenBadContribArgs(uint256 numContributors, uint256 maxNumContributors);
+    /// @notice Contract is not in a state where it can accept contributions
+    error ContributeFundsNotPossible(Status status);
+    error ContributionBelowMinAmount(uint256 contributed, uint256 min);
+    error ContributionBelowReservedAmount(uint256 contributed, uint256 reserved);
+    error ContributionExceedsStakingRequirement(uint256 totalContributed, uint256 totalReserved, uint256 stakingRequirement);
+    error DuplicateAddressInReservedContributor(uint256 index);
+    error FeeExceedsPossibleValue(uint16 fee, uint16 max);
+    error FeeUpdateNotPossible(Status status);
+    error FinalizeNotPossible(Status status);
+    error FirstContributionMustBeOperator(address contributor, address operator);
+
+    /// @notice A wallet has attempted to contribute to the contract
+    /// before the operator's wallet has contributed.
+    error FirstReservedContributorMustBeOperator(uint256 index, address operator);
+
+    /// @notice A wallet has attempted an operation only permitted by the
+    /// operator
+    error OnlyOperatorIsAuthorised(address addr, address operator);
+    error MaxContributorsExceeded(uint256 maxContributors);
+    error PubkeyUpdateNotPossible(Status status);
+    error RescueBalanceIsEmpty(address token);
+    error RescueNotPossible(Status status);
+    error ReservedContributorHasZeroAddress(uint256 index);
+    error ReservedContributorUpdateNotPossible(Status status);
+    error ReservedContributionBelowMinAmount(uint256 index, uint256 contributed, uint256 min);
+    error ReservedContributionExceedsStakingRequirement(uint256 index, uint256 contributed, uint256 remaining);
+
+    /// @notice The rewards contract max contributor value has changed and no
+    /// longer matches this contract's max contributor value invalidating the
+    /// contract.
+    ///
+    /// The operator or contributors should withdraw their funds and the operator
+    /// should deploy another contribution contract to attain a new contract with
+    /// the correct values.
+    error RewardsContractMaxContributorsChanged(uint256 oldMax, uint256 newMax);
+
+    /// @notice The staking requirement has changed on the rewards contract and
+    /// no longer matches this contract's staking requirement.
+    ///
+    /// See `RewardsContractMaxContributorsChanged` for more info.
+    error RewardsContractStakingRequirementChanged(uint256 oldRequirement, uint256 newRequirement);
+
+    /// @notice Updating of beneficiary failed because the wallet that requested
+    /// it `nonContributorAddr` is not a contributor for this node.
+    error NonContributorUpdatedBeneficiary(address nonContributorAddr);
+    error TooManyReservedContributors(uint256 length, uint256 max);
+    error WithdrawTooEarly(uint256 contribTime, uint256 blockTime, uint256 delayRequired);
 
     /// @notice Constructs a multi-contribution node contract for the
     /// specified `_stakingRewardsContract`.
@@ -135,7 +187,7 @@ contract ServiceNodeContribution is Shared {
         maxContributors        = _maxContributors;
         operator               = tx.origin; // NOTE: Creation is delegated by operator through factory
 
-        ContributeData memory nilContribData;
+        BeneficiaryData memory nilContribData;
         _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, nilContribData, 0);
     }
 
@@ -164,7 +216,10 @@ contract ServiceNodeContribution is Shared {
 
     /// @notice See `updateFee`
     function _updateFee(uint16 fee) private {
-        require(status == Status.WaitForOperatorContrib, "Contract can not accept new fee, already received operator contribution");
+        if (status != Status.WaitForOperatorContrib)
+            revert FeeUpdateNotPossible(status);
+        if (fee > MAX_FEE)
+            revert FeeExceedsPossibleValue(fee, MAX_FEE);
         serviceNodeParams.fee = fee;
     }
 
@@ -193,7 +248,9 @@ contract ServiceNodeContribution is Shared {
                             uint256 ed25519Pubkey,
                             uint256 ed25519Sig0,
                             uint256 ed25519Sig1) private {
-        require(status == Status.WaitForOperatorContrib, "Contract can not accept new public keys, already received operator contribution");
+        if (status != Status.WaitForOperatorContrib)
+            revert PubkeyUpdateNotPossible(status);
+
         // TODO: Check that the zero signature is rejected
         stakingRewardsContract.validateProofOfPossession(newBLSPubkey, newBLSSig, operator, ed25519Pubkey);
 
@@ -225,7 +282,8 @@ contract ServiceNodeContribution is Shared {
 
     /// @notice See `updateReservedContributors`
     function _updateReservedContributors(IServiceNodeRewards.ReservedContributor[] memory reserved) private {
-        require(status == Status.WaitForOperatorContrib, "Contract can not accept new reserved contributors, already received operator contribution");
+        if (status != Status.WaitForOperatorContrib)
+            revert ReservedContributorUpdateNotPossible(status);
 
         // NOTE: Remove old reserved contributions
         {
@@ -238,20 +296,33 @@ contract ServiceNodeContribution is Shared {
         // NOTE: Assign new contributions and verify them
         uint256 remaining = stakingRequirement;
 
-        require(reserved.length <= maxContributors, "Max contributors exceeded in the specified reserved contributors");
+        if (reserved.length > maxContributors)
+            revert TooManyReservedContributors(reserved.length, maxContributors);
+
         for (uint256 i = 0; i < reserved.length; i++) {
-            if (i == 0)
-                require(reserved[i].addr == operator,             "The first reservation must be the operator if reserved contributors are given");
-            require(reserved[i].addr != address(0),               "Zero address given for contributor");
-            require(reservedContributions[reserved[i].addr] == 0, "Duplicate address in reserved contributors");
+            if (i == 0) {
+                if (reserved[i].addr != operator)
+                    revert FirstReservedContributorMustBeOperator(i, operator);
+            }
+
+            if (reserved[i].addr == address(0))
+                revert ReservedContributorHasZeroAddress(i);
+
+            if (reservedContributions[reserved[i].addr] != 0)
+                revert DuplicateAddressInReservedContributor(i);
 
             // NOTE: Check contribution meets min requirements and running sum
             // doesn't exceed a full stake
             uint256 minContrib     = calcMinimumContribution(remaining, i, maxContributors);
             uint256 contribAmount  = reserved[i].amount;
-            require(contribAmount >= minContrib, "Contribution is below minimum requirement");
-            require(remaining >= contribAmount,  "Sum of reserved contribution slots exceeds the staking requirement");
-            remaining         -= contribAmount;
+
+            if (contribAmount < minContrib)
+                revert ReservedContributionBelowMinAmount(i, contribAmount, minContrib);
+
+            if (remaining < contribAmount)
+                revert ReservedContributionExceedsStakingRequirement(i, contribAmount, remaining);
+
+            remaining -= contribAmount;
 
             // NOTE: Store the reservation in the contract
             reservedContributionsAddresses.push(reserved[i].addr);
@@ -273,7 +344,10 @@ contract ServiceNodeContribution is Shared {
                 break;
             }
         }
-        require(updated, "Address to update beneficiary for is not a current contributor to this node");
+
+        if (!updated)
+            revert NonContributorUpdatedBeneficiary(stakerAddr);
+
         emit UpdateStakerBeneficiary(stakerAddr, newBeneficiary);
     }
 
@@ -291,28 +365,25 @@ contract ServiceNodeContribution is Shared {
     /// regardless of having a reservation or not.
     ///
     /// @param amount The amount of SENT token to contribute to the contract.
-    function contributeFunds(uint256 amount, ContributeData memory data) external { _contributeFunds(msg.sender, data, amount); }
+    function contributeFunds(uint256 amount, BeneficiaryData memory data) external { _contributeFunds(msg.sender, data, amount); }
 
     /// @notice See `contributeFunds`
-    function _contributeFunds(address caller, ContributeData memory data, uint256 amount) private {
-        require(status == Status.WaitForOperatorContrib || status == Status.OpenForPublicContrib, "Contract can not accept contributions");
+    function _contributeFunds(address caller, BeneficiaryData memory data, uint256 amount) private {
+        if (status != Status.WaitForOperatorContrib && status != Status.OpenForPublicContrib)
+            revert ContributeFundsNotPossible(status);
 
         // NOTE: Check if parent contract invariants changed
-        require(maxContributors == stakingRewardsContract.maxContributors(),
-                "This contract is outdated and no longer valid because the maximum number of "
-                "permitted contributors been changed. Please inform the operator and pre-existing "
-                "contributors to exit the contract and re-initiate a new contract.");
+        if (maxContributors != stakingRewardsContract.maxContributors())
+            revert RewardsContractMaxContributorsChanged(maxContributors, stakingRewardsContract.maxContributors());
 
-        require(stakingRequirement == stakingRewardsContract.stakingRequirement(),
-                "This contract is outdated and no longer valid because the staking requirement has "
-                "been changed. Please inform the operator to exit the contract and re-initiate a "
-                "new contract.");
+        if (stakingRequirement != stakingRewardsContract.stakingRequirement())
+            revert RewardsContractMaxContributorsChanged(stakingRequirement, stakingRewardsContract.stakingRequirement());
 
         // NOTE: Handle operator contribution, initially the operator must contribute to open the
         // contract up to public/reserved contributions.
         if (status == Status.WaitForOperatorContrib) {
-            require(caller == operator,
-                    "The operator must initially contribute to open the contract for contribution");
+            if (caller != operator)
+                revert FirstContributionMustBeOperator(caller, operator);
             status = Status.OpenForPublicContrib;
             emit OpenForPublicContribution(serviceNodeParams.serviceNodePubkey, operator, serviceNodeParams.fee);
         }
@@ -321,7 +392,8 @@ contract ServiceNodeContribution is Shared {
         uint256 reserved = reservedContributions[caller];
         if (reserved > 0) {
             // NOTE: Remove their contribution from the reservation table
-            require(amount >= reserved, "Contribution is below the amount reserved for that contributor");
+            if (amount < reserved)
+                revert ContributionBelowReservedAmount(amount, reserved);
             reservedContributions[caller] = 0;
 
             // NOTE: Remove contributor from their reservation slot
@@ -337,8 +409,8 @@ contract ServiceNodeContribution is Shared {
             // NOTE: Check amount is greater than the minimum contribution only
             // if they have not contributed before (otherwise we allow
             // topping-up of their contribution).
-            if (contributions[caller] == 0)
-                require(amount >= minimumContribution(), "Public contribution is below the minimum allowed");
+            if (contributions[caller] == 0 && amount < minimumContribution())
+                revert ContributionBelowMinAmount(amount, minimumContribution());
         }
 
         // NOTE: Add the contributor to the contract
@@ -355,8 +427,12 @@ contract ServiceNodeContribution is Shared {
         // NOTE: Check contract collateralisation _after_ the amount is
         // committed to the contract to ensure contribution sums are all
         // accounted for.
-        require(totalContribution() + totalReservedContribution() <= stakingRequirement, "Contribution exceeds the staking requirement of the contract, rejected");
-        require(contributorAddresses.length <= maxContributors, "Maximum number of contributors exceeded");
+        if ((totalContribution() + totalReservedContribution()) > stakingRequirement)
+            revert ContributionExceedsStakingRequirement(totalContribution(), totalReservedContribution(), stakingRequirement);
+
+        if (contributorAddresses.length > maxContributors)
+            revert MaxContributorsExceeded(maxContributors);
+
         emit NewContribution(caller, amount);
 
         // NOTE: Transfer funds from sender to contract
@@ -380,8 +456,8 @@ contract ServiceNodeContribution is Shared {
 
     /// @notice See `finalize`
     function _finalize() private {
-        require(status              == Status.WaitForFinalized, "Contract can not be finalized yet, staking requirement not met or already finalized");
-        require(totalContribution() == stakingRequirement,      "Staking requirement has not been met");
+        if (status != Status.WaitForFinalized)
+            revert FinalizeNotPossible(status);
 
         // NOTE: Finalize the contract
         status = Status.Finalized;
@@ -449,9 +525,9 @@ contract ServiceNodeContribution is Shared {
                                       IServiceNodeRewards.ServiceNodeParams memory params,
                                       IServiceNodeRewards.ReservedContributor[] memory reserved,
                                       bool _manualFinalize,
-                                      ContributeData memory contribData,
+                                      BeneficiaryData memory benficiaryData,
                                       uint256 amount) external onlyOperator {
-        _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, contribData, amount);
+        _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, benficiaryData, amount);
     }
 
     /// @notice See `resetUpdateAndContribute`
@@ -460,7 +536,7 @@ contract ServiceNodeContribution is Shared {
                                        IServiceNodeRewards.ServiceNodeParams memory params,
                                        IServiceNodeRewards.ReservedContributor[] memory reserved,
                                        bool _manualFinalize,
-                                       ContributeData memory contribData,
+                                       BeneficiaryData memory benficiaryData,
                                        uint256 amount) private {
         _reset();
         _updatePubkeys(key, sig, params.serviceNodePubkey, params.serviceNodeSignature1, params.serviceNodeSignature2);
@@ -468,7 +544,7 @@ contract ServiceNodeContribution is Shared {
         _updateReservedContributors(reserved);
         _updateManualFinalize(_manualFinalize);
         if (amount > 0)
-            _contributeFunds(operator, contribData, amount);
+            _contributeFunds(operator, benficiaryData, amount);
     }
 
     /// @notice Helper function that updates the fee, reserved contributors,
@@ -493,14 +569,14 @@ contract ServiceNodeContribution is Shared {
     function resetUpdateFeeReservedAndContribute(uint16 fee,
                                                  IServiceNodeRewards.ReservedContributor[] memory reserved,
                                                  bool _manualFinalize,
-                                                 ContributeData calldata contribData,
+                                                 BeneficiaryData calldata benficiaryData,
                                                  uint256 amount) external onlyOperator {
         _reset();
         _updateFee(fee);
         _updateReservedContributors(reserved);
         _updateManualFinalize(_manualFinalize);
         if (amount > 0)
-            _contributeFunds(operator, contribData, amount);
+            _contributeFunds(operator, benficiaryData, amount);
     }
 
     /// @notice Function to allow owner to rescue any ERC20 tokens sent to the
@@ -526,12 +602,13 @@ contract ServiceNodeContribution is Shared {
         // This allows them to refund any other tokens that might have
         // mistakenly been sent throughout the lifetime of the contract without
         // giving them access to contributor tokens.
-        require(status == Status.Finalized ||
-                status == Status.WaitForOperatorContrib, "Cannot rescue tokens unless contract is finalized or reset");
+        if (status != Status.Finalized && status == Status.WaitForOperatorContrib)
+            revert RescueNotPossible(status);
 
         IERC20 token = IERC20(tokenAddress);
         uint256 balance = token.balanceOf(address(this));
-        require(balance > 0, "Contract has no balance of the specified token.");
+        if (balance <= 0)
+            revert RescueBalanceIsEmpty(tokenAddress);
 
         token.safeTransfer(operator, balance);
     }
@@ -549,10 +626,8 @@ contract ServiceNodeContribution is Shared {
         }
 
         uint256 timeSinceLastContribution = block.timestamp - contributionTimestamp[msg.sender];
-        require(
-            timeSinceLastContribution >= WITHDRAWAL_DELAY,
-            "Withdrawal unavailable: 24 hours have not passed"
-        );
+        if (timeSinceLastContribution < WITHDRAWAL_DELAY)
+            revert WithdrawTooEarly(contributionTimestamp[msg.sender], block.timestamp, WITHDRAWAL_DELAY);
 
         uint256 refundAmount = removeAndRefundContributor(msg.sender);
         if (refundAmount > 0)
@@ -640,7 +715,9 @@ contract ServiceNodeContribution is Shared {
         uint256 numContributors,
         uint256 maxNumContributors
     ) public pure returns (uint256 result) {
-        require(maxNumContributors > numContributors, "Contributors exceed permitted maximum number of contributors");
+        if (maxNumContributors <= numContributors)
+            revert CalcMinContributionGivenBadContribArgs(numContributors, maxNumContributors);
+
         if (numContributors == 0) {
             result = ((contributionRemaining - 1) / 4) + 1; // math.ceilDiv(25% of requirement)
         } else {

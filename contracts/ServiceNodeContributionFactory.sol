@@ -22,7 +22,7 @@ contract ServiceNodeContributionFactory {
     function deployContributionContract(BN256G1.G1Point calldata key,
                                         IServiceNodeRewards.BLSSignatureParams calldata sig,
                                         IServiceNodeRewards.ServiceNodeParams calldata params,
-                                        IServiceNodeRewards.Contributor[] calldata reserved,
+                                        IServiceNodeRewards.ReservedContributor[] calldata reserved,
                                         bool manualFinalize
     ) public {
         ServiceNodeContribution newContract = new ServiceNodeContribution(

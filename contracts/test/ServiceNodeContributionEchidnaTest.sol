@@ -67,7 +67,7 @@ contract ServiceNodeContributionEchidnaTest {
         sig.sigs2 = 2;
         sig.sigs3 = 3;
 
-        IServiceNodeRewards.Contributor[] memory reserved = new IServiceNodeRewards.Contributor[](0);
+        IServiceNodeRewards.ReservedContributor[] memory reserved = new IServiceNodeRewards.ReservedContributor[](0);
         snContribution = new ServiceNodeContribution(
             /*snRewards*/         address(snRewards),
             /*maxContributors*/   snRewards.maxContributors(),

@@ -18,14 +18,15 @@ interface IServiceNodeRewards {
 
     /// @notice Represents a service node in the network.
     struct ServiceNode {
-        uint64 next;
-        uint64 prev;
-        address operator;
-        BN256G1.G1Point pubkey;
-        uint256 addedTimestamp;
-        uint256 leaveRequestTimestamp;
-        uint256 deposit;
-        Contributor[] contributors;
+        uint64          next;
+        uint64          prev;
+        address         operator;
+        BN256G1.G1Point blsPubkey;
+        uint256         addedTimestamp;
+        uint256         leaveRequestTimestamp;
+        uint256         deposit;
+        Contributor[]   contributors;
+        uint256         ed25519Pubkey;
     }
 
     /// @notice Represents a recipient of rewards, how much they can claim and how much previously claimed.

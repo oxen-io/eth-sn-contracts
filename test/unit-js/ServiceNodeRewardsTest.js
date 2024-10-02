@@ -2,8 +2,8 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 async function verifySeedData(contractSN, seedEntry) {
-    expect(contractSN.pubkey[0]).to.equal(BigInt(seedEntry.pubkey.X));
-    expect(contractSN.pubkey[1]).to.equal(BigInt(seedEntry.pubkey.Y));
+    expect(contractSN.blsPubkey[0]).to.equal(BigInt(seedEntry.blsPubkey.X));
+    expect(contractSN.blsPubkey[1]).to.equal(BigInt(seedEntry.blsPubkey.Y));
     expect(contractSN.deposit).to.equal(BigInt(seedEntry.deposit));
     expect(contractSN.contributors.length).to.equal(seedEntry.contributors.length);
     for (let contributorIndex = 0; contributorIndex < contractSN.contributors.length; contributorIndex++) {
@@ -350,7 +350,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                                            .seedPublicKeyList(seedData))
                   .to
                   .be
-                  .revertedWithCustomError(serviceNodeRewards, "Ed25519PubkeyHasPairedBLSPubkey");
+                  .revertedWithCustomError(serviceNodeRewards, "Ed25519PubkeyAlreadyExists");
         });
 
         it("Fails if there are no contributors", async function () {

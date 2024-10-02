@@ -149,13 +149,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     // permitted until the next cycle, e.g: `currentClaimCycle + 1`.
     uint256 public currentClaimCycle;
 
-    // Tracks the node's Ed25519 public key that is associated with their BLS
-    // public key
-    mapping(bytes blsPubkey => uint256 ed25519Pubkey) public blsToEd25519Pubkey;
-
-    // Tracks the node's BLS public key that is associated with their Ed25519
-    // public key
-    mapping(uint256 ed25519Pubkey => BN256G1.G1Point blsPubkey) public ed25519ToBLSPubkey;
+    // Tracks the node ID that is associated with the Ed25519 public key
+    mapping(uint256 ed25519Pubkey => uint64 serviceNodeID) public ed25519ToServiceNodeID;
 
     // EVENTS
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point blsPubkey, uint256 ed25519Pubkey);
@@ -189,21 +184,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
     error BLSPubkeyDoesNotMatch(uint64 serviceNodeID, BN256G1.G1Point pubkey);
 
-    // @notice The node to register already has an Ed25519 public key
-    // `conflictPubkey` assigned for their BLS public key. A node can only
-    // register 1 Ed25519 public key for a given BLS public key.
+    // @notice The Ed25519 public key to register as a node is already being
+    // used in a pre-existing node in the contract.
     //
-    // @param conflictPubkey The Ed25519 public key that was already assigned to
-    // the node
-    error BLSPubkeyHasPairedEd25519Pubkey(uint256 conflictPubkey);
-
-    // @notice The node to register already has a BLS public key
-    // `conflictPubkey` assigned for their Ed25519 public key. A node can only
-    // register 1 BLS public key for a given Ed25519 public key.
-    //
-    // @param conflictPubkey The BLS public key that was already assigned to
-    // the node
-    error Ed25519PubkeyHasPairedBLSPubkey(BN256G1.G1Point conflictPubkey);
+    // @param serviceNodeID The node that has already paired with the Ed25519
+    // public key.
+    error Ed25519PubkeyAlreadyExists(uint64 serviceNodeID);
     error CallerNotContributor(uint64 serviceNodeID, address contributor);
     error ClaimThresholdExceeded();
     error ContractAlreadyStarted();
@@ -466,7 +452,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         if (isSmall && block.timestamp < _serviceNodes[serviceNodeID].addedTimestamp + SMALL_CONTRIBUTOR_LEAVE_DELAY)
             revert SmallContributorLeaveTooEarly(serviceNodeID, caller);
         _serviceNodes[serviceNodeID].leaveRequestTimestamp = block.timestamp;
-        emit ServiceNodeRemovalRequest(serviceNodeID, caller, _serviceNodes[serviceNodeID].pubkey);
+        emit ServiceNodeRemovalRequest(serviceNodeID, caller, _serviceNodes[serviceNodeID].blsPubkey);
     }
 
     /// @notice Removes a BLS public key using an aggregated BLS signature from
@@ -497,7 +483,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
 
         if (
-            blsPubkey.X != _serviceNodes[serviceNodeID].pubkey.X || blsPubkey.Y != _serviceNodes[serviceNodeID].pubkey.Y
+            blsPubkey.X != _serviceNodes[serviceNodeID].blsPubkey.X || blsPubkey.Y != _serviceNodes[serviceNodeID].blsPubkey.Y
         ) revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
 
         // NOTE: Validate signature
@@ -538,7 +524,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param serviceNodeID The ID of the service node to be removed.
     function _removeBLSPublicKey(uint64 serviceNodeID, uint256 returnedAmount) internal {
         address operator = _serviceNodes[serviceNodeID].operator;
-        BN256G1.G1Point memory pubkey = _serviceNodes[serviceNodeID].pubkey;
+        BN256G1.G1Point memory pubkey = _serviceNodes[serviceNodeID].blsPubkey;
         serviceNodeDelete(serviceNodeID);
 
         updateBLSNonSignerThreshold();
@@ -574,7 +560,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
 
         ServiceNode memory node = _serviceNodes[serviceNodeID];
-        if (blsPubkey.X != node.pubkey.X || blsPubkey.Y != node.pubkey.Y) {
+        if (blsPubkey.X != node.blsPubkey.X || blsPubkey.Y != node.blsPubkey.Y) {
             revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
         }
 
@@ -586,7 +572,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
 
         // Calculating how much liquidator is paid out
-        emit ServiceNodeLiquidated(serviceNodeID, node.operator, node.pubkey);
+        emit ServiceNodeLiquidated(serviceNodeID, node.operator, node.blsPubkey);
         uint256 ratioSum = poolShareOfLiquidationRatio + liquidatorRewardRatio + recipientRatio;
         uint256 deposit = node.deposit;
         uint256 liquidatorAmount = (deposit * liquidatorRewardRatio) / ratioSum;
@@ -659,8 +645,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @return id The ID allocated for the service node and a pointer to its storage (equivalent to
     /// `_serviceNodes[id]`).
     function serviceNodeAdd(BN256G1.G1Point memory blsPubkey, uint256 ed25519Pubkey) internal returns (uint64 id, ServiceNode storage sn) {
-
-
         // NOTE: Check keys
         if (blsPubkey.X == 0 || blsPubkey.Y == 0)
             revert NullBLSPubkey();
@@ -672,18 +656,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         // (e.g. <BLS Key> -> <SN> mapping)
         bytes memory blsPubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
 
-
-        // NOTE: Check that keys aren't reused from any currently active Session
-        // nodes.
+        // NOTE: Check that keys aren't reused from any currently active node.
         if (serviceNodeIDs[blsPubkeyBytes] != LIST_SENTINEL)
             revert BLSPubkeyAlreadyExists(serviceNodeIDs[blsPubkeyBytes]);
 
-        if (blsToEd25519Pubkey[blsPubkeyBytes] != 0)
-            revert BLSPubkeyHasPairedEd25519Pubkey(blsToEd25519Pubkey[blsPubkeyBytes]);
-
-        BN256G1.G1Point storage prevBLSPubkey = ed25519ToBLSPubkey[ed25519Pubkey];
-        if (prevBLSPubkey.X != 0 || prevBLSPubkey.Y != 0)
-            revert Ed25519PubkeyHasPairedBLSPubkey(prevBLSPubkey);
+        if (ed25519ToServiceNodeID[ed25519Pubkey] != LIST_SENTINEL)
+            revert Ed25519PubkeyAlreadyExists(ed25519ToServiceNodeID[ed25519Pubkey]);
 
         // NOTE: After the contract has started (e.g. the contract has been
         // seeded) we limit the number of public keys permitted to be aggregated
@@ -723,13 +701,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         sentinel.prev                = id;            // node->next->prev = node
         _serviceNodes[prev].next     = id;            // node->prev->next = node
 
-        // NOTE: Assign BLS pubkey
-        sn.pubkey                    = blsPubkey;
+        // NOTE: Assign node info
+        sn.blsPubkey                 = blsPubkey;
         sn.addedTimestamp            = block.timestamp;
+        sn.ed25519Pubkey             = ed25519Pubkey;
 
         // NOTE: Update key mappings
-        blsToEd25519Pubkey[blsPubkeyBytes] = ed25519Pubkey;
-        ed25519ToBLSPubkey[ed25519Pubkey]  = blsPubkey;
+        ed25519ToServiceNodeID[ed25519Pubkey] = id;
 
         // NOTE: Create mapping from <BLS Key> -> <SN Linked List Index>
         serviceNodeIDs[blsPubkeyBytes] = id;
@@ -763,15 +741,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         _serviceNodes[node.prev].next = node.next;
 
         // NOTE: Update aggregate BLS key
-        _aggregatePubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(node.pubkey));
+        _aggregatePubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(node.blsPubkey));
 
         // NOTE: Retrieve node keys
-        bytes   memory blsPubkeyBytes = BN256G1.getKeyForG1Point(node.pubkey);
-        uint256 ed25519Pubkey         = blsToEd25519Pubkey[blsPubkeyBytes];
+        bytes  memory blsPubkeyBytes = BN256G1.getKeyForG1Point(node.blsPubkey);
 
         // NOTE: Delete mappings
-        delete blsToEd25519Pubkey[blsPubkeyBytes];
-        delete ed25519ToBLSPubkey[ed25519Pubkey];
+        delete ed25519ToServiceNodeID[node.ed25519Pubkey];
         delete serviceNodeIDs[blsPubkeyBytes];
 
         // NOTE: Delete node from EVM storage
@@ -799,9 +775,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         for (uint64 i = 0; currentNode != LIST_SENTINEL; i++) {
             ServiceNode storage sn = _serviceNodes[currentNode];
             if (i == 0) {
-                _aggregatePubkey = sn.pubkey;
+                _aggregatePubkey = sn.blsPubkey;
             } else {
-                _aggregatePubkey = BN256G1.add(_aggregatePubkey, sn.pubkey);
+                _aggregatePubkey = BN256G1.add(_aggregatePubkey, sn.blsPubkey);
             }
             currentNode = sn.next;
         }
@@ -917,20 +893,20 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         BLSSignatureParams memory blsSignature,
         BN256G2.G2Point memory hashToVerify
     ) private {
-        BN256G1.G1Point memory pubkey;
+        BN256G1.G1Point memory blsPubkey;
         uint256 listOfNonSignersLength = listOfNonSigners.length;
         for (uint256 i = 0; i < listOfNonSignersLength; i++) {
             uint64 serviceNodeID = listOfNonSigners[i];
-            pubkey = BN256G1.add(pubkey, _serviceNodes[serviceNodeID].pubkey);
+            blsPubkey = BN256G1.add(blsPubkey, _serviceNodes[serviceNodeID].blsPubkey);
         }
 
-        pubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(pubkey));
+        blsPubkey = BN256G1.add(_aggregatePubkey, BN256G1.negate(blsPubkey));
         BN256G2.G2Point memory signature = BN256G2.G2Point(
             [blsSignature.sigs1, blsSignature.sigs0],
             [blsSignature.sigs3, blsSignature.sigs2]
         );
 
-        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(pubkey), hashToVerify)) {
+        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(blsPubkey), hashToVerify)) {
             revert InvalidBLSSignature();
         }
     }
@@ -995,7 +971,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         for (uint64 i = 0; currentNode != LIST_SENTINEL; i++) {
             ServiceNode storage sn = _serviceNodes[currentNode];
             ids[i] = currentNode;
-            pubkeys[i] = sn.pubkey;
+            pubkeys[i] = sn.blsPubkey;
             currentNode = sn.next;
         }
 
@@ -1010,7 +986,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         uint64 currentNode = _serviceNodes[LIST_SENTINEL].next;
         for (uint64 i = 0; currentNode != LIST_SENTINEL; i++) {
             ServiceNode storage sn = _serviceNodes[currentNode];
-            pubkeys[i] = sn.pubkey;
+            pubkeys[i] = sn.blsPubkey;
             currentNode = sn.next;
         }
 

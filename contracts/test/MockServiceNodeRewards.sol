@@ -42,7 +42,7 @@ contract MockServiceNodeRewards is Ownable {
     ) public {
         _serviceNodes[nextServiceNodeID].operator = msg.sender;
         _serviceNodes[nextServiceNodeID].deposit = stakingRequirement;
-        _serviceNodes[nextServiceNodeID].pubkey = pubkey;
+        _serviceNodes[nextServiceNodeID].blsPubkey = pubkey;
 
         // Initialize the contributors array for the service node
         uint256 contributorsLength = contributors.length;

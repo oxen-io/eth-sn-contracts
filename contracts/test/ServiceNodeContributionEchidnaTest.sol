@@ -74,7 +74,8 @@ contract ServiceNodeContributionEchidnaTest {
             /*key*/               blsPubkey,
             /*sig*/               blsSig,
             /*serviceNodeParams*/ snParams,
-            /*reserved*/          reserved
+            /*reserved*/          reserved,
+            /*manualFinalize*/    false
         );
 
         assert(snContribution.maxContributors() == snRewards.maxContributors());

@@ -22,7 +22,8 @@ contract ServiceNodeContributionFactory {
     function deployContributionContract(BN256G1.G1Point calldata key,
                                         IServiceNodeRewards.BLSSignatureParams calldata sig,
                                         IServiceNodeRewards.ServiceNodeParams calldata params,
-                                        IServiceNodeRewards.Contributor[] calldata reserved
+                                        IServiceNodeRewards.Contributor[] calldata reserved,
+                                        bool manualFinalize
     ) public {
         ServiceNodeContribution newContract = new ServiceNodeContribution(
             address(stakingRewardsContract),
@@ -30,7 +31,8 @@ contract ServiceNodeContributionFactory {
             key,
             sig,
             params,
-            reserved
+            reserved,
+            manualFinalize
         );
         emit NewServiceNodeContributionContract(address(newContract), params.serviceNodePubkey);
     }

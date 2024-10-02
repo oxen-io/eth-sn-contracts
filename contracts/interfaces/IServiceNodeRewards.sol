@@ -15,6 +15,11 @@ interface IServiceNodeRewards {
         uint256 stakedAmount; // Amount staked by the contributor
     }
 
+    struct ReservedContributor {
+        address addr;   // Address that is reserving a contribution amount
+        uint256 amount; // Amount that the address is reserving
+    }
+
     struct SeedServiceNode {
         BN256G1.G1Point blsPubkey;
         uint256         ed25519Pubkey;

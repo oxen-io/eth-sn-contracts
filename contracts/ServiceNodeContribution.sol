@@ -126,7 +126,7 @@ contract ServiceNodeContribution is Shared {
         BN256G1.G1Point memory key,
         IServiceNodeRewards.BLSSignatureParams memory sig,
         IServiceNodeRewards.ServiceNodeParams memory params,
-        IServiceNodeRewards.Contributor[] memory reserved,
+        IServiceNodeRewards.ReservedContributor[] memory reserved,
         bool _manualFinalize
     ) nzAddr(_stakingRewardsContract) nzUint(_maxContributors) {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
@@ -219,12 +219,12 @@ contract ServiceNodeContribution is Shared {
     ///
     /// @param reserved The new array of reserved contributors with their
     /// proportion of stake they must fulfill in the node.
-    function updateReservedContributors(IServiceNodeRewards.Contributor[] memory reserved) external onlyOperator {
+    function updateReservedContributors(IServiceNodeRewards.ReservedContributor[] memory reserved) external onlyOperator {
         _updateReservedContributors(reserved);
     }
 
     /// @notice See `updateReservedContributors`
-    function _updateReservedContributors(IServiceNodeRewards.Contributor[] memory reserved) private {
+    function _updateReservedContributors(IServiceNodeRewards.ReservedContributor[] memory reserved) private {
         require(status == Status.WaitForOperatorContrib, "Contract can not accept new reserved contributors, already received operator contribution");
 
         // NOTE: Remove old reserved contributions
@@ -241,21 +241,21 @@ contract ServiceNodeContribution is Shared {
         require(reserved.length <= maxContributors, "Max contributors exceeded in the specified reserved contributors");
         for (uint256 i = 0; i < reserved.length; i++) {
             if (i == 0)
-                require(reserved[i].staker.addr == operator,             "The first reservation must be the operator if reserved contributors are given");
-            require(reserved[i].staker.addr != address(0),               "Zero address given for contributor");
-            require(reservedContributions[reserved[i].staker.addr] == 0, "Duplicate address in reserved contributors");
+                require(reserved[i].addr == operator,             "The first reservation must be the operator if reserved contributors are given");
+            require(reserved[i].addr != address(0),               "Zero address given for contributor");
+            require(reservedContributions[reserved[i].addr] == 0, "Duplicate address in reserved contributors");
 
             // NOTE: Check contribution meets min requirements and running sum
             // doesn't exceed a full stake
             uint256 minContrib     = calcMinimumContribution(remaining, i, maxContributors);
-            uint256 contribAmount  = reserved[i].stakedAmount;
+            uint256 contribAmount  = reserved[i].amount;
             require(contribAmount >= minContrib, "Contribution is below minimum requirement");
             require(remaining >= contribAmount,  "Sum of reserved contribution slots exceeds the staking requirement");
             remaining         -= contribAmount;
 
             // NOTE: Store the reservation in the contract
-            reservedContributionsAddresses.push(reserved[i].staker.addr);
-            reservedContributions[reserved[i].staker.addr] = contribAmount;
+            reservedContributionsAddresses.push(reserved[i].addr);
+            reservedContributions[reserved[i].addr] = contribAmount;
         }
     }
 
@@ -423,7 +423,7 @@ contract ServiceNodeContribution is Shared {
 
         // NOTE: Remove all reserved contributions
         {
-            IServiceNodeRewards.Contributor[] memory zero;
+            IServiceNodeRewards.ReservedContributor[] memory zero;
             _updateReservedContributors(zero);
         }
     }
@@ -447,7 +447,7 @@ contract ServiceNodeContribution is Shared {
     function resetUpdateAndContribute(BN256G1.G1Point memory key,
                                       IServiceNodeRewards.BLSSignatureParams memory sig,
                                       IServiceNodeRewards.ServiceNodeParams memory params,
-                                      IServiceNodeRewards.Contributor[] memory reserved,
+                                      IServiceNodeRewards.ReservedContributor[] memory reserved,
                                       bool _manualFinalize,
                                       ContributeData memory contribData,
                                       uint256 amount) external onlyOperator {
@@ -458,7 +458,7 @@ contract ServiceNodeContribution is Shared {
     function _resetUpdateAndContribute(BN256G1.G1Point memory key,
                                        IServiceNodeRewards.BLSSignatureParams memory sig,
                                        IServiceNodeRewards.ServiceNodeParams memory params,
-                                       IServiceNodeRewards.Contributor[] memory reserved,
+                                       IServiceNodeRewards.ReservedContributor[] memory reserved,
                                        bool _manualFinalize,
                                        ContributeData memory contribData,
                                        uint256 amount) private {
@@ -491,7 +491,7 @@ contract ServiceNodeContribution is Shared {
     /// contributors and maintain the same keys for the node after
     /// a deregistration or exit.
     function resetUpdateFeeReservedAndContribute(uint16 fee,
-                                                 IServiceNodeRewards.Contributor[] memory reserved,
+                                                 IServiceNodeRewards.ReservedContributor[] memory reserved,
                                                  bool _manualFinalize,
                                                  ContributeData calldata contribData,
                                                  uint256 amount) external onlyOperator {

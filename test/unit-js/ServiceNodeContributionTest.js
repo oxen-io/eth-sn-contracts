@@ -157,7 +157,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                           .deployContributionContract(node.blsPubkey,
                                                                       node.blsSig,
                                                                       node.snParams,
-                                                                      node.reserved)).to.emit(snContributionFactory, 'NewServiceNodeContributionContract');
+                                                                      node.reserved,
+                                                                      false /*manualFinalize*/)).to.emit(snContributionFactory, 'NewServiceNodeContributionContract');
     });
 
     describe("Deploy a contribution contract", function () {
@@ -174,7 +175,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                                   .deployContributionContract(node.blsPubkey,
                                                                               node.blsSig,
                                                                               node.snParams,
-                                                                              node.reserved);
+                                                                              node.reserved,
+                                                                              false /*manualFinalize*/);
 
             // NOTE: Get TX logs to determine contract address
             const receipt                  = await tx.wait();
@@ -815,7 +817,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 .deployContributionContract(node.blsPubkey,
                                             node.blsSig,
                                             node.snParams,
-                                            []);
+                                            [],
+                                            false /*manualFinalize*/);
 
             const receipt = await tx.wait();
             const event = receipt.logs[0];
@@ -948,7 +951,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                 .deployContributionContract(node.blsPubkey,
                                             node.blsSig,
                                             node.snParams,
-                                            reservedContributors);
+                                            reservedContributors,
+                                            false /*manualFinalize*/);
 
             const receipt         = await tx.wait();
             const event           = receipt.logs[0];
@@ -1054,7 +1058,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                   .deployContributionContract(oldNode.blsPubkey,
                                               oldNode.blsSig,
                                               oldNode.snParams,
-                                              []);
+                                              [],
+                                              false /*manualFinalize*/);
 
             const receipt = await tx.wait();
             const event = receipt.logs[0];

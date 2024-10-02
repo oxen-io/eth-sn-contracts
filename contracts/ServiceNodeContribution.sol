@@ -109,20 +109,26 @@ contract ServiceNodeContribution is Shared {
     /// key, a signature and the fee the operator is charging.
     /// @param reserved The new array of reserved contributors with their
     /// proportion of stake they must fulfill in the node.
+    /// @param _manualFinalize Configure if the contract automatically (or does
+    /// not) finalize the contract upon receipt of a contribution that
+    /// funds the total required staking requirement of the contract.
+    /// Finalisation being the registration of the node on
+    /// `stakingRewardsContract`
     constructor(
         address _stakingRewardsContract,
         uint256 _maxContributors,
         BN256G1.G1Point memory key,
         IServiceNodeRewards.BLSSignatureParams memory sig,
         IServiceNodeRewards.ServiceNodeParams memory params,
-        IServiceNodeRewards.Contributor[] memory reserved
+        IServiceNodeRewards.Contributor[] memory reserved,
+        bool _manualFinalize
     ) nzAddr(_stakingRewardsContract) nzUint(_maxContributors) {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
         stakingRequirement     = stakingRewardsContract.stakingRequirement();
         SENT                   = IERC20(stakingRewardsContract.designatedToken());
         maxContributors        = _maxContributors;
         operator               = tx.origin; // NOTE: Creation is delegated by operator through factory
-        _resetUpdateAndContribute(key, sig, params, reserved, 0);
+        _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, 0);
     }
 
     //////////////////////////////////////////////////////////////
@@ -405,6 +411,7 @@ contract ServiceNodeContribution is Shared {
     ///   - `updatePubkeys`
     ///   - `updateFee`
     ///   - `updateReservedContributors`
+    ///   - `updateManualFinalize`
     ///   - `contributeFunds`
     ///
     /// If reserved contributors are not desired, an empty array is accepted.
@@ -415,8 +422,9 @@ contract ServiceNodeContribution is Shared {
                                       IServiceNodeRewards.BLSSignatureParams memory sig,
                                       IServiceNodeRewards.ServiceNodeParams memory params,
                                       IServiceNodeRewards.Contributor[] memory reserved,
+                                      bool _manualFinalize,
                                       uint256 amount) external onlyOperator {
-        _resetUpdateAndContribute(key, sig, params, reserved, amount);
+        _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, amount);
     }
 
     /// @notice See `resetUpdateAndContribute`
@@ -424,23 +432,26 @@ contract ServiceNodeContribution is Shared {
                                        IServiceNodeRewards.BLSSignatureParams memory sig,
                                        IServiceNodeRewards.ServiceNodeParams memory params,
                                        IServiceNodeRewards.Contributor[] memory reserved,
+                                       bool _manualFinalize,
                                        uint256 amount) private {
         _reset();
         _updatePubkeys(key, sig, params.serviceNodePubkey, params.serviceNodeSignature1, params.serviceNodeSignature2);
         _updateFee(params.fee);
         _updateReservedContributors(reserved);
+        _updateManualFinalize(_manualFinalize);
         if (amount > 0)
             _contributeFunds(operator, amount);
     }
 
-    /// @notice Helper function that updates the fee and contribution of the
-    /// node.
+    /// @notice Helper function that updates the fee, reserved contributors,
+    /// manual finalization and contribution of the node.
     ///
     /// This function is equivalent to calling in sequence:
     ///
     ///   - `reset`
     ///   - `updateFee`
     ///   - `updateReservedContributors`
+    ///   - `updateManualFinalize`
     ///   - `contributeFunds`
     ///
     /// If reserved contributors are not desired, the empty array is accepted.
@@ -453,10 +464,12 @@ contract ServiceNodeContribution is Shared {
     /// a deregistration or exit.
     function resetUpdateFeeReservedAndContribute(uint16 fee,
                                                  IServiceNodeRewards.Contributor[] memory reserved,
+                                                 bool _manualFinalize,
                                                  uint256 amount) external onlyOperator {
         _reset();
         _updateFee(fee);
         _updateReservedContributors(reserved);
+        _updateManualFinalize(_manualFinalize);
         if (amount > 0)
             _contributeFunds(operator, amount);
     }

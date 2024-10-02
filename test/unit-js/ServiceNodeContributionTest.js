@@ -558,7 +558,9 @@ describe("ServiceNodeContribution Contract Tests", function () {
                  }
 
                  // NOTE: Contribute
+                 const stakingRequirement = await snContribution.stakingRequirement();
                  const minContribution = await snContribution.minimumContribution();
+
                  for (let i = 0; i < signers.length; i++) {
                      const signer          = signers[i];
                      await sentToken.connect(signer).approve(snContribution, minContribution);
@@ -569,17 +571,26 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                                                                       .be
                                                                                       .reverted;
                      } else {
-                         await expect(snContribution.connect(signer)
-                                                    .contributeFunds(minContribution)).to
-                                                                                      .emit(snContribution, "NewContribution")
-                                                                                      .withArgs(await signer.getAddress(), minContribution);
+                         const runningContribution     = await snContribution.totalContribution();
+                         const expectFinalizedEventEmit = (runningContribution + minContribution) == runningContribution;
+                         if (expectFinalizedEventEmit) {
+                             await expect(snContribution.connect(signer)
+                                                        .contributeFunds(minContribution)).to
+                                                                                          .emit(snContribution, "NewContribution")
+                                                                                          .emit(snContribution, "Finalized")
+                                                                                          .withArgs(await signer.getAddress(), minContribution);
+                         } else {
+                             await expect(snContribution.connect(signer)
+                                                        .contributeFunds(minContribution)).to
+                                                                                          .emit(snContribution, "NewContribution")
+                                                                                          .withArgs(await signer.getAddress(), minContribution);
+                         }
                      }
                  }
 
                  expect(await snContribution.totalContribution()).to.equal(await snContribution.stakingRequirement());
                  expect(await snContribution.contributorAddressesLength()).to.equal(await snContribution.maxContributors());
-                 expect(await snContribution.status()).to.equal(SN_CONTRIB_Status_WaitForFinalized);
-                 expect(await snContribution.finalize()).to.emit(snContribution, "Finalized");
+                 expect(await snContribution.status()).to.equal(SN_CONTRIB_Status_Finalized);
              });
 
              it("Should not finalise if not full", async function () {
@@ -610,6 +621,28 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      .to.be.revertedWith("Contribution exceeds the staking requirement of the contract, rejected");
              });
 
+             it("Turn off auto-finalize and manually invoke it", async function () {
+                 await snContribution.updateManualFinalize(true);
+
+                 const [owner, contributor1] = await ethers.getSigners();
+                 const stakingRequirement = await snContribution.stakingRequirement();
+                 let previousContribution = await snContribution.totalContribution();
+
+                 await sentToken.transfer(contributor1, stakingRequirement - previousContribution);
+                 await sentToken.connect(contributor1)
+                                .approve(snContribution, stakingRequirement - previousContribution);
+
+                 await expect(await snContribution.connect(contributor1).contributeFunds(stakingRequirement - previousContribution)).to.not.be.reverted;
+                 expect(await sentToken.balanceOf(snContribution)).to.equal(stakingRequirement);
+
+                 await expect(await snContribution.connect(snOperator).finalize()).to.not.be.reverted; // Test we need to manually finalized
+                 expect(await sentToken.balanceOf(snRewards)).to.equal(stakingRequirement);
+                 expect(await snRewards.totalNodes()).to.equal(1);
+
+                 await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_Finalized);
+                 expect(await sentToken.balanceOf(snContribution)).to.equal(0);
+             });
+
              describe("Finalise w/ 1 contributor", async function () {
                  beforeEach(async function () {
                      const [owner, contributor1] = await ethers.getSigners();
@@ -621,9 +654,6 @@ describe("ServiceNodeContribution Contract Tests", function () {
                                     .approve(snContribution, stakingRequirement - previousContribution);
 
                      await expect(await snContribution.connect(contributor1).contributeFunds(stakingRequirement - previousContribution)).to.not.be.reverted;
-                     expect(await sentToken.balanceOf(snContribution)).to.equal(stakingRequirement);
-
-                     await snContribution.connect(snOperator).finalize();
                      expect(await sentToken.balanceOf(snRewards)).to.equal(stakingRequirement);
                      expect(await snRewards.totalNodes()).to.equal(1);
 
@@ -1096,7 +1126,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const stakingRequirement  = await snContribution.stakingRequirement();
             await sentToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
             await snContribution.connect(snOperator).contributeFunds(stakingRequirement);
-            await expect(snContribution.finalize()).to.not.be.reverted;
+            expect(await snContribution.status()).to.equal(SN_CONTRIB_Status_Finalized);
 
             // Try to update fee after finalization
             await expect(snContribution.connect(snOperator).updateFee(1n))
@@ -1108,7 +1138,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const stakingRequirement  = await snContribution.stakingRequirement();
             await sentToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
             await snContribution.connect(snOperator).contributeFunds(stakingRequirement);
-            await expect(snContribution.finalize()).to.not.be.reverted;
+            expect(await snContribution.status()).to.equal(SN_CONTRIB_Status_Finalized);
 
             // Try to update pubkey after finalization
             await expect(snContribution.connect(snOperator).updatePubkeys(newNode.blsPubkey,
@@ -1124,7 +1154,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const stakingRequirement  = await snContribution.stakingRequirement();
             await sentToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
             await snContribution.connect(snOperator).contributeFunds(stakingRequirement);
-            await expect(snContribution.finalize()).to.not.be.reverted;
+            expect(await snContribution.status()).to.equal(SN_CONTRIB_Status_Finalized);
 
             // Reset the contract
             await snContribution.connect(snOperator).reset();
@@ -1145,7 +1175,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const stakingRequirement  = await snContribution.stakingRequirement();
             await sentToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
             await snContribution.connect(snOperator).contributeFunds(stakingRequirement);
-            await expect(snContribution.finalize()).to.not.be.reverted;
+            expect(await snContribution.status()).to.equal(SN_CONTRIB_Status_Finalized);
 
 
             // Reset the contract

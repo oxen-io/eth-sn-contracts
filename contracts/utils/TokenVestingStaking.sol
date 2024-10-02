@@ -40,7 +40,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     bool                            public           revoked;
 
     /// The contract that deploys multi contributor contracts
-    IServiceNodeContributionFactory public contributionFactory;
+    IServiceNodeContributionFactory public snContribFactory;
 
     /// @param beneficiary_ Address of the beneficiary to whom vested tokens
     /// are transferred
@@ -62,7 +62,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         uint256 end_,
         bool transferableBeneficiary_,
         IServiceNodeRewards rewardsContract_,
-        IServiceNodeContributionFactory contributionFactory_,
+        IServiceNodeContributionFactory snContribFactory_,
         IERC20 sent_
     ) nzAddr(beneficiary_) nzAddr(address(rewardsContract_)) nzAddr(address(sent_)) {
         require(start_ <= end_, "Vesting: start_ after end_");
@@ -74,7 +74,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         end                     = end_;
         transferableBeneficiary = transferableBeneficiary_;
         rewardsContract         = rewardsContract_;
-        contributionFactory     = contributionFactory_;
+        snContribFactory     = snContribFactory_;
         SENT                    = sent_;
     }
 
@@ -94,15 +94,15 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         BN256G1.G1Point calldata blsPubkey,
         IServiceNodeRewards.BLSSignatureParams calldata blsSignature,
         IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams,
-        address addrToReceiveStakingRewards
+        address addrToReceiveRewards
     ) external onlyBeneficiary notRevoked afterStart {
-        require(addrToReceiveStakingRewards != address(0), "Rewards can not be paid to the zero-address");
+        require(addrToReceiveRewards != address(0), "Rewards can not be paid to the zero-address");
 
         // NOTE: Configure custom beneficiary for investor
         uint256 stakingRequirement                            = rewardsContract.stakingRequirement();
         IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](1);
         contributors[0] = IServiceNodeRewards.Contributor(IServiceNodeRewards.Staker(/*addr*/ address(this),
-                                                                                     /*beneficiary*/ addrToReceiveStakingRewards),
+                                                                                     /*beneficiary*/ addrToReceiveRewards),
                                                                                      stakingRequirement);
 
         // NOTE: Allow staking requirement to be transferred
@@ -130,34 +130,46 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    function contributeFunds(address contributionContract,
-                             uint256 amount,
-                             address addrToReceiveStakingRewards) external onlyBeneficiary notRevoked afterStart {
+    function getContributionContract(address contractAddr) private returns (IServiceNodeContribution result) {
         // NOTE: Retrieve contract
-        bool contractDeployed                 = contributionFactory.owns(contributionContract);
-        IServiceNodeContribution contribution = IServiceNodeContribution(contributionContract);
+        bool contractDeployed = snContribFactory.owns(contractAddr);
+        result                = IServiceNodeContribution(contractAddr);
         require(contractDeployed, "Contract address is not a valid multi-contributor SN contract");
+    }
+
+    function contributeFunds(address snContribAddr,
+                             uint256 amount,
+                             address addrToReceiveRewards) external onlyBeneficiary notRevoked afterStart {
+        require(addrToReceiveRewards != address(0), "Rewards can not be paid to the zero-address");
+
+        // NOTE: Retrieve contract
+        IServiceNodeContribution snContrib = getContributionContract(snContribAddr);
 
         // NOTE: Setup the beneficiary to payout the rewards to
         IServiceNodeContribution.BeneficiaryData memory beneficiaryData;
         beneficiaryData.setBeneficiary = true;
-        beneficiaryData.beneficiary    = addrToReceiveStakingRewards;
+        beneficiaryData.beneficiary    = addrToReceiveRewards;
 
         // NOTE: Approve and contribute funds
-        SENT.approve(contributionContract, amount);
-        contribution.contributeFunds(amount, beneficiaryData);
+        SENT.approve(snContribAddr, amount);
+        snContrib.contributeFunds(amount, beneficiaryData);
     }
 
     function withdrawContribution(address snContribAddr) external override onlyBeneficiary notRevoked afterStart {
         // NOTE: Retrieve contract
-        bool contractDeployed              = contributionFactory.owns(snContribAddr);
-        require(contractDeployed, "Contract address is not a valid multi-contributor SN contract");
-        IServiceNodeContribution snContrib = IServiceNodeContribution(snContribAddr);
+        IServiceNodeContribution snContrib = getContributionContract(snContribAddr);
         snContrib.withdrawContribution();
     }
 
+    function updateBeneficiary(address snContribAddr,
+                               address addrToReceiveRewards) external onlyBeneficiary notRevoked afterStart {
+        require(addrToReceiveRewards != address(0), "Rewards can not be paid to the zero-address");
+        IServiceNodeContribution snContrib = getContributionContract(snContribAddr);
+        snContrib.updateBeneficiary(addrToReceiveRewards);
+    }
+
     function updateContributionFactory(address factoryAddr) external override onlyRevoker notRevoked nzAddr(factoryAddr) {
-        contributionFactory = IServiceNodeContributionFactory(factoryAddr);
+        snContribFactory = IServiceNodeContributionFactory(factoryAddr);
     }
 
     //////////////////////////////////////////////////////////////

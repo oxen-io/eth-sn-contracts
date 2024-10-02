@@ -34,12 +34,12 @@ interface ITokenVestingStaking {
     /// @param serviceNodeParams The service node to add including the ed25519
     /// public key and signature that proves ownership of the private component
     /// of the public key and the desired fee the operator is charging.
-    /// @param addrToReceiveStakingRewards Address that should receive the staking rewards
+    /// @param addrToReceiveRewards Address that should receive the staking rewards
     function addBLSPublicKey(
         BN256G1.G1Point calldata blsPubkey,
         IServiceNodeRewards.BLSSignatureParams calldata blsSignature,
         IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams,
-        address addrToReceiveStakingRewards
+        address addrToReceiveRewards
     ) external;
 
     /// @notice Initiates a request for the service node to leave the network by
@@ -62,9 +62,9 @@ interface ITokenVestingStaking {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    function contributeFunds(address contributionContract,
+    function contributeFunds(address snContribAddr,
                              uint256 amount,
-                             address addrToReceiveStakingRewards) external;
+                             address addrToReceiveRewards) external;
 
     /// @notice Withdraw the contribution that has been made prior to a
     /// multi-contributor contract in `contributeFunds` returning the funds

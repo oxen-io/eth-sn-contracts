@@ -141,6 +141,13 @@ interface IServiceNodeContribution {
     /// proportion of stake they must fulfill in the node.
     function updateReservedContributors(IServiceNodeRewards.ReservedContributor[] memory reserved) external;
 
+    /// @notice Update the beneficiary for the wallet/contributor that invokes
+    /// this call.
+    ///
+    /// If the caller is not a contributor in this contract, the contract
+    /// reverts.
+    function updateBeneficiary(address newBeneficiary) external;
+
     /// @notice Contribute funds to the contract for the node run by
     /// `operator`. The `amount` of SENT token must be at least the
     /// `minimumContribution` or their amount specified in their reserved

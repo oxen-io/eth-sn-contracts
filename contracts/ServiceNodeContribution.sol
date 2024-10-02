@@ -71,6 +71,16 @@ contract ServiceNodeContribution is Shared {
     Status                      public status                    = Status.WaitForOperatorContrib;
     uint64                      public constant WITHDRAWAL_DELAY = 1 days;
 
+    // Prevents the contract from automatically invoking `finalize` when a
+    // contribution to the contract fulfills the staking requirement. When true,
+    // the operator must manually invoke `finalize` which transfers the stake
+    // and registers the node to the `stakingRewardsContract`
+    //
+    // By default, this flag is false which makes the finalize step
+    // automatic when the staking requirement is fulfilled (including when
+    // a public contributor fulfills the node).
+    bool public manualFinalize;
+
     // Modifers
     modifier onlyOperator() {
         require(msg.sender == operator, "Only the operator can perform this action.");
@@ -120,6 +130,17 @@ contract ServiceNodeContribution is Shared {
     //                  State-changing functions                //
     //                                                          //
     //////////////////////////////////////////////////////////////
+
+    /// @notice Update the flag that allows or disallows the contract from
+    /// automatically finalizing the contract when the staking requirement is met.
+    ///
+    /// This can be called at any point of the contract's lifetime.
+    function updateManualFinalize(bool value) external onlyOperator { _updateManualFinalize(value); }
+
+    /// @notice See `updateManualFinalize`
+    function _updateManualFinalize(bool value) private {
+        manualFinalize = value;
+    }
 
     /// @notice Update the node fee held in this contract.
     ///
@@ -238,9 +259,7 @@ contract ServiceNodeContribution is Shared {
     /// regardless of having a reservation or not.
     ///
     /// @param amount The amount of SENT token to contribute to the contract.
-    function contributeFunds(uint256 amount) external {
-        _contributeFunds(msg.sender, amount);
-    }
+    function contributeFunds(uint256 amount) external { _contributeFunds(msg.sender, amount); }
 
     /// @notice See `contributeFunds`
     function _contributeFunds(address caller, uint256 amount) private {
@@ -312,6 +331,8 @@ contract ServiceNodeContribution is Shared {
         if (totalContribution() == stakingRequirement) {
             emit Filled(serviceNodeParams.serviceNodePubkey, operator);
             status = Status.WaitForFinalized;
+            if (!manualFinalize) // Auto finalize if allowed
+                _finalize();
         }
     }
 
@@ -320,8 +341,11 @@ contract ServiceNodeContribution is Shared {
     ///
     /// After finalisation the contract can be reused by invoking
     /// `reset`.
-    function finalize() external onlyOperator {
-        require(status              == Status.WaitForFinalized, "Contract can not be finalized yet, staking requirement not met");
+    function finalize() external onlyOperator { _finalize(); }
+
+    /// @notice See `finalize`
+    function _finalize() private {
+        require(status              == Status.WaitForFinalized, "Contract can not be finalized yet, staking requirement not met or already finalized");
         require(totalContribution() == stakingRequirement,      "Staking requirement has not been met");
 
         // NOTE: Finalize the contract

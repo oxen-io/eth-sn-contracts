@@ -129,7 +129,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
     let sentToken;             // ERC20 token contract
     let snRewards;             // Rewards contract that pays out SN's
     let snContributionFactory; // Smart contract that deploys `ServiceNodeContribution` contracts
-    let snBeneficiaryData;      // Default no-op BeneficiaryData struct
+    let snBeneficiaryData;     // Default no-op BeneficiaryData struct
 
     // NOTE: Load the contracts factories in
     before(async function () {
@@ -180,10 +180,10 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const node = BLS_NODES[0];
             const tx = await snContributionFactory.connect(snOperator)
                                                   .deploy(node.blsPubkey,
-                                                                              node.blsSig,
-                                                                              node.snParams,
-                                                                              node.reserved,
-                                                                              false /*manualFinalize*/);
+                                                          node.blsSig,
+                                                          node.snParams,
+                                                          node.reserved,
+                                                          false /*manualFinalize*/);
 
             // NOTE: Get TX logs to determine contract address
             const receipt                  = await tx.wait();

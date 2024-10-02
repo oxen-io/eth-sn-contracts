@@ -4,13 +4,59 @@ pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../interfaces/IServiceNodeRewards.sol";
+import "../interfaces/IServiceNodeContributionFactory.sol";
+import "../interfaces/IServiceNodeContribution.sol";
 
 interface ITokenVestingStaking {
-    event TokensReleased(IERC20 indexed token, uint256 amount);
-    event TokenVestingRevoked(IERC20 indexed token, uint256 refund);
 
+    //////////////////////////////////////////////////////////////
+    //                                                          //
+    //                       Events                             //
+    //                                                          //
+    //////////////////////////////////////////////////////////////
+
+    event TokensReleased        (IERC20 indexed token, uint256 amount);
+    event TokenVestingRevoked   (IERC20 indexed token, uint256 refund);
     event BeneficiaryTransferred(address oldBeneficiary, address newBeneficiary);
-    event RevokerTransferred(address oldRevoker, address newRevoker);
+    event RevokerTransferred    (address oldRevoker, address newRevoker);
+
+    //////////////////////////////////////////////////////////////
+    //                                                          //
+    //                     Variables                            //
+    //                                                          //
+    //////////////////////////////////////////////////////////////
+
+    /// @notice Address configured to receive tokens after they've vested from
+    /// the contract. The beneficiary is transferable if the contract was
+    /// deployed with the `transferableBeneficiary` enabled.
+    function beneficiary() external view returns (address);
+
+    /// @notice Indicates if the beneficiary is transferable to a new address or
+    /// not.
+    function transferableBeneficiary() external view returns (bool);
+
+    /// @notice Start time of the contract's vesting period denoted as a unix
+    /// timestamp
+    function start() external view returns (uint256);
+
+    /// @notice End time of the contract's vesting period denoted as a unix
+    /// timestamp
+    function end() external view returns (uint256);
+
+    /// @notice The token that the contract is vesting to the investor.
+    function SENT() external view returns (IERC20);
+
+    /// @notice The contract that accepts investor tokens for staking
+    function rewardsContract() external view returns (IServiceNodeRewards);
+
+    /// @notice The contract that deploys multi-contributor contracts that the
+    /// investor can stake to.
+    function snContribFactory() external view returns (IServiceNodeContributionFactory);
+
+    /// @notice Address that has permissions to halt the vesting process and
+    /// withdraw the tokens. The revoker also has permissions to access admin
+    /// functions of the contract.
+    function revoker() external view returns (address);
 
     //////////////////////////////////////////////////////////////
     //                                                          //
@@ -114,13 +160,4 @@ interface ITokenVestingStaking {
     /// @dev Allow the revoker to be transferred to a new address if needed
     function transferRevoker(address revoker_) external;
 
-    //////////////////////////////////////////////////////////////
-    //                                                          //
-    //                     Variables                            //
-    //                                                          //
-    //////////////////////////////////////////////////////////////
-
-    function beneficiary() external view returns (address);
-
-    function revoker() external view returns (address);
 }

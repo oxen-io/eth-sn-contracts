@@ -3,14 +3,19 @@ pragma solidity ^0.8.26;
 
 import "./ServiceNodeContribution.sol";
 import "./interfaces/IServiceNodeRewards.sol";
+import "./interfaces/IServiceNodeContributionFactory.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract ServiceNodeContributionFactory {
-    IERC20 public immutable SENT;
+contract ServiceNodeContributionFactory is IServiceNodeContributionFactory {
+    IERC20              public immutable SENT;
     IServiceNodeRewards public immutable stakingRewardsContract;
-    uint256 public immutable maxContributors;
+    uint256             public immutable maxContributors;
 
-    // EVENTS
+    /// Tracks the contribution contracts that have been deployed from this
+    /// factory
+    mapping(address => bool) public deployedContracts;
+
+    // Events
     event NewServiceNodeContributionContract(address indexed contributorContract, uint256 serviceNodePubkey);
 
     constructor(address _stakingRewardsContract) {
@@ -19,11 +24,11 @@ contract ServiceNodeContributionFactory {
         maxContributors        = stakingRewardsContract.maxContributors();
     }
 
-    function deployContributionContract(BN256G1.G1Point calldata key,
-                                        IServiceNodeRewards.BLSSignatureParams calldata sig,
-                                        IServiceNodeRewards.ServiceNodeParams calldata params,
-                                        IServiceNodeRewards.ReservedContributor[] calldata reserved,
-                                        bool manualFinalize
+    function deploy(BN256G1.G1Point calldata key,
+                    IServiceNodeRewards.BLSSignatureParams calldata sig,
+                    IServiceNodeRewards.ServiceNodeParams calldata params,
+                    IServiceNodeRewards.ReservedContributor[] calldata reserved,
+                    bool manualFinalize
     ) public {
         ServiceNodeContribution newContract = new ServiceNodeContribution(
             address(stakingRewardsContract),
@@ -34,6 +39,12 @@ contract ServiceNodeContributionFactory {
             reserved,
             manualFinalize
         );
+
+        deployedContracts[address(newContract)] = true;
         emit NewServiceNodeContributionContract(address(newContract), params.serviceNodePubkey);
+    }
+
+    function owns(address contractAddress) external view returns (bool) {
+        return deployedContracts[contractAddress];
     }
 }

@@ -34,7 +34,12 @@ interface IServiceNodeContribution {
         address beneficiary;
     }
 
-    // Events
+    //////////////////////////////////////////////////////////////
+    //                                                          //
+    //                       Events                             //
+    //                                                          //
+    //////////////////////////////////////////////////////////////
+
     event Finalized                (uint256 indexed serviceNodePubkey);
     event NewContribution          (address indexed contributor, uint256 amount);
     event OpenForPublicContribution(uint256 indexed serviceNodePubkey, address indexed operator, uint16 fee);
@@ -42,7 +47,38 @@ interface IServiceNodeContribution {
     event WithdrawContribution     (address indexed contributor, uint256 amount);
     event UpdateStakerBeneficiary  (address indexed staker, address beneficiary);
 
-    // Errors
+    //////////////////////////////////////////////////////////////
+    //                                                          //
+    //                     Variables                            //
+    //                                                          //
+    //////////////////////////////////////////////////////////////
+
+    function SENT()                                  external view returns (IERC20);
+    function stakingRewardsContract()                external view returns (IServiceNodeRewards);
+    function stakingRequirement()                    external view returns (uint256);
+
+    function blsPubkey()                             external view returns (uint256, uint256);
+    function serviceNodeParams()                     external view returns (IServiceNodeRewards.ServiceNodeParams memory);
+    function blsSignature()                          external view returns (IServiceNodeRewards.BLSSignatureParams memory);
+
+    function operator()                              external view returns (address);
+    function contributions(address)                  external view returns (uint256);
+    function contributionTimestamp(address)          external view returns (uint256);
+    function contributorAddresses(uint256)           external view returns (IServiceNodeRewards.Staker memory);
+    function maxContributors()                       external view returns (uint256);
+
+    function reservedContributions(address)          external view returns (uint256);
+    function reservedContributionsAddresses(uint256) external view returns (address);
+
+    function status()                                external view returns (Status);
+    function manualFinalize()                        external view returns (bool);
+
+    //////////////////////////////////////////////////////////////
+    //                                                          //
+    //                       Errors                             //
+    //                                                          //
+    //////////////////////////////////////////////////////////////
+
     error CalcMinContributionGivenBadContribArgs       (uint256 numContributors, uint256 maxNumContributors);
     /// @notice Contract is not in a state where it can accept contributions
     error ContributeFundsNotPossible                   (Status status);
@@ -304,30 +340,4 @@ interface IServiceNodeContribution {
 
     /// @notice Sum up all the reserved contributions recorded in the reserved list
     function totalReservedContribution() external view returns (uint256 result);
-
-    //////////////////////////////////////////////////////////////
-    //                                                          //
-    //                     Variables                            //
-    //                                                          //
-    //////////////////////////////////////////////////////////////
-
-    function SENT()                                  external view returns (IERC20);
-    function stakingRewardsContract()                external view returns (IServiceNodeRewards);
-    function stakingRequirement()                    external view returns (uint256);
-
-    function blsPubkey()                             external view returns (uint256, uint256);
-    function serviceNodeParams()                     external view returns (IServiceNodeRewards.ServiceNodeParams memory);
-    function blsSignature()                          external view returns (IServiceNodeRewards.BLSSignatureParams memory);
-
-    function operator()                              external view returns (address);
-    function contributions(address)                  external view returns (uint256);
-    function contributionTimestamp(address)          external view returns (uint256);
-    function contributorAddresses(uint256)           external view returns (IServiceNodeRewards.Staker memory);
-    function maxContributors()                       external view returns (uint256);
-
-    function reservedContributions(address)          external view returns (uint256);
-    function reservedContributionsAddresses(uint256) external view returns (address);
-
-    function status()                                external view returns (Status);
-    function manualFinalize()                        external view returns (bool);
 }

@@ -16,7 +16,8 @@ interface ITokenVestingStaking {
     //////////////////////////////////////////////////////////////
 
     event TokensReleased        (IERC20 indexed token, uint256 amount);
-    event TokenVestingRevoked   (IERC20 indexed token, uint256 refund);
+    event TokensRevokedReleased (IERC20 indexed token, uint256 amount);
+    event TokenVestingRevoked   (IERC20 indexed token);
     event BeneficiaryTransferred(address oldBeneficiary, address newBeneficiary);
     event RevokerTransferred    (address oldRevoker, address newRevoker);
 

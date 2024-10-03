@@ -47,6 +47,8 @@ describe("TokenVestingStaking Contract Tests", function () {
     let vestingContract;
     let revoker;
     let beneficiary;
+    let start;
+    let end
 
     beforeEach(async function () {
         // Deploy a mock ERC20 token
@@ -68,8 +70,8 @@ describe("TokenVestingStaking Contract Tests", function () {
         ServiceNodeContributionFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
         snContribFactory = await ServiceNodeContributionFactory.deploy(mockServiceNodeRewards.getAddress());
 
-        let start = await time.latest() + 5;
-        let end = start + 2 * 365 * 24 * 60 * 60; // + 2 Years
+        start = await time.latest() + 5;
+        end   = start + 2 * 365 * 24 * 60 * 60; // + 2 Years
         time.setNextBlockTimestamp(await time.latest() + 4);
 
         TokenVestingStaking = await ethers.getContractFactory("TokenVestingStaking");
@@ -141,27 +143,19 @@ describe("TokenVestingStaking Contract Tests", function () {
 
         it("Should not be able to claim if revoked", async function () {
 
-            const balanceBefore = await mockERC20.balanceOf(vestingContract);
+            const contractBalanceInitially = await mockERC20.balanceOf(vestingContract);
 
             // NOTE: Revoke before we remove the BLS public key (e.g. stake is
             // not returned yet) no funds returned (they are all staked)
             {
-                const snRewardsBalanceBefore = await mockERC20.balanceOf(mockServiceNodeRewards);
-                const beneficiaryBalanceBefore = await mockERC20.balanceOf(beneficiary);
-                const contractBalanceBefore = await mockERC20.balanceOf(vestingContract);
-                const revokerBalanceBefore  = await mockERC20.balanceOf(revoker);
+                const revokerBalanceBefore = await mockERC20.balanceOf(revoker);
                 await expect(vestingContract.connect(revoker).revoke(mockERC20)).to.emit(vestingContract, "TokenVestingRevoked");
                 const revokerBalanceAfter  = await mockERC20.balanceOf(revoker);
-                expect(revokerBalanceAfter).to.equal(revokerBalanceBefore + contractBalanceBefore);
-                console.log("Beneficiary Balance: (Before) " + beneficiaryBalanceBefore + " (After) " + await mockERC20.balanceOf(beneficiary));
-                console.log("Revoker Balance: (Before) " + revokerBalanceBefore + " (After) " + await mockERC20.balanceOf(revoker));
-                console.log("Contract Balance: (Before) " + contractBalanceBefore + " (After) " + await mockERC20.balanceOf(vestingContract));
-                console.log("SN Rewards Balance: (Before) " + snRewardsBalanceBefore + " (After) " + await mockERC20.balanceOf(mockServiceNodeRewards));
+                expect(revokerBalanceAfter).to.equal(revokerBalanceBefore);
             }
 
             // NOTE: Remove the key to return the stake
             await mockServiceNodeRewards.removeBLSPublicKeyWithSignature(/*serviceNodeID*/ 1,0,0,0,0,0,0,[]);
-            console.log("SN Rewards Balance: (After) " + await mockERC20.balanceOf(mockServiceNodeRewards));
 
             // NOTE: Investor can still claim the rewards because they earnt it
             // on the rewards contract.
@@ -188,13 +182,23 @@ describe("TokenVestingStaking Contract Tests", function () {
             // NOTE: Verify that investor is unable to revoke
             await expect(vestingContract.connect(beneficiary).revoke(mockERC20)).to.be.reverted;
 
-            // NOTE: Revoker is allowed to call revoke again to claim the
-            // returned stake to their wallet.
+            // NOTE: Revoker is allowed to revoke but no funds because they must
+            // _also_ wait for vesting period.
             {
                 const revokerBalanceBefore = await mockERC20.balanceOf(revoker);
                 await expect(vestingContract.connect(revoker).revoke(mockERC20)).to.not.emit(vestingContract, "TokenVestingRevoked");
                 const revokerBalanceAfter = await mockERC20.balanceOf(revoker);
-                expect(revokerBalanceAfter - revokerBalanceBefore).to.equal(STAKING_TEST_AMNT + 50);
+                expect(revokerBalanceAfter).to.equal(revokerBalanceBefore);
+            }
+
+            // NOTE: Revoker can revoke again after vesting to get the tokens
+            {
+                await time.setNextBlockTimestamp(end); // Teleport to end of vesting schedule
+
+                const revokerBalanceBefore = await mockERC20.balanceOf(revoker);
+                await expect(vestingContract.connect(revoker).revoke(mockERC20)).to.emit(vestingContract, "TokensRevokedReleased");
+                const revokerBalanceAfter = await mockERC20.balanceOf(revoker);
+                expect(revokerBalanceAfter - revokerBalanceBefore).to.equal(contractBalanceInitially + BigInt(STAKING_TEST_AMNT) + 50n);
             }
 
             // NOTE: Verify beneficiary balance has not changed

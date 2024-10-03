@@ -212,22 +212,32 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
+    // @note Tokens are cliffed at the `end` time
+    function releasableAmount(IERC20 token) private view returns (uint256) {
+        return block.timestamp < end ? 0 : token.balanceOf(address(this));
+    }
+
     function release(IERC20 token) external override onlyBeneficiary notRevoked {
-        // Cliff tokens at the end timestmap
-        uint256 unreleased = block.timestamp < end ? 0 : token.balanceOf(address(this));
-        require(unreleased > 0, "Vesting: no tokens are due");
-        emit TokensReleased(token, unreleased);
-        token.safeTransfer(beneficiary, unreleased);
+        uint256 amount = releasableAmount(token);
+        require(amount > 0, "Vesting: no tokens are due");
+        emit TokensReleased(token, amount);
+        token.safeTransfer(beneficiary, amount);
     }
 
     function revoke(IERC20 token) external override onlyRevoker {
-        require(block.timestamp <= end, "Vesting: vesting expired");
-        uint256 balance = token.balanceOf(address(this));
-        if (!revoked) {
+        if (!revoked) { // Only allowed to revoke whilst in vesting period
+            require(block.timestamp <= end, "Vesting: vesting expired");
             revoked = true;
-            emit TokenVestingRevoked(token, balance);
+            emit TokenVestingRevoked(token);
         }
-        token.safeTransfer(revoker, balance);
+
+        // NOTE: Revoker has to wait for vesting period as well for predictable
+        // circ. supply
+        uint256 amount = releasableAmount(token);
+        if (amount > 0) {
+            emit TokensRevokedReleased(token, amount);
+            token.safeTransfer(revoker, amount);
+        }
     }
 
     function transferBeneficiary(address beneficiary_) external override onlyBeneficiary nzAddr(beneficiary_) {

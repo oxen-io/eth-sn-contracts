@@ -45,7 +45,7 @@ describe("TokenVestingStaking Contract Tests", function () {
     let mockServiceNodeRewards;
     let TokenVestingStaking;
     let vestingContract;
-    let owner;
+    let revoker;
     let beneficiary;
 
     beforeEach(async function () {
@@ -59,7 +59,7 @@ describe("TokenVestingStaking Contract Tests", function () {
         }
 
         // Get signers
-        [owner, beneficiary, contributor, anotherContrib] = await ethers.getSigners();
+        [revoker, beneficiary, contributor, anotherContrib] = await ethers.getSigners();
 
         MockServiceNodeRewards = await ethers.getContractFactory("MockServiceNodeRewards");
         mockServiceNodeRewards = await MockServiceNodeRewards.deploy(mockERC20, STAKING_TEST_AMNT);
@@ -74,13 +74,13 @@ describe("TokenVestingStaking Contract Tests", function () {
 
         TokenVestingStaking = await ethers.getContractFactory("TokenVestingStaking");
         vestingContract = await TokenVestingStaking.deploy(beneficiary,
-                                                               /*revoker*/ owner,
-                                                               start,
-                                                               end,
-                                                               /*transferableBeneficiary*/ true,
-                                                               /*rewardsContract*/ mockServiceNodeRewards,
-                                                               snContribFactory,
-                                                               mockERC20);
+                                                           /*revoker*/ revoker,
+                                                           start,
+                                                           end,
+                                                           /*transferableBeneficiary*/ true,
+                                                           /*rewardsContract*/ mockServiceNodeRewards,
+                                                           snContribFactory,
+                                                           mockERC20);
 
         await mockERC20.transfer(vestingContract, TEST_AMNT);
         await mockERC20.transfer(mockServiceNodeRewards, TEST_AMNT);
@@ -88,7 +88,7 @@ describe("TokenVestingStaking Contract Tests", function () {
     });
 
     it("Should deploy and set the correct revoker", async function () {
-        expect(await vestingContract.revoker()).to.equal(await owner.getAddress());
+        expect(await vestingContract.revoker()).to.equal(await revoker.getAddress());
     });
 
     it("Should deploy and set the correct beneficiary", async function () {
@@ -101,9 +101,9 @@ describe("TokenVestingStaking Contract Tests", function () {
             const balanceBefore = await mockERC20.balanceOf(vestingContract);
             const node          = BLS_NODES[0];
             await vestingContract.connect(beneficiary).addBLSPublicKey(node.blsPubkey,
-                                                                           node.blsSig,
-                                                                           node.snParams,
-                                                                           beneficiary);
+                                                                       node.blsSig,
+                                                                       node.snParams,
+                                                                       beneficiary);
             const balanceAfter = await mockERC20.balanceOf(vestingContract);
             expect(balanceBefore - balanceAfter).to.equal(STAKING_TEST_AMNT);
         });
@@ -127,10 +127,10 @@ describe("TokenVestingStaking Contract Tests", function () {
             // TODO: The mock adds +50 $SENT everytime we claim, using mocks
             // isn't great because we're not actually testing against the real
             // contract.
-            const balanceBeneficiaryBefore = await mockERC20.balanceOf(beneficiary);
+            const beneficiaryBalanceBefore = await mockERC20.balanceOf(beneficiary);
             await mockServiceNodeRewards.connect(beneficiary).claimRewards();
-            const balanceBeneficiaryAfter = await mockERC20.balanceOf(beneficiary);
-            expect(balanceBeneficiaryAfter - balanceBeneficiaryBefore).to.equal(50);
+            const beneficiaryBalanceAfter = await mockERC20.balanceOf(beneficiary);
+            expect(beneficiaryBalanceAfter - beneficiaryBalanceBefore).to.equal(50);
 
             const balanceVestingBefore = await mockERC20.balanceOf(vestingContract);
             await vestingContract.connect(beneficiary).claimRewards();
@@ -138,18 +138,80 @@ describe("TokenVestingStaking Contract Tests", function () {
 
             expect(balanceVestingAfter - balanceVestingBefore).to.equal(STAKING_TEST_AMNT + 50);
         });
+
+        it("Should not be able to claim if revoked", async function () {
+
+            const balanceBefore = await mockERC20.balanceOf(vestingContract);
+
+            // NOTE: Revoke before we remove the BLS public key (e.g. stake is
+            // not returned yet) no funds returned (they are all staked)
+            {
+                const snRewardsBalanceBefore = await mockERC20.balanceOf(mockServiceNodeRewards);
+                const beneficiaryBalanceBefore = await mockERC20.balanceOf(beneficiary);
+                const contractBalanceBefore = await mockERC20.balanceOf(vestingContract);
+                const revokerBalanceBefore  = await mockERC20.balanceOf(revoker);
+                await expect(vestingContract.connect(revoker).revoke(mockERC20)).to.emit(vestingContract, "TokenVestingRevoked");
+                const revokerBalanceAfter  = await mockERC20.balanceOf(revoker);
+                expect(revokerBalanceAfter).to.equal(revokerBalanceBefore + contractBalanceBefore);
+                console.log("Beneficiary Balance: (Before) " + beneficiaryBalanceBefore + " (After) " + await mockERC20.balanceOf(beneficiary));
+                console.log("Revoker Balance: (Before) " + revokerBalanceBefore + " (After) " + await mockERC20.balanceOf(revoker));
+                console.log("Contract Balance: (Before) " + contractBalanceBefore + " (After) " + await mockERC20.balanceOf(vestingContract));
+                console.log("SN Rewards Balance: (Before) " + snRewardsBalanceBefore + " (After) " + await mockERC20.balanceOf(mockServiceNodeRewards));
+            }
+
+            // NOTE: Remove the key to return the stake
+            await mockServiceNodeRewards.removeBLSPublicKeyWithSignature(/*serviceNodeID*/ 1,0,0,0,0,0,0,[]);
+            console.log("SN Rewards Balance: (After) " + await mockERC20.balanceOf(mockServiceNodeRewards));
+
+            // NOTE: Investor can still claim the rewards because they earnt it
+            // on the rewards contract.
+            {
+                const beneficiaryBalanceBefore = await mockERC20.balanceOf(beneficiary);
+                await mockServiceNodeRewards.connect(beneficiary).claimRewards();
+                const beneficiaryBalanceAfter = await mockERC20.balanceOf(beneficiary);
+                expect(beneficiaryBalanceAfter - beneficiaryBalanceBefore).to.equal(50);
+            }
+            const beneficiaryBalanceBefore = await mockERC20.balanceOf(beneficiary);
+
+            // NOTE: However investor can _not_ claim rewards, e.g. their stakes
+            // from the contract because they were revoked.
+            await expect(vestingContract.connect(beneficiary).claimRewards()).to.be.reverted;
+
+            // NOTE: Vesting contract initiates claim
+            {
+                const balanceBefore = await mockERC20.balanceOf(vestingContract);
+                await vestingContract.connect(revoker).claimRewards();
+                const balanceAfter = await mockERC20.balanceOf(vestingContract);
+                expect(balanceAfter - balanceBefore).to.equal(STAKING_TEST_AMNT + 50); // +50 everytime we claim
+            }
+
+            // NOTE: Verify that investor is unable to revoke
+            await expect(vestingContract.connect(beneficiary).revoke(mockERC20)).to.be.reverted;
+
+            // NOTE: Revoker is allowed to call revoke again to claim the
+            // returned stake to their wallet.
+            {
+                const revokerBalanceBefore = await mockERC20.balanceOf(revoker);
+                await expect(vestingContract.connect(revoker).revoke(mockERC20)).to.not.emit(vestingContract, "TokenVestingRevoked");
+                const revokerBalanceAfter = await mockERC20.balanceOf(revoker);
+                expect(revokerBalanceAfter - revokerBalanceBefore).to.equal(STAKING_TEST_AMNT + 50);
+            }
+
+            // NOTE: Verify beneficiary balance has not changed
+            expect(await mockERC20.balanceOf(beneficiary)).to.equal(beneficiaryBalanceBefore);
+        });
     });
 
     describe("Multi-contributor functionality", function () {
         let snContribContract;
-        let ownerContribAmount;
+        let revokerContribAmount;
         let defaultBeneficiaryData;     // Default no-op BeneficiaryData struct
 
         beforeEach(async function () {
             // NOTE: Deploy a multi-contrib contract w/ operator having funded
             // the min contribution.
             const node = BLS_NODES[0];
-            const tx = await snContribFactory.connect(owner)
+            const tx = await snContribFactory.connect(revoker)
                                              .deploy(node.blsPubkey,
                                                      node.blsSig,
                                                      node.snParams,
@@ -163,14 +225,14 @@ describe("TokenVestingStaking Contract Tests", function () {
             // NOTE: Setup no-op beneficiary
             defaultBeneficiaryData = {
                 setBeneficiary: false,
-                beneficiary: owner,
+                beneficiary: revoker,
             };
 
             // NOTE: Operator funds 25% stake
-            ownerContribAmount = await snContribContract.minimumContribution();
-            await mockERC20.transfer(owner, ownerContribAmount);
-            await mockERC20.connect(owner).approve(snContribContract.getAddress(), ownerContribAmount);
-            await snContribContract.connect(owner).contributeFunds(ownerContribAmount, defaultBeneficiaryData);
+            revokerContribAmount = await snContribContract.minimumContribution();
+            await mockERC20.transfer(revoker, revokerContribAmount);
+            await mockERC20.connect(revoker).approve(snContribContract.getAddress(), revokerContribAmount);
+            await snContribContract.connect(revoker).contributeFunds(revokerContribAmount, defaultBeneficiaryData);
         });
 
         it("Should be able to contribute funds to a multi-contributor contract", async function () {
@@ -184,16 +246,16 @@ describe("TokenVestingStaking Contract Tests", function () {
                 .withArgs(await vestingContract.getAddress(), contribAmount);
 
             const contractBalance = await mockERC20.balanceOf(snContribContract.getAddress());
-            expect(contractBalance).to.equal(ownerContribAmount + contribAmount);
+            expect(contractBalance).to.equal(revokerContribAmount + contribAmount);
 
             // NOTE: Verify contrib contract state
             // NOTE: getContributions returns struct-of-arrays (stakers[], beneficiaries[], contributions[])
             await expect(await snContribContract.getContributions()).to.deep.equal(
                 [
                                        /*Operator*/        /*Investor*/
-                    /*Stakers*/       [owner.address,      await vestingContract.getAddress()],
-                    /*Beneficiaries*/ [owner.address,      beneficiary.address],
-                    /*Contributions*/ [ownerContribAmount, contribAmount],
+                    /*Stakers*/       [revoker.address,      await vestingContract.getAddress()],
+                    /*Beneficiaries*/ [revoker.address,      beneficiary.address],
+                    /*Contributions*/ [revokerContribAmount, contribAmount],
                 ]
             );
         });
@@ -222,9 +284,9 @@ describe("TokenVestingStaking Contract Tests", function () {
             await expect(await snContribContract.getContributions()).to.deep.equal(
                 [
                                        /*Operator*/
-                    /*Stakers*/       [owner.address],
-                    /*Beneficiaries*/ [owner.address],
-                    /*Contributions*/ [ownerContribAmount]
+                    /*Stakers*/       [revoker.address],
+                    /*Beneficiaries*/ [revoker.address],
+                    /*Contributions*/ [revokerContribAmount]
                 ]
             );
         });
@@ -273,9 +335,9 @@ describe("TokenVestingStaking Contract Tests", function () {
             await expect(await snContribContract.getContributions()).to.deep.equal(
                 [
                                        /*Operator*/        /*Investor*/
-                    /*Stakers*/       [owner.address,      await vestingContract.getAddress()],
-                    /*Beneficiaries*/ [owner.address,      beneficiary.address],
-                    /*Contributions*/ [ownerContribAmount, contribAmount1 + contribAmount2],
+                    /*Stakers*/       [revoker.address,      await vestingContract.getAddress()],
+                    /*Beneficiaries*/ [revoker.address,      beneficiary.address],
+                    /*Contributions*/ [revokerContribAmount, contribAmount1 + contribAmount2],
                 ]
             );
         });
@@ -287,18 +349,18 @@ describe("TokenVestingStaking Contract Tests", function () {
                                                                        contribAmount1,
                                                                        /*addrToReceiveRewards*/ beneficiary);
 
-            // NOTE: Update beneficiary of the investor to the owner.
+            // NOTE: Update beneficiary of the investor to the revoker.
             await vestingContract.connect(beneficiary).updateBeneficiary(snContribContract.getAddress(),
-                                                                         owner);
+                                                                         revoker);
 
             // NOTE: Verify contrib contract state
             // NOTE: getContributions returns struct-of-arrays (stakers[], beneficiaries[], contributions[])
             await expect(await snContribContract.getContributions()).to.deep.equal(
                 [
                                        /*Operator*/        /*Investor*/
-                    /*Stakers*/       [owner.address,      await vestingContract.getAddress()],
-                    /*Beneficiaries*/ [owner.address,      owner.address],
-                    /*Contributions*/ [ownerContribAmount, contribAmount1],
+                    /*Stakers*/       [revoker.address,      await vestingContract.getAddress()],
+                    /*Beneficiaries*/ [revoker.address,      revoker.address],
+                    /*Contributions*/ [revokerContribAmount, contribAmount1],
                 ]
             );
         });
@@ -330,9 +392,9 @@ describe("TokenVestingStaking Contract Tests", function () {
             await expect(await snContribContract.getContributions()).to.deep.equal(
                 [
                                        /*Operator*/        /*Investor*/                        /*Another Contributor*/
-                    /*Stakers*/       [owner.address,      await vestingContract.getAddress(), anotherContrib.address],
-                    /*Beneficiaries*/ [owner.address,      beneficiary.address,                anotherContrib.address],
-                    /*Contributions*/ [ownerContribAmount, contribAmount1,                     anotherContribAmount],
+                    /*Stakers*/       [revoker.address,      await vestingContract.getAddress(), anotherContrib.address],
+                    /*Beneficiaries*/ [revoker.address,      beneficiary.address,                anotherContrib.address],
+                    /*Contributions*/ [revokerContribAmount, contribAmount1,                     anotherContribAmount],
                 ]
             );
 
@@ -340,17 +402,17 @@ describe("TokenVestingStaking Contract Tests", function () {
             expect(await vestingContract.connect(beneficiary).claimRewards()).to.be.reverted;
 
             // NOTE: Claim rewards by the beneficiary from the rewards contract
-            const balanceBeneficiaryBefore = await mockERC20.balanceOf(beneficiary);
+            const beneficiaryBalanceBefore = await mockERC20.balanceOf(beneficiary);
             await mockServiceNodeRewards.connect(beneficiary).claimRewards();
-            const balanceBeneficiaryAfter = await mockERC20.balanceOf(beneficiary);
+            const beneficiaryBalanceAfter = await mockERC20.balanceOf(beneficiary);
 
             // Check that the contributors list in the ServiceNodeRewards Contract is correct
             const sn = await mockServiceNodeRewards.serviceNodes(1);
             const contributorsInRewardsContract = sn.contributors;
 
-            expect(contributorsInRewardsContract[0].staker.addr)       .to.equal(await owner.getAddress());
-            expect(contributorsInRewardsContract[0].staker.beneficiary).to.equal(await owner.getAddress());
-            expect(contributorsInRewardsContract[0].stakedAmount)      .to.equal(ownerContribAmount);
+            expect(contributorsInRewardsContract[0].staker.addr)       .to.equal(await revoker.getAddress());
+            expect(contributorsInRewardsContract[0].staker.beneficiary).to.equal(await revoker.getAddress());
+            expect(contributorsInRewardsContract[0].stakedAmount)      .to.equal(revokerContribAmount);
 
             expect(contributorsInRewardsContract[1].staker.addr)       .to.equal(await vestingContract.getAddress());
             expect(contributorsInRewardsContract[1].staker.beneficiary).to.equal(await beneficiary.getAddress());

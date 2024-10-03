@@ -20,7 +20,7 @@ abstract contract Shared {
 
     /// @dev    Checks that an address isn't zero/empty
     modifier nzAddr(address a) {
-        require(a != _ZERO_ADDR, "Shared: address input is empty");
+        require(a != _ZERO_ADDR, "Shared: Zero-address is not permitted");
         _;
     }
 

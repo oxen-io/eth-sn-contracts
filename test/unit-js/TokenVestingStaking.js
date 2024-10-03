@@ -245,7 +245,7 @@ describe("TokenVestingStaking Contract Tests", function () {
             await expect(vestingContract.connect(beneficiary).contributeFunds(invalidAddress,
                                                                               contribAmount,
                                                                               /*addrToReceiveRewards*/ zeroAddress))
-                .to.be.revertedWith("Rewards can not be paid to the zero-address");
+                .to.be.revertedWith("Shared: Zero-address is not permitted");
         });
 
 

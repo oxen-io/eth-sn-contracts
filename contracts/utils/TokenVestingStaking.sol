@@ -6,12 +6,10 @@ import "../libraries/Shared.sol";
 import "../interfaces/ITokenVestingStaking.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @title TokenVestingStaking
-/// @notice See `ITokenVestingStaking`
-/// @dev A token holder contract that vests its ERC20 token to the beneficiary.
-/// All tokens are locked until the end of the contract where the balance is
-/// released. All tokens can be staked to solo and multi-contribution nodes
-/// during the vesting period from this contract's balance.
+/// @notice A token holder contract that vests its ERC20 token to the
+/// beneficiary. All tokens are locked until the end of the contract where the
+/// balance is released. All tokens can be staked to solo and multi-contribution
+/// nodes during the vesting period from this contract's balance.
 ///
 /// If the contract is revoked, all funds are transferred to the revoker and the
 /// contract is halted. Staked funds at revocation can be retrieved by the
@@ -21,6 +19,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 /// to e.g. block numbers) and is therefore sensitive to timestamp manipulation
 /// (which is something miners can do, to a certain degree). Therefore, it is
 /// recommended to avoid using short time durations (less than a minute).
+///
+/// See `ITokenVestingStaking` for public API documentation.
 contract TokenVestingStaking is ITokenVestingStaking, Shared {
 
     using SafeERC20 for IERC20;
@@ -31,15 +31,21 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    /// @dev Ensure that the caller is the beneficiary address
     modifier onlyBeneficiary() {
-        require(msg.sender == beneficiary, "Vesting: not the beneficiary");
+        require(msg.sender == beneficiary, "Vesting: Caller must be beneficiary");
         _;
     }
 
-    /// @dev Ensure that the caller is the revoker address
     modifier onlyRevoker() {
-        require(msg.sender == revoker, "Vesting: not the revoker");
+        require(msg.sender == revoker, "Vesting: Caller must be revoker");
+        _;
+    }
+
+    modifier onlyRevokerIfRevokedElseBeneficiary() {
+        if (revoked)
+            require(msg.sender == revoker, "Vesting: Caller must be revoker");
+        else
+            require(msg.sender == beneficiary, "Vesting: Caller must be beneficiary");
         _;
     }
 
@@ -126,7 +132,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         IServiceNodeRewards.BLSSignatureParams calldata blsSignature,
         IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams,
         address addrToReceiveRewards
-    ) external onlyBeneficiary notRevoked afterStart {
+    ) external onlyRevokerIfRevokedElseBeneficiary afterStart {
         require(addrToReceiveRewards != address(0), "Rewards can not be paid to the zero-address");
 
         // NOTE: Configure custom beneficiary for investor
@@ -143,15 +149,15 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         rewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
     }
 
-    function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external onlyBeneficiary notRevoked afterStart {
+    function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external onlyRevokerIfRevokedElseBeneficiary afterStart {
         rewardsContract.initiateRemoveBLSPublicKey(serviceNodeID);
     }
 
-    function claimRewards() external onlyBeneficiary notRevoked afterStart {
+    function claimRewards() external onlyRevokerIfRevokedElseBeneficiary afterStart {
         rewardsContract.claimRewards();
     }
 
-    function claimRewards(uint256 amount) external onlyBeneficiary notRevoked afterStart {
+    function claimRewards(uint256 amount) external onlyRevokerIfRevokedElseBeneficiary afterStart {
         rewardsContract.claimRewards(amount);
     }
 
@@ -170,10 +176,8 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
 
     function contributeFunds(address snContribAddr,
                              uint256 amount,
-                             address addrToReceiveRewards) external onlyBeneficiary notRevoked afterStart {
-        require(addrToReceiveRewards != address(0), "Rewards can not be paid to the zero-address");
-
-        // NOTE: Retrieve contract
+                             address addrToReceiveRewards
+    ) external onlyRevokerIfRevokedElseBeneficiary afterStart nzAddr(addrToReceiveRewards) {
         IServiceNodeContribution snContrib = getContributionContract(snContribAddr);
 
         // NOTE: Setup the beneficiary to payout the rewards to
@@ -186,20 +190,19 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         snContrib.contributeFunds(amount, beneficiaryData);
     }
 
-    function withdrawContribution(address snContribAddr) external override onlyBeneficiary notRevoked afterStart {
-        // NOTE: Retrieve contract
+    function withdrawContribution(address snContribAddr) external override onlyRevokerIfRevokedElseBeneficiary afterStart {
         IServiceNodeContribution snContrib = getContributionContract(snContribAddr);
         snContrib.withdrawContribution();
     }
 
     function updateBeneficiary(address snContribAddr,
-                               address addrToReceiveRewards) external onlyBeneficiary notRevoked afterStart {
-        require(addrToReceiveRewards != address(0), "Rewards can not be paid to the zero-address");
+                               address addrToReceiveRewards
+    ) external onlyRevokerIfRevokedElseBeneficiary afterStart nzAddr(snContribAddr) {
         IServiceNodeContribution snContrib = getContributionContract(snContribAddr);
         snContrib.updateBeneficiary(addrToReceiveRewards);
     }
 
-    function updateContributionFactory(address factoryAddr) external override onlyRevoker notRevoked nzAddr(factoryAddr) {
+    function updateContributionFactory(address factoryAddr) external override onlyRevoker nzAddr(factoryAddr) {
         snContribFactory = IServiceNodeContributionFactory(factoryAddr);
     }
 
@@ -209,37 +212,21 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    /// @dev Calculates the amount that has already vested but hasn't been released yet.
-    /// @param token ERC20 token which is being vested.
-    function releasableAmount(IERC20 token) private view returns (uint256) {
-        return block.timestamp < end ? 0 : token.balanceOf(address(this));
-    }
-
     function release(IERC20 token) external override onlyBeneficiary notRevoked {
-        uint256 unreleased = releasableAmount(token);
+        // Cliff tokens at the end timestmap
+        uint256 unreleased = block.timestamp < end ? 0 : token.balanceOf(address(this));
         require(unreleased > 0, "Vesting: no tokens are due");
-
         emit TokensReleased(token, unreleased);
-
         token.safeTransfer(beneficiary, unreleased);
     }
 
-    function revoke(IERC20 token) external override onlyRevoker notRevoked {
+    function revoke(IERC20 token) external override onlyRevoker {
         require(block.timestamp <= end, "Vesting: vesting expired");
-
         uint256 balance = token.balanceOf(address(this));
-        uint256 unreleased = releasableAmount(token);
-        uint256 refund = balance - unreleased;
-        revoked = true;
-
-        emit TokenVestingRevoked(token, refund);
-        token.safeTransfer(revoker, refund);
-    }
-
-    function retrieveRevokedFunds(IERC20 token) external override onlyRevoker {
-        require(revoked, "Vesting: token not revoked");
-        uint256 balance = token.balanceOf(address(this));
-
+        if (!revoked) {
+            revoked = true;
+            emit TokenVestingRevoked(token, balance);
+        }
         token.safeTransfer(revoker, balance);
     }
 

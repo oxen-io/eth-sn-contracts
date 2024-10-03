@@ -142,22 +142,21 @@ interface ITokenVestingStaking {
     /// @param token ERC20 token which is being vested.
     function release(IERC20 token) external;
 
-    /// @notice Allows the revoker to revoke the vesting and stop the beneficiary from releasing any
-    ///         tokens if the vesting period has not been completed. Any staked tokens at the time of
-    ///         revoking can be retrieved by the revoker upon unstaking via `retrieveRevokedFunds`.
-    /// @param token ERC20 token which is being vested.
+    /// @notice Revoke the vesting contract and return funds to the revoker.
+    /// This can be called multiple times by revoker to retrieve any additional
+    /// tokens that are sent to the contract after revocation.
+    ///
+    /// On the first revocation, `TokenVestingRevoked` is emit and omitted for
+    /// subsequent calls.
+    ///
+    /// @param token ERC20 token to retrieve the balance for
     function revoke(IERC20 token) external;
 
-    /// @notice Allows the revoker to retrieve tokens that have been unstaked after the revoke
-    ///         function has been called. Safeguard mechanism in case of unstaking happening
-    ///         after revoke, otherwise funds would be locked.
-    /// @param token ERC20 token which is being vested.
-    function retrieveRevokedFunds(IERC20 token) external;
-
-    /// @dev Allow the beneficiary to be transferred to a new address if needed
+    /// @notice Changes the beneficiary for the contract. Only permitted if
+    /// `transferableBeneficiary` is set.
     function transferBeneficiary(address beneficiary_) external;
 
-    /// @dev Allow the revoker to be transferred to a new address if needed
+    /// @notice Change the revoker for the contract
     function transferRevoker(address revoker_) external;
 
 }

@@ -237,7 +237,7 @@ interface IServiceNodeContribution {
                                       IServiceNodeRewards.ServiceNodeParams memory params,
                                       IServiceNodeRewards.ReservedContributor[] memory reserved,
                                       bool _manualFinalize,
-                                      BeneficiaryData memory benficiaryData,
+                                      BeneficiaryData memory beneficiaryData,
                                       uint256 amount) external;
 
     /// @notice Helper function that updates the fee, reserved contributors,

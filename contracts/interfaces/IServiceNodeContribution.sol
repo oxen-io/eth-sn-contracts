@@ -45,7 +45,7 @@ interface IServiceNodeContribution {
     event OpenForPublicContribution(uint256 indexed serviceNodePubkey, address indexed operator, uint16 fee);
     event Filled                   (uint256 indexed serviceNodePubkey, address indexed operator);
     event WithdrawContribution     (address indexed contributor, uint256 amount);
-    event UpdateStakerBeneficiary  (address indexed staker, address beneficiary);
+    event UpdateStakerBeneficiary  (address indexed staker, address oldBeneficiary, address newBeneficiary);
 
     //////////////////////////////////////////////////////////////
     //                                                          //

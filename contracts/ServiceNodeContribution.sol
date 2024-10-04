@@ -213,12 +213,14 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
     function updateBeneficiary(address newBeneficiary) external { _updateBeneficiary(msg.sender, newBeneficiary); }
 
     function _updateBeneficiary(address stakerAddr, address newBeneficiary) private {
-        bool updated   = false;
-        uint256 length = _contributorAddresses.length;
+        address oldBeneficiary = address(0);
+        bool updated           = false;
+        uint256 length         = _contributorAddresses.length;
         for (uint256 i = 0; i < length; i++) {
             IServiceNodeRewards.Staker storage staker = _contributorAddresses[i];
             if (staker.addr == stakerAddr) {
                 updated            = true;
+                oldBeneficiary     = staker.beneficiary;
                 staker.beneficiary = newBeneficiary;
                 break;
             }
@@ -227,7 +229,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         if (!updated)
             revert NonContributorUpdatedBeneficiary(stakerAddr);
 
-        emit UpdateStakerBeneficiary(stakerAddr, newBeneficiary);
+        emit UpdateStakerBeneficiary(stakerAddr, oldBeneficiary, newBeneficiary);
     }
 
     function contributeFunds(uint256 amount, BeneficiaryData memory data) external { _contributeFunds(msg.sender, data, amount); }

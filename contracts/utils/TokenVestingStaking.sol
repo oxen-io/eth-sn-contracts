@@ -95,7 +95,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     /// withdrawable after
     /// @param transferableBeneficiary_ Whether the beneficiary address can be
     /// transferred
-    /// @param rewardsContract_ The SENT staking rewads contract that can
+    /// @param rewardsContract_ The SENT staking rewards contract that can
     /// be interacted with
     /// @param sent_ The SENT token address.
     constructor(

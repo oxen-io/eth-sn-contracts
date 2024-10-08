@@ -212,28 +212,28 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
     function updateBeneficiary(address newBeneficiary) external { _updateBeneficiary(msg.sender, newBeneficiary); }
 
     function _updateBeneficiary(address stakerAddr, address newBeneficiary) private {
-        address oldBeneficiary = address(0);
-        bool updated           = false;
-        uint256 length         = _contributorAddresses.length;
+        address desiredBeneficiary = newBeneficiary == address(0) ? stakerAddr : newBeneficiary;
+        address oldBeneficiary     = address(0);
+        bool updated               = false;
+        uint256 length             = _contributorAddresses.length;
         for (uint256 i = 0; i < length; i++) {
             IServiceNodeRewards.Staker storage staker = _contributorAddresses[i];
             if (staker.addr != stakerAddr)
                 continue;
 
-            address desiredBeneficiary = newBeneficiary == address(0) ? stakerAddr : newBeneficiary;
             if (staker.beneficiary == desiredBeneficiary)
                 return;
 
             updated            = true;
             oldBeneficiary     = staker.beneficiary;
-            staker.beneficiary = newBeneficiary;
+            staker.beneficiary = desiredBeneficiary;
             break;
         }
 
         if (!updated)
             revert NonContributorUpdatedBeneficiary(stakerAddr);
 
-        emit UpdateStakerBeneficiary(stakerAddr, oldBeneficiary, newBeneficiary);
+        emit UpdateStakerBeneficiary(stakerAddr, oldBeneficiary, desiredBeneficiary);
     }
 
     function contributeFunds(uint256 amount, address beneficiary) external { _contributeFunds(msg.sender, beneficiary, amount); }

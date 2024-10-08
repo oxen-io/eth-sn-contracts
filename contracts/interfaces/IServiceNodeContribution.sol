@@ -29,11 +29,6 @@ interface IServiceNodeContribution {
         Finalized
     }
 
-    struct BeneficiaryData {
-        bool setBeneficiary;
-        address beneficiary;
-    }
-
     //////////////////////////////////////////////////////////////
     //                                                          //
     //                       Events                             //
@@ -198,7 +193,17 @@ interface IServiceNodeContribution {
     /// regardless of having a reservation or not.
     ///
     /// @param amount The amount of SENT token to contribute to the contract.
-    function contributeFunds(uint256 amount, BeneficiaryData memory data) external;
+    /// @param beneficiary Optionally specify a beneficiary where rewards will
+    /// be paid out to. You may set this to `address(0)` to omit this field and
+    /// use the default behaviour which does one of two things,
+    ///
+    ///   1. If the contributor has not assigned a beneficiary yet, it assigns
+    ///   the current interacting wallet as the beneficiary (e.g. The rewards
+    ///   are paid to the staking wallet).
+    ///
+    ///   2. If the contributor has already assigned a beneficiary, the
+    ///   beneficiary for the contributor remains unchanged.
+    function contributeFunds(uint256 amount, address beneficiary) external;
 
     /// @notice Activate the node by transferring the registration details and
     /// tokens to the `stakingRewardsContract`.
@@ -230,14 +235,14 @@ interface IServiceNodeContribution {
     /// If reserved contributors are not desired, an empty array is accepted.
     ///
     /// If the operator wishes to withhold their initial contribution, a `0`
-    /// amount is accepted. When a `0` amount is specified, `beneficiaryData` is
+    /// amount is accepted. When a `0` amount is specified, `beneficiary` is
     /// also ignored.
     function resetUpdateAndContribute(BN256G1.G1Point memory key,
                                       IServiceNodeRewards.BLSSignatureParams memory sig,
                                       IServiceNodeRewards.ServiceNodeParams memory params,
                                       IServiceNodeRewards.ReservedContributor[] memory reserved,
                                       bool _manualFinalize,
-                                      BeneficiaryData memory beneficiaryData,
+                                      address beneficiary,
                                       uint256 amount) external;
 
     /// @notice Helper function that updates the fee, reserved contributors,
@@ -254,7 +259,7 @@ interface IServiceNodeContribution {
     /// If reserved contributors are not desired, the empty array is accepted.
     ///
     /// If the operator wishes to withhold their initial contribution, a `0`
-    /// amount is accepted. When a `0` amount is specified, `beneficiaryData` is
+    /// amount is accepted. When a `0` amount is specified, `beneficiary` is
     /// also ignored.
     ///
     /// @dev Useful to conduct exactly 1 transaction to re-use a node with new
@@ -263,7 +268,7 @@ interface IServiceNodeContribution {
     function resetUpdateFeeReservedAndContribute(uint16 fee,
                                                  IServiceNodeRewards.ReservedContributor[] memory reserved,
                                                  bool _manualFinalize,
-                                                 BeneficiaryData calldata benficiaryData,
+                                                 address beneficiary,
                                                  uint256 amount) external;
 
     /// @notice Function to allow owner to rescue any ERC20 tokens sent to the

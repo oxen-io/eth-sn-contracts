@@ -81,12 +81,13 @@ interface ITokenVestingStaking {
     /// @param serviceNodeParams The service node to add including the ed25519
     /// public key and signature that proves ownership of the private component
     /// of the public key and the desired fee the operator is charging.
-    /// @param addrToReceiveRewards Address that should receive the staking rewards
+    /// @param snBeneficiary Address that should receive the staking rewards
+    /// This address may not be set to the zero address `address(0)`.
     function addBLSPublicKey(
         BN256G1.G1Point calldata blsPubkey,
         IServiceNodeRewards.BLSSignatureParams calldata blsSignature,
         IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams,
-        address addrToReceiveRewards
+        address snBeneficiary
     ) external;
 
     /// @notice Initiates a request for the service node to leave the network by
@@ -109,9 +110,26 @@ interface ITokenVestingStaking {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
+    /// @notice Contribute funds to the specified multi-contribution contract.
+    ///
+    /// @param snContribAddr Address of the multi-contributor contract to
+    /// update. Reverts if the contract was not deployed by the factory assigned
+    /// to this contract.
+    /// @param snContribBeneficiary Specify the address that will receive the
+    /// rewards. This address may be set to `address(0)` to use the default
+    /// behaviour. See `contributeFunds` in `IServiceNodeContribution`
+    /// @param snContribBeneficiary Specify the address that will receive the
+    /// rewards.
+    ///
+    /// This address may not be set to the zero address `address(0)`
+    /// unlike `contributeFunds` in `IServiceNodeContribution` due to the
+    /// default behaviour of assigning the beneficiary to the contributing
+    /// wallet (e.g. the investor contract) which has the effect of locking up
+    /// staking rewards and may not be intended. An explicit address must be
+    /// specified or otherwise the contract reverts.
     function contributeFunds(address snContribAddr,
                              uint256 amount,
-                             address addrToReceiveRewards) external;
+                             address snContribBeneficiary) external;
 
     /// @notice Withdraw the contribution that has been made prior to a
     /// multi-contributor contract in `contributeFunds` returning the funds
@@ -126,7 +144,22 @@ interface ITokenVestingStaking {
     ///
     /// - If the contract has been reset the funds have been returned back to
     ///   this contract already.
+    ///
+    /// @param snContribAddr Address of the multi-contributor contract to
+    /// update. Reverts if the contract was not deployed by the factory assigned
+    /// to this contract.
     function withdrawContribution(address snContribAddr) external;
+
+    /// @notice Assign a new beneficiary for a multi-contributor contract that
+    /// this contract has contributed to prior.
+    /// @param snContribAddr Address of the multi-contributor contract to
+    /// update. Reverts if the contract was not deployed by the factory assigned
+    /// to this contract.
+    /// @param snContribBeneficiary Specify the address that will receive the
+    /// rewards.
+    ///
+    /// See notes on `snContribBeneficiary` for `contributeFunds`.
+    function updateBeneficiary(address snContribAddr, address snContribBeneficiary) external;
 
     /// @notice Allows the revoker to change the multi-contributor factory which
     /// determines if contribution addresses are valid.

@@ -131,15 +131,13 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         BN256G1.G1Point calldata blsPubkey,
         IServiceNodeRewards.BLSSignatureParams calldata blsSignature,
         IServiceNodeRewards.ServiceNodeParams calldata serviceNodeParams,
-        address addrToReceiveRewards
-    ) external onlyRevokerIfRevokedElseBeneficiary afterStart {
-        require(addrToReceiveRewards != address(0), "Rewards can not be paid to the zero-address");
-
+        address snBeneficiary
+    ) external onlyRevokerIfRevokedElseBeneficiary afterStart nzAddr(snBeneficiary) {
         // NOTE: Configure custom beneficiary for investor
         uint256 stakingRequirement                            = rewardsContract.stakingRequirement();
         IServiceNodeRewards.Contributor[] memory contributors = new IServiceNodeRewards.Contributor[](1);
         contributors[0] = IServiceNodeRewards.Contributor(IServiceNodeRewards.Staker(/*addr*/ address(this),
-                                                                                     /*beneficiary*/ addrToReceiveRewards),
+                                                                                     /*beneficiary*/ snBeneficiary),
                                                                                      stakingRequirement);
 
         // NOTE: Allow staking requirement to be transferred
@@ -176,18 +174,12 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
 
     function contributeFunds(address snContribAddr,
                              uint256 amount,
-                             address addrToReceiveRewards
-    ) external onlyRevokerIfRevokedElseBeneficiary afterStart nzAddr(addrToReceiveRewards) {
-        IServiceNodeContribution snContrib = getContributionContract(snContribAddr);
-
-        // NOTE: Setup the beneficiary to payout the rewards to
-        IServiceNodeContribution.BeneficiaryData memory beneficiaryData;
-        beneficiaryData.setBeneficiary = true;
-        beneficiaryData.beneficiary    = addrToReceiveRewards;
-
+                             address snContribBeneficiary
+    ) external onlyRevokerIfRevokedElseBeneficiary afterStart nzAddr(snContribBeneficiary) {
         // NOTE: Approve and contribute funds
+        IServiceNodeContribution snContrib = getContributionContract(snContribAddr);
         SENT.approve(snContribAddr, amount);
-        snContrib.contributeFunds(amount, beneficiaryData);
+        snContrib.contributeFunds(amount, snContribBeneficiary);
     }
 
     function withdrawContribution(address snContribAddr) external override onlyRevokerIfRevokedElseBeneficiary afterStart {
@@ -196,10 +188,10 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     }
 
     function updateBeneficiary(address snContribAddr,
-                               address addrToReceiveRewards
-    ) external onlyRevokerIfRevokedElseBeneficiary afterStart nzAddr(snContribAddr) {
+                               address snContribBeneficiary
+    ) external onlyRevokerIfRevokedElseBeneficiary afterStart nzAddr(snContribBeneficiary) {
         IServiceNodeContribution snContrib = getContributionContract(snContribAddr);
-        snContrib.updateBeneficiary(addrToReceiveRewards);
+        snContrib.updateBeneficiary(snContribBeneficiary);
     }
 
     function updateContributionFactory(address factoryAddr) external override onlyRevoker nzAddr(factoryAddr) {

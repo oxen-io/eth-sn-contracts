@@ -129,7 +129,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
     let sentToken;             // ERC20 token contract
     let snRewards;             // Rewards contract that pays out SN's
     let snContributionFactory; // Smart contract that deploys `ServiceNodeContribution` contracts
-    let snBeneficiaryData;     // Default no-op BeneficiaryData struct
+    const beneficiaryData = "0x0000000000000000000000000000000000000000";
 
     // NOTE: Load the contracts factories in
     before(async function () {
@@ -138,10 +138,6 @@ describe("ServiceNodeContribution Contract Tests", function () {
         snContributionContractFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
 
         const [owner, operator] = await ethers.getSigners();
-        beneficiaryData = {
-            setBeneficiary: false,
-            beneficiary: owner,
-        };
     });
 
     // NOTE: Initialise the contracts for each test

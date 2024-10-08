@@ -42,8 +42,8 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
     uint256                                       public immutable maxContributors;
 
     // Reserved Stakes
-    mapping(address stakerAddr => uint256 amount) public reservedContributions;
-    address[]                                     public reservedContributionsAddresses;
+    mapping(address stakerAddr => ReservedContribution) public reservedContributions;
+    address[]                                           public reservedContributionsAddresses;
 
     // Smart Contract
     Status                                        public          status           = Status.WaitForOperatorContrib;
@@ -168,7 +168,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         {
             uint256 arrayLength = reservedContributionsAddresses.length;
             for (uint256 i = 0; i < arrayLength; i++)
-                reservedContributions[reservedContributionsAddresses[i]] = 0;
+                delete reservedContributions[reservedContributionsAddresses[i]];
             delete reservedContributionsAddresses;
         }
 
@@ -187,7 +187,8 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
             if (reserved[i].addr == address(0))
                 revert ReservedContributorHasZeroAddress(i);
 
-            if (reservedContributions[reserved[i].addr] != 0)
+            ReservedContribution storage contribution = reservedContributions[reserved[i].addr];
+            if (contribution.amount != 0)
                 revert DuplicateAddressInReservedContributor(i);
 
             // NOTE: Check contribution meets min requirements and running sum
@@ -205,7 +206,8 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
 
             // NOTE: Store the reservation in the contract
             reservedContributionsAddresses.push(reserved[i].addr);
-            reservedContributions[reserved[i].addr] = contribAmount;
+            contribution.amount   = contribAmount;
+            contribution.received = false;
         }
     }
 
@@ -259,22 +261,14 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         }
 
         // NOTE: Verify the contribution
-        uint256 reserved = reservedContributions[caller];
-        if (reserved > 0) {
-            // NOTE: Remove their contribution from the reservation table
-            if (amount < reserved)
-                revert ContributionBelowReservedAmount(amount, reserved);
-            reservedContributions[caller] = 0;
+        ReservedContribution storage reserved = reservedContributions[caller];
+        if (reserved.amount > 0 && !reserved.received) {
+            // NOTE: Check amount is sufficient
+            if (amount < reserved.amount)
+                revert ContributionBelowReservedAmount(amount, reserved.amount);
 
-            // NOTE: Remove contributor from their reservation slot
-            uint256 arrayLength = reservedContributionsAddresses.length;
-            for (uint256 index = 0; index < arrayLength; index++) {
-                if (caller == reservedContributionsAddresses[index]) {
-                    reservedContributionsAddresses[index] = reservedContributionsAddresses[arrayLength - 1];
-                    reservedContributionsAddresses.pop();
-                    break;
-                }
-            }
+            // NOTE: Mark their contribution as having been received
+            reserved.received = true;
         } else {
             // NOTE: Check amount is greater than the minimum contribution only
             // if they have not contributed before (otherwise we allow
@@ -445,7 +439,8 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
     ///
     ///   1) Removing contributor from contribution mapping
     ///   2) Removing their address from the contribution array
-    ///   3) Refunding the SENT amount contributed to the contributor
+    ///   3) Resetting the addresses reservation amounts (if applicable)
+    ///   4) Refunding the SENT amount contributed to the contributor
     ///
     /// @return result The amount of SENT refunded for the given `toRemove`
     /// address. If `toRemove` is not a contributor/does not exist, 0 is returned
@@ -469,12 +464,16 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
             }
         }
 
+        // 3) Resetting the addresses reservation 'received' mark (if applicable)
+        ReservedContribution storage reserved = reservedContributions[toRemove];
+        reserved.received                     = false;
+
+        // 4) Refunding the SENT amount contributed to the contributor
         if (status == Status.Finalized) {
             // NOTE: Funds have been transferred out already, we just needed to
             // clean up the contract book-keeping for `toRemove`.
             result = 0;
         } else {
-            // 3) Refunding the SENT amount contributed to the contributor
             SENT.safeTransfer(toRemove, result);
         }
         return result;
@@ -499,9 +498,27 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
     }
 
     function minimumContribution() public view returns (uint256 result) {
+
+        // NOTE: Enumerate the reservations that have not contributed yet. Use
+        // this information to calculate the minimum (accounting for the
+        // reserved contributors that have already filled their part or _yet_ to
+        // fill their part).
+        uint256 reservedAmountAwaitingContribution                = 0;
+        uint256 reservedContributorThatHaveNotContributedYetCount = 0;
+        uint256 reservedLength                                    = reservedContributionsAddresses.length;
+        for (uint256 index = 0; index < reservedLength; index++) {
+            address reservedAddr                  = reservedContributionsAddresses[index];
+            ReservedContribution storage reserved = reservedContributions[reservedAddr];
+            if (!reserved.received) {
+                reservedAmountAwaitingContribution                += reserved.amount;
+                reservedContributorThatHaveNotContributedYetCount += 1;
+            }
+        }
+
+        // NOTE: Calculate the minimum
         result = calcMinimumContribution(
-            stakingRequirement - totalContribution() - totalReservedContribution(),
-            _contributorAddresses.length + reservedContributionsAddresses.length,
+            stakingRequirement - totalContribution() - reservedAmountAwaitingContribution,
+            _contributorAddresses.length + reservedContributorThatHaveNotContributedYetCount,
             maxContributors
         );
         return result;
@@ -545,8 +562,9 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         return result;
     }
 
-    /// @notice Access the list of contributor addresses and corresponding contributions.  The
-    /// first returned address (if any) is also the operator address.
+    /// @notice Access the list of contributor addresses and corresponding
+    /// contributions. The first returned address (if any) is also the operator
+    /// address.
     function getContributions() public view returns (address[] memory addrs, address[] memory beneficiaries, uint256[] memory contribs) {
         uint256 size = _contributorAddresses.length;
         addrs         = new address[](size);
@@ -554,11 +572,29 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         contribs      = new uint256[](size);
         for (uint256 i = 0; i < size; i++) {
             IServiceNodeRewards.Staker storage staker = _contributorAddresses[i];
-            addrs[i]         = staker.addr;
-            beneficiaries[i] = staker.beneficiary;
-            contribs[i]      = contributions[addrs[i]];
+            addrs[i]                                  = staker.addr;
+            beneficiaries[i]                          = staker.beneficiary;
+            contribs[i]                               = contributions[addrs[i]];
         }
         return (addrs, beneficiaries, contribs);
+    }
+
+    /// @notice Access the list of reserved addresses and corresponding
+    /// contributions. The first returned address (if any) is also the operator
+    /// address.
+    function getReserved() public view returns (address[] memory addrs, uint256[] memory contribs, bool[] memory received) {
+        uint256 size = reservedContributionsAddresses.length;
+        addrs        = new address[](size);
+        contribs     = new uint256[](size);
+        received     = new bool[](size);
+        for (uint256 i = 0; i < size; i++) {
+            address reservedAddr                  = reservedContributionsAddresses[i];
+            ReservedContribution storage reserved = reservedContributions[reservedAddr];
+            addrs[i]                              = reservedAddr;
+            contribs[i]                           = reserved.amount;
+            received[i]                           = reserved.received;
+        }
+        return (addrs, contribs, received);
     }
 
     /// @notice Sum up all the contributions recorded in the contributors list
@@ -571,12 +607,15 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         return result;
     }
 
-    /// @notice Sum up all the reserved contributions recorded in the reserved list
+    /// @notice Sum up all the reserved contributions recorded in the reserved
+    /// list that haven't contributed to the contract yet
     function totalReservedContribution() public view returns (uint256 result) {
         uint256 arrayLength = reservedContributionsAddresses.length;
         for (uint256 i = 0; i < arrayLength; i++) {
-            address entry = reservedContributionsAddresses[i];
-            result += reservedContributions[entry];
+            address entry                         = reservedContributionsAddresses[i];
+            ReservedContribution storage reserved = reservedContributions[entry];
+            if (!reserved.received)
+                result += reserved.amount;
         }
         return result;
     }

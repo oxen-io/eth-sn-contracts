@@ -143,7 +143,6 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         if (status != Status.WaitForOperatorContrib)
             revert PubkeyUpdateNotPossible(status);
 
-        // TODO: Check that the zero signature is rejected
         stakingRewardsContract.validateProofOfPossession(newBLSPubkey, newBLSSig, operator, ed25519Pubkey);
 
         // NOTE: Update BLS keys

@@ -202,7 +202,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error InsufficientBLSSignatures(uint256 numSigners, uint256 requiredSigners);
     error InsufficientContributors();
     error InsufficientNodes();
-    error InvalidBLSSignature();
+    error InvalidBLSSignature(BN256G1.G1Point aggPubkey);
     error InvalidBLSProofOfPossession();
     error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
     error LiquidatorRewardsTooLow();
@@ -914,8 +914,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             [blsSignature.sigs3, blsSignature.sigs2]
         );
 
-        if (!Pairing.pairing2(BN256G1.P1(), signature, BN256G1.negate(blsPubkey), hashToVerify)) {
-            revert InvalidBLSSignature();
+        BN256G1.G1Point memory aggPubkey = BN256G1.negate(blsPubkey);
+        if (!Pairing.pairing2(BN256G1.P1(), signature, aggPubkey, hashToVerify)) {
+            revert InvalidBLSSignature(aggPubkey);
         }
     }
 

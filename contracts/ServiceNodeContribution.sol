@@ -101,8 +101,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         SENT                   = IERC20(stakingRewardsContract.designatedToken());
         maxContributors        = _maxContributors;
         operator               = tx.origin; // NOTE: Creation is delegated by operator through factory
-
-        BeneficiaryData memory nilBeneficiary;
+        address nilBeneficiary = address(0);
         _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, nilBeneficiary, 0);
     }
 
@@ -218,12 +217,17 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         uint256 length         = _contributorAddresses.length;
         for (uint256 i = 0; i < length; i++) {
             IServiceNodeRewards.Staker storage staker = _contributorAddresses[i];
-            if (staker.addr == stakerAddr) {
-                updated            = true;
-                oldBeneficiary     = staker.beneficiary;
-                staker.beneficiary = newBeneficiary;
-                break;
-            }
+            if (staker.addr != stakerAddr)
+                continue;
+
+            address desiredBeneficiary = newBeneficiary == address(0) ? stakerAddr : newBeneficiary;
+            if (staker.beneficiary == desiredBeneficiary)
+                return;
+
+            updated            = true;
+            oldBeneficiary     = staker.beneficiary;
+            staker.beneficiary = newBeneficiary;
+            break;
         }
 
         if (!updated)
@@ -232,9 +236,9 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         emit UpdateStakerBeneficiary(stakerAddr, oldBeneficiary, newBeneficiary);
     }
 
-    function contributeFunds(uint256 amount, BeneficiaryData memory data) external { _contributeFunds(msg.sender, data, amount); }
+    function contributeFunds(uint256 amount, address beneficiary) external { _contributeFunds(msg.sender, beneficiary, amount); }
 
-    function _contributeFunds(address caller, BeneficiaryData memory data, uint256 amount) private {
+    function _contributeFunds(address caller, address beneficiary, uint256 amount) private {
         if (status != Status.WaitForOperatorContrib && status != Status.OpenForPublicContrib)
             revert ContributeFundsNotPossible(status);
 
@@ -283,8 +287,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         if (contributions[caller] == 0)
             _contributorAddresses.push(IServiceNodeRewards.Staker(caller, caller));
 
-        if (data.setBeneficiary)
-            _updateBeneficiary(caller, data.beneficiary);
+        _updateBeneficiary(caller, beneficiary);
 
         // NOTE: Update the amount contributed and transfer the tokens
         contributions[caller]         += amount;
@@ -362,9 +365,9 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
                                       IServiceNodeRewards.ServiceNodeParams memory params,
                                       IServiceNodeRewards.ReservedContributor[] memory reserved,
                                       bool _manualFinalize,
-                                      BeneficiaryData memory benficiaryData,
+                                      address beneficiary,
                                       uint256 amount) external onlyOperator {
-        _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, benficiaryData, amount);
+        _resetUpdateAndContribute(key, sig, params, reserved, _manualFinalize, beneficiary, amount);
     }
 
     function _resetUpdateAndContribute(BN256G1.G1Point memory key,
@@ -372,7 +375,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
                                        IServiceNodeRewards.ServiceNodeParams memory params,
                                        IServiceNodeRewards.ReservedContributor[] memory reserved,
                                        bool _manualFinalize,
-                                       BeneficiaryData memory benficiaryData,
+                                       address beneficiary,
                                        uint256 amount) private {
         _reset();
         _updatePubkeys(key, sig, params.serviceNodePubkey, params.serviceNodeSignature1, params.serviceNodeSignature2);
@@ -380,20 +383,20 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         _updateReservedContributors(reserved);
         _updateManualFinalize(_manualFinalize);
         if (amount > 0)
-            _contributeFunds(operator, benficiaryData, amount);
+            _contributeFunds(operator, beneficiary, amount);
     }
 
     function resetUpdateFeeReservedAndContribute(uint16 fee,
                                                  IServiceNodeRewards.ReservedContributor[] memory reserved,
                                                  bool _manualFinalize,
-                                                 BeneficiaryData calldata benficiaryData,
+                                                 address beneficiary,
                                                  uint256 amount) external onlyOperator {
         _reset();
         _updateFee(fee);
         _updateReservedContributors(reserved);
         _updateManualFinalize(_manualFinalize);
         if (amount > 0)
-            _contributeFunds(operator, benficiaryData, amount);
+            _contributeFunds(operator, beneficiary, amount);
     }
 
     function rescueERC20(address tokenAddress) external onlyOperator {

@@ -209,7 +209,8 @@ describe("TokenVestingStaking Contract Tests", function () {
     describe("Multi-contributor functionality", function () {
         let snContribContract;
         let revokerContribAmount;
-        let defaultBeneficiaryData;     // Default no-op BeneficiaryData struct
+        // Zero-address beneficiary (which defaults to the address of contributor)
+        const defaultBeneficiary = "0x0000000000000000000000000000000000000000";
 
         beforeEach(async function () {
             // NOTE: Deploy a multi-contrib contract w/ operator having funded
@@ -226,17 +227,11 @@ describe("TokenVestingStaking Contract Tests", function () {
             const snContribContractAddress = event.args[0];
             snContribContract              = await ethers.getContractAt("ServiceNodeContribution", snContribContractAddress);
 
-            // NOTE: Setup no-op beneficiary
-            defaultBeneficiaryData = {
-                setBeneficiary: false,
-                beneficiary: revoker,
-            };
-
             // NOTE: Operator funds 25% stake
             revokerContribAmount = await snContribContract.minimumContribution();
             await mockERC20.transfer(revoker, revokerContribAmount);
             await mockERC20.connect(revoker).approve(snContribContract.getAddress(), revokerContribAmount);
-            await snContribContract.connect(revoker).contributeFunds(revokerContribAmount, defaultBeneficiaryData);
+            await snContribContract.connect(revoker).contributeFunds(revokerContribAmount, defaultBeneficiary);
         });
 
         it("Should be able to contribute funds to a multi-contributor contract", async function () {
@@ -245,7 +240,7 @@ describe("TokenVestingStaking Contract Tests", function () {
 
             await expect(vestingContract.connect(beneficiary).contributeFunds(snContribContract.getAddress(),
                                                                               contribAmount,
-                                                                              /*addrToReceiveRewards*/ beneficiary))
+                                                                              /*snContribBenficiary*/ beneficiary))
                 .to.emit(snContribContract, "NewContribution")
                 .withArgs(await vestingContract.getAddress(), contribAmount);
 
@@ -269,7 +264,7 @@ describe("TokenVestingStaking Contract Tests", function () {
             await mockERC20.transfer(vestingContract.getAddress(), contribAmount);
             await vestingContract.connect(beneficiary).contributeFunds(snContribContract.getAddress(),
                                                                        contribAmount,
-                                                                       /*addrToReceiveRewards*/ beneficiary);
+                                                                       /*snContribBenficiary*/ beneficiary);
 
             // NOTE: Simulate time passing to allow withdrawal
             await time.increase(24 * 60 * 60 + 1); // 24 hours + 1 second
@@ -300,7 +295,7 @@ describe("TokenVestingStaking Contract Tests", function () {
             const invalidAddress = ethers.Wallet.createRandom().getAddress();
             await expect(vestingContract.connect(beneficiary).contributeFunds(invalidAddress,
                                                                               contribAmount,
-                                                                              /*addrToReceiveRewards*/ beneficiary))
+                                                                              /*snContribBenficiary*/ beneficiary))
                 .to.be.revertedWith("Contract address is not a valid multi-contributor SN contract");
         });
 
@@ -308,9 +303,9 @@ describe("TokenVestingStaking Contract Tests", function () {
             const contribAmount  = await snContribContract.minimumContribution();
             const invalidAddress = ethers.Wallet.createRandom().getAddress();
             const zeroAddress    = "0x0000000000000000000000000000000000000000";
-            await expect(vestingContract.connect(beneficiary).contributeFunds(invalidAddress,
+            await expect(vestingContract.connect(beneficiary).contributeFunds(snContribContract,
                                                                               contribAmount,
-                                                                              /*addrToReceiveRewards*/ zeroAddress))
+                                                                              /*snContribBenficiary*/ zeroAddress))
                 .to.be.revertedWith("Shared: Zero-address is not permitted");
         });
 
@@ -326,13 +321,13 @@ describe("TokenVestingStaking Contract Tests", function () {
             await mockERC20.transfer(vestingContract.getAddress(), contribAmount1);
             await vestingContract.connect(beneficiary).contributeFunds(snContribContract.getAddress(),
                                                                        contribAmount1,
-                                                                       /*addrToReceiveRewards*/ beneficiary);
+                                                                       /*snContribBenficiary*/ beneficiary);
 
             const contribAmount2 = await snContribContract.minimumContribution();
             await mockERC20.transfer(vestingContract.getAddress(), contribAmount2);
             await vestingContract.connect(beneficiary).contributeFunds(snContribContract.getAddress(),
                                                                        contribAmount2,
-                                                                       /*addrToReceiveRewards*/ beneficiary);
+                                                                       /*snContribBenficiary*/ beneficiary);
 
             // NOTE: Verify contrib contract state
             // NOTE: getContributions returns struct-of-arrays (stakers[], beneficiaries[], contributions[])
@@ -351,7 +346,7 @@ describe("TokenVestingStaking Contract Tests", function () {
             await mockERC20.transfer(vestingContract.getAddress(), contribAmount1);
             await vestingContract.connect(beneficiary).contributeFunds(snContribContract.getAddress(),
                                                                        contribAmount1,
-                                                                       /*addrToReceiveRewards*/ beneficiary);
+                                                                       /*snContribBenficiary*/ beneficiary);
 
             // NOTE: Update beneficiary of the investor to the revoker.
             await vestingContract.connect(beneficiary).updateBeneficiary(snContribContract.getAddress(),
@@ -375,7 +370,7 @@ describe("TokenVestingStaking Contract Tests", function () {
             await mockERC20.transfer(vestingContract.getAddress(), contribAmount1);
             await vestingContract.connect(beneficiary).contributeFunds(snContribContract.getAddress(),
                                                                        contribAmount1,
-                                                                       /*addrToReceiveRewards*/ beneficiary);
+                                                                       /*snContribBenficiary*/ beneficiary);
 
 
             // NOTE: Fund the contract with another contributor
@@ -388,7 +383,7 @@ describe("TokenVestingStaking Contract Tests", function () {
                            .approve(snContribContract, anotherContribAmount);
 
             await expect(await snContribContract.connect(anotherContrib)
-                           .contributeFunds(anotherContribAmount, defaultBeneficiaryData)).to
+                           .contributeFunds(anotherContribAmount, defaultBeneficiary)).to
                            .emit(snContribContract, "Finalized");
 
             // NOTE: Verify contrib contract state

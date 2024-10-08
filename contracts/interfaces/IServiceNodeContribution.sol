@@ -29,6 +29,11 @@ interface IServiceNodeContribution {
         Finalized
     }
 
+    struct ReservedContribution {
+        uint256 amount;   // Amount that is reserved
+        bool    received; // Records if the contributor has sent money to the contribution contract
+    }
+
     //////////////////////////////////////////////////////////////
     //                                                          //
     //                       Events                             //
@@ -62,7 +67,7 @@ interface IServiceNodeContribution {
     function contributorAddresses(uint256)           external view returns (IServiceNodeRewards.Staker memory);
     function maxContributors()                       external view returns (uint256);
 
-    function reservedContributions(address)          external view returns (uint256);
+    function reservedContributions(address)          external view returns (uint256, bool);
     function reservedContributionsAddresses(uint256) external view returns (address);
 
     function status()                                external view returns (Status);
@@ -339,6 +344,11 @@ interface IServiceNodeContribution {
     /// @notice Access the list of contributor addresses and corresponding contributions.  The
     /// first returned address (if any) is also the operator address.
     function getContributions() external view returns (address[] memory addrs, address[] memory beneficiaries, uint256[] memory contribs);
+
+    /// @notice Access the list of reserved addresses and corresponding
+    /// contributions. The first returned address (if any) is also the operator
+    /// address.
+    function getReserved() external view returns (address[] memory addrs, uint256[] memory contribs, bool[] memory received);
 
     /// @notice Sum up all the contributions recorded in the contributors list
     function totalContribution() external view returns (uint256 result);

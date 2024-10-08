@@ -840,7 +840,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
         it("should succeed with valid reserved contributions: [25% operator, 10%, 10%, 15%, 40%]", async function () {
             const reservedContributors = [
-                { addr: snOperator,                           amount: ownerContribution            },
+                { addr: await snOperator.getAddress(),        amount: ownerContribution            },
                 { addr: reservedContributor1.address,         amount: STAKING_TEST_AMNT * 10 / 100 },
                 { addr: reservedContributor2.address,         amount: STAKING_TEST_AMNT * 10 / 100 },
                 { addr: reservedContributor3.address,         amount: STAKING_TEST_AMNT * 15 / 100 },
@@ -848,12 +848,26 @@ describe("ServiceNodeContribution Contract Tests", function () {
             ];
 
             await expect(snContribution.connect(snOperator).updateReservedContributors(reservedContributors)).to.not.be.reverted;
+            await expect(await snContribution.getReserved()).to.deep.equal(
+                [
+                    /*Addresses*/ [reservedContributors[0].addr,   reservedContributors[1].addr,   reservedContributors[2].addr,   reservedContributors[3].addr,   reservedContributors[4].addr],
+                    /*Amount*/    [reservedContributors[0].amount, reservedContributors[1].amount, reservedContributors[2].amount, reservedContributors[3].amount, reservedContributors[4].amount],
+                    /*Received*/  [false,                          false,                          false,                          false,                          false]
+                ]);
+
             await expect(snContribution.connect(snOperator).contributeFunds(ownerContribution, beneficiaryData)).to.not.be.reverted;
+            await expect(await snContribution.getReserved()).to.deep.equal(
+                [
+                    /*Addresses*/ [reservedContributors[0].addr,   reservedContributors[1].addr,   reservedContributors[2].addr,   reservedContributors[3].addr,   reservedContributors[4].addr],
+                    /*Amount*/    [reservedContributors[0].amount, reservedContributors[1].amount, reservedContributors[2].amount, reservedContributors[3].amount, reservedContributors[4].amount],
+                    /*Received*/  [true,                           false,                          false,                          false,                          false]
+                ]);
+
         });
 
         it("should fail with duplicate reserved contributions", async function () {
             const reservedContributors = [
-                { addr: snOperator,                   amount: ownerContribution },
+                { addr: await snOperator.getAddress(), amount: ownerContribution },
                 { addr: reservedContributor1.address, amount: STAKING_TEST_AMNT * 10 / 100 },
                 { addr: reservedContributor1.address, amount: STAKING_TEST_AMNT * 15 / 100 },
             ];
@@ -863,7 +877,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
         it("should fail with invalid reserved contributions: [25% operator, 10%, 5%]", async function () {
             const reservedContributors = [
-                { addr: snOperator,                   amount: ownerContribution },
+                { addr: await snOperator.getAddress(),                   amount: ownerContribution },
                 { addr: reservedContributor1.address, amount: STAKING_TEST_AMNT * 10 / 100 },
                 { addr: reservedContributor2.address, amount: STAKING_TEST_AMNT * 5 / 100 }
             ];
@@ -874,7 +888,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
         it("should succeed with valid reserved contributions: [25% operator, 70%, 5%]", async function () {
             const reservedContributors = [
-                { addr: snOperator,                   amount: ownerContribution },
+                { addr: await snOperator.getAddress(), amount: ownerContribution },
                 { addr: reservedContributor1.address, amount: STAKING_TEST_AMNT * 70 / 100 },
                 { addr: reservedContributor2.address, amount: STAKING_TEST_AMNT * 5 / 100 }
             ];
@@ -885,7 +899,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
         it("should fail with invalid reserved contributions order: [25%, 5%, 70%]", async function () {
             const reservedContributors = [
-                { addr: snOperator,                   amount: ownerContribution },
+                { addr: await snOperator.getAddress(), amount: ownerContribution },
                 { addr: reservedContributor1.address, amount: STAKING_TEST_AMNT * 5 / 100 },
                 { addr: reservedContributor2.address, amount: STAKING_TEST_AMNT * 70 / 100 }
             ];
@@ -896,7 +910,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
         it("should fail if operator contribution is explicitly less than 25%", async function () {
             const reservedContributors = [
-                { addr: snOperator,                   amount: ownerContribution - 1n},
+                { addr: await snOperator.getAddress(),                   amount: ownerContribution - 1n},
                 { addr: reservedContributor1.address, amount: STAKING_TEST_AMNT * 75 / 100 }
             ];
 
@@ -906,7 +920,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
         it("should fail if operator contribution is implicitly less than 25%", async function () {
             const reservedContributors = [
-                { addr: snOperator,                   amount: ownerContribution },
+                { addr: await snOperator.getAddress(), amount: ownerContribution },
                 { addr: reservedContributor1.address, amount: (STAKING_TEST_AMNT * 75 / 100) + 1}
             ];
 
@@ -915,7 +929,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
         it("should succeed with exactly 25% operator stake", async function () {
             const reservedContributors = [
-                { addr: snOperator,                   amount: ownerContribution },
+                { addr: await snOperator.getAddress(), amount: ownerContribution },
                 { addr: reservedContributor1.address, amount: STAKING_TEST_AMNT * 75 / 100 }
             ];
 
@@ -925,7 +939,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
         it("should fail if total contributions exceed 100%", async function () {
             const reservedContributors = [
-                { addr: snOperator,                   amount: ownerContribution },
+                { addr: await snOperator.getAddress(), amount: ownerContribution },
                 { addr: reservedContributor1.address, amount: STAKING_TEST_AMNT * 50 / 100 },
                 { addr: reservedContributor2.address, amount: STAKING_TEST_AMNT * 30 / 100 }
             ];
@@ -973,11 +987,14 @@ describe("ServiceNodeContribution Contract Tests", function () {
         });
 
         it("Should correctly set reserved contributions", async function () {
-            const reservedContribution1 = await snContribution.reservedContributions(reservedContributor1.address);
-            const reservedContribution2 = await snContribution.reservedContributions(reservedContributor2.address);
+            const [reservedContribution1, received1] = await snContribution.reservedContributions(reservedContributor1.address);
+            const [reservedContribution2, received2] = await snContribution.reservedContributions(reservedContributor2.address);
 
             expect(reservedContribution1).to.equal(contribution1);
+            expect(received1).to.equal(false);
+
             expect(reservedContribution2).to.equal(contribution2);
+            expect(received2).to.equal(false);
         });
 
         it("Should correctly calculate total reserved contribution", async function () {
@@ -986,18 +1003,51 @@ describe("ServiceNodeContribution Contract Tests", function () {
         });
 
         it("Should allow reserved contributor to contribute reserved funds", async function () {
-            await sentToken.transfer(reservedContributor1.address, contribution1);
-            await sentToken.connect(reservedContributor1).approve(snContribution.getAddress(), contribution1);
+            // NOTE: Check total reserved contribution initial conditions
+            {
+                const totalReserved = await snContribution.totalReservedContribution();
+                expect(totalReserved).to.equal(contribution1 + contribution2);
+            }
 
+            // NOTE: Check reserved slot initial conditions
+            {
+                const [remainingReserved, received] = await snContribution.reservedContributions(reservedContributor1.address);
+                expect(remainingReserved).to.equal(contribution1);
+                expect(received).to.equal(false);
+            }
+
+            // NOTE: Fund reserved contributor 1
+            await sentToken.transfer(reservedContributor1.address, contribution1);
+
+            // NOTE: Contribute to the contract
+            await sentToken.connect(reservedContributor1).approve(snContribution.getAddress(), contribution1);
             await expect(snContribution.connect(reservedContributor1).contributeFunds(contribution1, beneficiaryData))
                 .to.emit(snContribution, "NewContribution")
                 .withArgs(reservedContributor1.address, contribution1);
 
+            // NOTE: Check contribution is registered
             const contribution = await snContribution.contributions(reservedContributor1.address);
             expect(contribution).to.equal(contribution1);
 
-            const remainingReserved = await snContribution.reservedContributions(reservedContributor1.address);
-            expect(remainingReserved).to.equal(0);
+            // NOTE: Check reserved slot is updated
+            {
+                const [remainingReserved, received] = await snContribution.reservedContributions(reservedContributor1.address);
+                expect(remainingReserved).to.equal(contribution1);
+                expect(received).to.equal(true);
+            }
+
+            await expect(await snContribution.getReserved()).to.deep.equal(
+                [
+                    /*Addresses*/ [await snOperator.getAddress(),  await reservedContributor1.getAddress(), await reservedContributor2.getAddress()],
+                    /*Amount*/    [ownerContribution,              contribution1,                           contribution2],
+                    /*Received*/  [true,                           true,                                    false]
+                ]);
+
+            // NOTE: Check total reserved contribution helper excludes the contributed amount
+            {
+                const totalReserved = await snContribution.totalReservedContribution();
+                expect(totalReserved).to.equal(contribution2);
+            }
         });
 
         it("Should prevent reserved contributor to contribute less than their reserved funds", async function () {
@@ -1010,8 +1060,9 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const contribution = await snContribution.contributions(reservedContributor1.address);
             expect(contribution).to.equal(0);
 
-            const remainingReserved = await snContribution.reservedContributions(reservedContributor1.address);
+            const [remainingReserved, received] = await snContribution.reservedContributions(reservedContributor1.address);
             expect(remainingReserved).to.equal(contribution1);
+            expect(received).to.equal(false);
         });
 
         it("Should allow reserved contributor to contribute more than their reserved funds", async function () {
@@ -1025,8 +1076,13 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const contribution = await snContribution.contributions(reservedContributor1.address);
             expect(contribution).to.equal(contribution1 + 1);
 
-            const remainingReserved = await snContribution.reservedContributions(reservedContributor1.address);
-            expect(remainingReserved).to.equal(0);
+            // NOTE: Check reserved slot amount remains at the same amount we
+            // initially reserved but is marked received
+            {
+                const [remainingReserved, received] = await snContribution.reservedContributions(reservedContributor1.address);
+                expect(remainingReserved).to.equal(contribution1);
+                expect(received).to.equal(true);
+            }
         });
 
         it("Should update minimum contribution based on reserved amounts", async function () {
@@ -1048,6 +1104,56 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
             await expect(snContribution.connect(contributor).contributeFunds(amountToFillNode, beneficiaryData))
                 .to.be.revertedWithCustomError(snContribution, "ContributionExceedsStakingRequirement");
+        });
+
+        it("Test withdraw preserves reserved contributor info", async function () {
+            // NOTE: Fund reserved contributor 2
+            await sentToken.transfer(reservedContributor2.address, contribution2);
+
+            // NOTE: Contribute to the contract
+            await sentToken.connect(reservedContributor2).approve(snContribution.getAddress(), contribution2);
+            await expect(snContribution.connect(reservedContributor2).contributeFunds(contribution2, beneficiaryData))
+                .to.emit(snContribution, "NewContribution")
+                .withArgs(reservedContributor2.address, contribution2);
+
+            // NOTE: Check contract reservation data before we withdraw
+            await expect(await snContribution.getReserved()).to.deep.equal(
+                [
+                    /*Addresses*/ [await snOperator.getAddress(),  await reservedContributor1.getAddress(), await reservedContributor2.getAddress()],
+                    /*Amount*/    [ownerContribution,              contribution1,                           contribution2],
+                    /*Received*/  [true,                           false,                                   true]
+                ]);
+
+            // NOTE: Advance time to permit withdrawal
+            await network.provider.send("evm_increaseTime", [60 * 60 * 24]);
+
+            // NOTE: Withdraw
+            await withdrawContributor(sentToken, snContribution, reservedContributor2);
+
+            // NOTE: Check contract reservation data after having withdrawn
+            await expect(await snContribution.getReserved()).to.deep.equal(
+                [
+                    /*Addresses*/ [await snOperator.getAddress(),  await reservedContributor1.getAddress(), await reservedContributor2.getAddress()],
+                    /*Amount*/    [ownerContribution,              contribution1,                           contribution2],
+                    /*Received*/  [true,                           false,                                   false]
+                ]);
+        })
+
+        it("Test reset processed flushes out reservation data", async function () {
+            await expect(await snContribution.getReserved()).to.deep.equal(
+                [
+                    /*Addresses*/ [await snOperator.getAddress(),  await reservedContributor1.getAddress(), await reservedContributor2.getAddress()],
+                    /*Amount*/    [ownerContribution,              contribution1,                           contribution2],
+                    /*Received*/  [true,                           false,                                   false]
+                ]);
+            await snContribution.connect(snOperator).reset();
+            await expect(await snContribution.getReserved()).to.deep.equal(
+                [
+                    /*Addresses*/ [],
+                    /*Amount*/    [],
+                    /*Received*/  []
+                ]);
+
         });
     });
 

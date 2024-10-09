@@ -289,23 +289,29 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         // NOTE: Check contract collateralisation _after_ the amount is
         // committed to the contract to ensure contribution sums are all
         // accounted for.
-        if ((totalContribution() + totalReservedContribution()) > stakingRequirement)
-            revert ContributionExceedsStakingRequirement(totalContribution(), totalReservedContribution(), stakingRequirement);
+        uint256 currTotalContribution    = totalContribution();
+        uint256 currReservedContribution = totalReservedContribution();
+        if ((currTotalContribution + currReservedContribution) > stakingRequirement)
+            revert ContributionExceedsStakingRequirement(currTotalContribution, currReservedContribution, stakingRequirement);
 
         if (_contributorAddresses.length > maxContributors)
             revert MaxContributorsExceeded(maxContributors);
 
-        emit NewContribution(caller, amount);
-
-        // NOTE: Transfer funds from sender to contract
-        SENT.safeTransferFrom(caller, address(this), amount);
-
         // NOTE: Allow finalizing the node if the staking requirement is met
-        if (totalContribution() == stakingRequirement) {
+        // State transition before calling out to external code to mitigate
+        // re-entrancy.
+        if (currTotalContribution == stakingRequirement) {
             emit Filled(_serviceNodeParams.serviceNodePubkey, operator);
             status = Status.WaitForFinalized;
-            if (!manualFinalize) // Auto finalize if allowed
-                _finalize();
+        }
+
+        // NOTE: Transfer funds from sender to contract
+        emit NewContribution(caller, amount);
+        SENT.safeTransferFrom(caller, address(this), amount);
+
+        // NOTE: Auto finalize the node if valid
+        if (status == Status.WaitForFinalized && !manualFinalize) {
+            _finalize();
         }
     }
 
@@ -348,7 +354,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
 
         // NOTE: Remove all reserved contributions
         {
-            IServiceNodeRewards.ReservedContributor[] memory zero;
+            IServiceNodeRewards.ReservedContributor[] memory zero = new IServiceNodeRewards.ReservedContributor[](0);
             _updateReservedContributors(zero);
         }
     }

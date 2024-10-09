@@ -214,12 +214,17 @@ contract ServiceNodeContributionEchidnaTest {
         try snContribution.withdrawContribution() {
             // Withdraw can succeed if we are not the operator and we had
             // contributed to the contract
-            assert(snOperator != msg.sender);
+            if (snOperator == msg.sender) {
+                assert(snContribution.contributorAddressesLength() == 0);
+            } else {
+                assert(snContribution.contributorAddressesLength() == (numberContributorsBefore - 1));
+                assert(block.timestamp >= snContribution.WITHDRAWAL_DELAY());
+            }
             assert(contribution > 0);
-            assert(snContribution.contributorAddressesLength() == (numberContributorsBefore - 1));
         } catch {
             assert(numberContributorsBefore == 0);
             assert(contribution == 0);
+            assert(block.timestamp < snContribution.WITHDRAWAL_DELAY());
         }
 
         assert(snContribution.status() != IServiceNodeContribution.Status.Finalized);

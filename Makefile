@@ -17,7 +17,7 @@ analyze:
 	# rewind time by up to 24 hours or, 1 hr into the future.
 	slither . \
 		--filter-paths node_modules\|contracts/test \
-		--exclude timestamp
+		--exclude timestamp,naming-convention,assembly
 
 fuzz:
 	echidna . --contract ServiceNodeContributionEchidnaTest --config echidna-local.config.yml

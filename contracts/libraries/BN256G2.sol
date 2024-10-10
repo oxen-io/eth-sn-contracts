@@ -592,9 +592,12 @@ library BN256G2 {
         uint256 y1 = 0;
         uint256 y2 = 0;
 
+        // NOTE: Mem copy bytes to `message_with_i`
         bytes memory message_with_i = new bytes(message.length + 1 /*bytes*/);
-        for (uint index = 0; index < message.length; index++) {
-            message_with_i[index] = message[index];
+        uint256 messageLength       = message.length;
+        for (uint i = 0; i < messageLength; ) {
+            message_with_i[i] = message[i];
+            unchecked { i += 1; }
         }
 
         for (uint8 increment = 0;; increment++) { // Iterate until we find a valid G2 point

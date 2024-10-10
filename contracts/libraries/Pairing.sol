@@ -14,13 +14,14 @@ library Pairing {
         uint inputSize = elements * 6;
         uint[] memory input = new uint[](inputSize);
 
-        for (uint i = 0; i < elements; i++) {
+        for (uint i = 0; i < elements; ) {
             input[i * 6 + 0] = p1[i].X;
             input[i * 6 + 1] = p1[i].Y;
             input[i * 6 + 2] = p2[i].X[0];
             input[i * 6 + 3] = p2[i].X[1];
             input[i * 6 + 4] = p2[i].Y[0];
             input[i * 6 + 5] = p2[i].Y[1];
+            unchecked { i += 1; }
         }
 
         uint[1] memory out;

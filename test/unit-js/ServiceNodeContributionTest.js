@@ -627,27 +627,82 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      .to.be.revertedWithCustomError(snContribution, "ContributionExceedsStakingRequirement");
              });
 
-             it("Turn off auto-finalize and manually invoke it", async function () {
-                 await snContribution.updateManualFinalize(true);
+             describe("Turn off auto-finalize, fill node", async function () {
+                 beforeEach(async function () {
+                     // NOTE: Turn off auto-finalize
+                     await snContribution.updateManualFinalize(true);
 
-                 const [owner, contributor1] = await ethers.getSigners();
-                 const stakingRequirement = await snContribution.stakingRequirement();
-                 let previousContribution = await snContribution.totalContribution();
+                     // NOTE: Fill node
+                     const [owner, contributor1] = await ethers.getSigners();
+                     const stakingRequirement    = await snContribution.stakingRequirement();
+                     const previousContribution  = await snContribution.totalContribution();
 
-                 await sentToken.transfer(contributor1, stakingRequirement - previousContribution);
-                 await sentToken.connect(contributor1)
-                                .approve(snContribution, stakingRequirement - previousContribution);
+                     await sentToken.transfer(contributor1, stakingRequirement - previousContribution);
+                     await sentToken.connect(contributor1)
+                                    .approve(snContribution, stakingRequirement - previousContribution);
 
-                 await expect(await snContribution.connect(contributor1).contributeFunds(stakingRequirement - previousContribution, beneficiaryData)).to.not.be.reverted;
-                 expect(await sentToken.balanceOf(snContribution)).to.equal(stakingRequirement);
+                     await expect(await snContribution.connect(contributor1).contributeFunds(stakingRequirement - previousContribution, beneficiaryData)).to.not.be.reverted;
+                     expect(await sentToken.balanceOf(snContribution)).to.equal(stakingRequirement);
 
-                 await expect(await snContribution.connect(snOperator).finalize()).to.not.be.reverted; // Test we need to manually finalized
-                 expect(await sentToken.balanceOf(snRewards)).to.equal(stakingRequirement);
-                 expect(await snRewards.totalNodes()).to.equal(1);
+                 });
 
-                 await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_Finalized);
-                 expect(await sentToken.balanceOf(snContribution)).to.equal(0);
-             });
+                 it("Manually finalize", async function () {
+                     await expect(await snContribution.connect(snOperator).finalize()).to.not.be.reverted; // Test we need to manually finalized
+                     const stakingRequirement = await snContribution.stakingRequirement();
+                     expect(await sentToken.balanceOf(snRewards)).to.equal(stakingRequirement);
+                     expect(await snRewards.totalNodes()).to.equal(1);
+
+                     await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_Finalized);
+                     expect(await sentToken.balanceOf(snContribution)).to.equal(0);
+                 });
+
+                 it("Withdraw and check status", async function () {
+                     const [owner, contributor1] = await ethers.getSigners();
+
+                     // NOTE: Attempting to withdraw after 24 hours
+                     await network.provider.send("evm_increaseTime", [60 * 60 * 24]); // Fast forward time by 24 hours
+                     await network.provider.send("evm_mine");
+                     await expect(await snContribution.connect(contributor1).withdrawContribution()).to.not.be.reverted;
+
+                     // NOTE: Check contract status reverted correctly
+                     await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_OpenForPublicContrib);
+                 });
+
+                 it("Withdraw and re-contribute using another contributor and finalize", async function () {
+                     const [owner, contributor1, contributor2] = await ethers.getSigners();
+                     const stakingRequirement                  = await snContribution.stakingRequirement();
+
+                     // NOTE: Withdraw after 24 hours
+                     await network.provider.send("evm_increaseTime", [60 * 60 * 24]); // Fast forward time by 24 hours
+                     await network.provider.send("evm_mine");
+                     await expect(await snContribution.connect(contributor1).withdrawContribution()).to.not.be.reverted;
+
+                     // NOTE: Contribute as contributor2
+                     const prevContribAmount = await snContribution.totalContribution();
+                     const contribAmount     = stakingRequirement - prevContribAmount;
+                     await sentToken.transfer(contributor2, contribAmount);
+                     await sentToken.connect(contributor2)
+                                    .approve(snContribution, contribAmount);
+                     await expect(await snContribution.connect(contributor2).contributeFunds(contribAmount, beneficiaryData)).to.not.be.reverted;
+
+                     // NOTE: Finalize
+                     await expect(await snContribution.connect(snOperator).finalize()).to.not.be.reverted; // Test we need to manually finalized
+                     expect(await sentToken.balanceOf(snRewards)).to.equal(stakingRequirement);
+                     expect(await snRewards.totalNodes()).to.equal(1);
+
+                     await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_Finalized);
+                     expect(await sentToken.balanceOf(snContribution)).to.equal(0);
+                 });
+
+                 it("Withdraw operator", async function () {
+                     const [owner] = await ethers.getSigners();
+                     await expect(await snContribution.connect(owner).withdrawContribution()).to.not.be.reverted;
+
+                     // NOTE: Check all funds are returned and contract state is reverted
+                     await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_WaitForOperatorContrib);
+                     expect(await sentToken.balanceOf(snContribution)).to.equal(0);
+                 })
+             })
 
              describe("Finalise w/ 1 contributor", async function () {
                  beforeEach(async function () {

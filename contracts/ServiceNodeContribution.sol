@@ -509,6 +509,11 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
             result = 0;
         } else {
             SENT.safeTransfer(toRemove, result);
+
+            // NOTE: Reopen the contract for contribution if we were previously
+            // ready to be finalized (e.g. fully collateralised)
+            if (status == Status.WaitForFinalized)
+                status = Status.OpenForPublicContrib;
         }
 
         return result;

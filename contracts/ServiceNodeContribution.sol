@@ -224,6 +224,9 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
     function updateBeneficiary(address newBeneficiary) external { _updateBeneficiary(msg.sender, newBeneficiary); }
 
     function _updateBeneficiary(address stakerAddr, address newBeneficiary) private {
+        if (status != Status.OpenForPublicContrib && status != Status.WaitForFinalized)
+            revert BeneficiaryUpdatingDisabledNodeIsNotOpen(_serviceNodeParams.serviceNodePubkey);
+
         address desiredBeneficiary = deriveBeneficiary(stakerAddr, newBeneficiary);
         address oldBeneficiary     = address(0);
         bool updated               = false;

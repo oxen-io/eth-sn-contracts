@@ -4,7 +4,7 @@
 
 ethyl::Transaction ServiceNodeRewardsContract::addBLSPublicKey(const std::string& publicKey, const std::string& sig, const std::string& serviceNodePubkey, const std::string& serviceNodeSignature, const uint64_t fee) {
     ethyl::Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = ethyl::utils::toEthFunctionSignature("addBLSPublicKey((uint256,uint256),(uint256,uint256,uint256,uint256),(uint256,uint256,uint256,uint16),(address,uint256)[])");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("addBLSPublicKey((uint256,uint256),(uint256,uint256,uint256,uint256),(uint256,uint256,uint256,uint16),((address,address),uint256)[])");
 
     const std::string serviceNodePubkeyPadded = ethyl::utils::padTo32Bytes(oxenc::to_hex(serviceNodePubkey), ethyl::utils::PaddingDirection::LEFT);
     const std::string serviceNodeSignaturePadded = ethyl::utils::padToNBytes(oxenc::to_hex(serviceNodeSignature), 64, ethyl::utils::PaddingDirection::LEFT);
@@ -46,7 +46,8 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
         std::string_view    addedTimestampHex        = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += addedTimestampHex.size();
         std::string_view    leaveRequestTimestampHex = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += leaveRequestTimestampHex.size();
         std::string_view    depositHex               = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += depositHex.size();
-        std::string_view    weirdOffsetHex           = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += weirdOffsetHex.size();
+        std::string_view    contributorOffsetHex     = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += contributorOffsetHex.size();
+        std::string_view    ed25519PubkeyHex         = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += ed25519PubkeyHex.size();
         std::string_view    contributorCountHex      = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += contributorCountHex.size();
 
         // NOTE: Deserialize linked list
@@ -60,11 +61,16 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
         for (size_t i=0; i < contributor_count; i++) {
             Contributor c;
             std::string_view contributorAddressHex = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);    walkIt += contributorAddressHex.size();
+            std::string_view beneficiaryAddressHex = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);    walkIt += beneficiaryAddressHex.size();
             std::string_view contributorAmountHex  = callResultIt.substr(walkIt, U256_HEX_SIZE);       walkIt += contributorAmountHex.size();
 
             std::vector<unsigned char> addressBytes = ethyl::utils::fromHexString(contributorAddressHex.substr(contributorAddressHex.size() - ETH_ADDRESS_HEX_SIZE, ETH_ADDRESS_HEX_SIZE));
             assert(addressBytes.size() == sizeof(Contributor::address));
             std::memcpy(c.address.data(), addressBytes.data(), addressBytes.size());
+
+            std::vector<unsigned char> beneficiaryAddressBytes = ethyl::utils::fromHexString(beneficiaryAddressHex.substr(beneficiaryAddressHex.size() - ETH_ADDRESS_HEX_SIZE, ETH_ADDRESS_HEX_SIZE));
+            assert(beneficiaryAddressBytes.size() == sizeof(Contributor::beneficiaryAddress));
+            std::memcpy(c.beneficiaryAddress.data(), beneficiaryAddressBytes.data(), beneficiaryAddressBytes.size());
 
             c.amount = ethyl::utils::hexStringToU64(contributorAmountHex);
             result.contributors.push_back(std::move(c));
@@ -83,6 +89,7 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
         result.addedTimestamp = ethyl::utils::hexStringToU64(addedTimestampHex);
         result.leaveRequestTimestamp = ethyl::utils::hexStringToU64(leaveRequestTimestampHex);
         result.deposit               = depositHex;
+        result.ed25519Pubkey         = ed25519PubkeyHex;
         return result;
     } catch (const std::exception& e) {
         throw std::runtime_error{std::string("response: ") + callResult.dump()};

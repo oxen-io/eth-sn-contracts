@@ -359,15 +359,20 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
 
     /// @notice See `reset`
     function _reset() private {
-        {
-            IServiceNodeRewards.Staker[] memory copy = _contributorAddresses;
-            uint256 length                           = copy.length;
-            for (uint256 i = 0; i < length; ) {
-                removeAndRefundContributor(copy[i].addr);
-                unchecked { i += 1; }
-            }
-            delete _contributorAddresses;
+        // NOTE: Remove contributor data stored in maps, refund any tokens they
+        // contributed, if any
+        uint256 length = _contributorAddresses.length;
+        for (uint256 i = 0; i < length; ) {
+            address toRemove = _contributorAddresses[i].addr;
+            uint256 refund   = contributions[toRemove];
+            if (status != Status.Finalized && refund > 0)
+                SENT.safeTransfer(toRemove, refund);
+            clearContributorMapData(toRemove);
+            unchecked { i += 1; }
         }
+
+        // NOTE: Delete contributor array
+        delete _contributorAddresses;
 
         // NOTE: Reset left-over contract variables
         status = Status.WaitForOperatorContrib;
@@ -458,6 +463,13 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
             emit WithdrawContribution(msg.sender, refundAmount);
     }
 
+    /// @notice Delete data stored for a contributor in the contract's hash
+    /// tables.
+    function clearContributorMapData(address contributor) private {
+        delete contributions[contributor];
+        delete contributionTimestamp[contributor];
+    }
+
     /// @dev Remove the contributor by address specified by `toRemove` from the
     /// smart contract. This updates all contributor related smart contract
     /// variables including the:
@@ -476,8 +488,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
             return result;
 
         // 1) Removing contributor from contribution mapping
-        contributions[toRemove]         = 0;
-        contributionTimestamp[toRemove] = 0;
+        clearContributorMapData(toRemove);
 
         // 2) Removing their address from the contribution array
         uint256 length = _contributorAddresses.length;
@@ -507,6 +518,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
             if (status == Status.WaitForFinalized)
                 status = Status.OpenForPublicContrib;
         }
+
         return result;
     }
 

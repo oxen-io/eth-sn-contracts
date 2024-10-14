@@ -215,13 +215,19 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         }
     }
 
+    // @notice Select the beneficiary as the `beneficiary` is not the
+    // zero-address. Otherwise the derived beneficiary is set to `caller`.
+    function deriveBeneficiary(address caller, address beneficiary) private returns (address result) {
+        result = beneficiary == address(0) ? caller : beneficiary;
+    }
+
     function updateBeneficiary(address newBeneficiary) external { _updateBeneficiary(msg.sender, newBeneficiary); }
 
     function _updateBeneficiary(address stakerAddr, address newBeneficiary) private {
         if (status != Status.OpenForPublicContrib && status != Status.WaitForFinalized)
             revert BeneficiaryUpdatingDisabledNodeIsNotOpen(_serviceNodeParams.serviceNodePubkey);
 
-        address desiredBeneficiary = newBeneficiary == address(0) ? stakerAddr : newBeneficiary;
+        address desiredBeneficiary = deriveBeneficiary(stakerAddr, newBeneficiary);
         address oldBeneficiary     = address(0);
         bool updated               = false;
         uint256 length             = _contributorAddresses.length;
@@ -286,10 +292,12 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         }
 
         // NOTE: Add the contributor to the contract
-        if (contributions[caller] == 0)
-            _contributorAddresses.push(IServiceNodeRewards.Staker(caller, caller));
-
-        _updateBeneficiary(caller, beneficiary);
+        if (contributions[caller] == 0) {
+            address desiredBeneficiary = deriveBeneficiary(caller, beneficiary);
+            _contributorAddresses.push(IServiceNodeRewards.Staker(caller, desiredBeneficiary));
+        } else {
+            _updateBeneficiary(caller, beneficiary);
+        }
 
         // NOTE: Update the amount contributed and transfer the tokens
         contributions[caller]         += amount;

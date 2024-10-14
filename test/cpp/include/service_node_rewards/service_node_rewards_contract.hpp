@@ -18,6 +18,7 @@ struct Recipient {
 
 struct Contributor {
     std::array<unsigned char, 20> address;
+    std::array<unsigned char, 20> beneficiaryAddress;
     uint64_t                      amount;
 };
 
@@ -29,7 +30,8 @@ struct ContractServiceNode {
     uint64_t                      addedTimestamp;
     uint64_t                      leaveRequestTimestamp;
     std::string                   deposit;
-    std::vector<Contributor>   contributors;
+    std::vector<Contributor>      contributors;
+    std::string                   ed25519Pubkey;
 };
 
 class ServiceNodeRewardsContract {

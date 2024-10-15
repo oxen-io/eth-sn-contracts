@@ -11,6 +11,10 @@ option(${PROJECT_NAME}_USE_ALT_NAMES "Use alternative names for the project, suc
 
 option(${PROJECT_NAME}_WARNINGS_AS_ERRORS "Treat compiler warnings as errors." OFF)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 Include(FetchContent)
 
 #

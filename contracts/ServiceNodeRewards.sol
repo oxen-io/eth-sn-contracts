@@ -377,16 +377,42 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         if (serviceNodeID != 0)
             revert BLSPubkeyAlreadyExists(serviceNodeID);
 
-        _validateProofOfPossession(blsPubkey, blsSignature, msg.sender, serviceNodeParams.serviceNodePubkey);
+        // NOTE: 1st contributor _may_ differ from `msg.sender`. In a solo node
+        // configuration, the operator calls `addBLSPublicKey` directly, then,
+        // `msg.sender` is the same as the 1st contributor:
+        //
+        //   msg.sender      => operator
+        //   1st contributor => operator
+        //
+        // In a multi-contribution configuration, a multi-contribution contract
+        // is instantiated and that contract calls `addBLSPublicKey` when the
+        // stake is fulfilled. This leads to the other scenario:
+        //
+        //   msg.sender      => address of multi-contribution contract
+        //   1st contributor => actual operator
+        //
+        // It is not possible to instantiate a multi-contribution contract with
+        // 0 contributors so it's impossible to assign the operator as the
+        // multi-contribution contract itself in the branch where no
+        // contributors are specified.
+        //
+        // Because of this, there's a distinction between whether we use the
+        // operator _or_ msg.sender in the following code. We transfer tokens
+        // from `msg.sender` but we validate the proof-of-possession with the
+        // operator.
+        address operator = contributors[0].staker.addr;
+        _validateProofOfPossession(blsPubkey, blsSignature, operator, serviceNodeParams.serviceNodePubkey);
 
         (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(blsPubkey, serviceNodeParams.serviceNodePubkey);
         sn.deposit                               = stakingRequirement;
-        sn.operator                              = contributors[0].staker.addr;
-        for (uint256 i = 0; i < contributors.length; i++)
+        sn.operator                              = operator;
+        for (uint256 i = 0; i < contributors.length; ) {
             sn.contributors.push(contributors[i]);
+            unchecked { i++; }
+        }
 
         updateBLSNonSignerThreshold();
-        emit NewServiceNodeV2(0, allocID, msg.sender, blsPubkey, serviceNodeParams, contributors);
+        emit NewServiceNodeV2(0, allocID, operator, blsPubkey, serviceNodeParams, contributors);
         SafeERC20.safeTransferFrom(designatedToken, msg.sender, address(this), stakingRequirement);
     }
 

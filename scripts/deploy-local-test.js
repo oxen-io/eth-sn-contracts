@@ -1,67 +1,43 @@
-// We require the Hardhat Runtime Environment explicitly here. This is optional
-// but useful for running the script in a standalone fashion through `node <script>`.
-//
-// You can also run a script with `npx hardhat run <script>`. If you do that, Hardhat
-// will compile your contracts, add the Hardhat Runtime Environment's members to the
-// global scope, and execute the script.
-const hre = require("hardhat");
+const hre   = require("hardhat");
 const chalk = require('chalk')
 
-let principal = 40000000;
-let bigAtomicPrincipal = ethers.parseUnits(principal.toString(), 9);
-
 async function main() {
-    // Deploy a mock ERC20 token
-    try {
-        // Deploy a mock ERC20 token
-        MockERC20 = await ethers.getContractFactory("MockERC20");
-        mockERC20 = await MockERC20.deploy("SENT Token", "SENT", 9);
-    } catch (error) {
-        console.error("Error deploying MockERC20:", error);
-    }
+    // NOTE: Deploy tokens
+    token_deployer = await ethers.getContractFactory("MockERC20");
+    token          = await token_deployer.deploy("SENT Token", "SENT", 9);
+    [owner]        = await ethers.getSigners();
 
-    // Get signers
-    [owner] = await ethers.getSigners();
+    // NOTE: Deploy the reward pool contract
+    const reward_rate_pool_deployer = await ethers.getContractFactory("RewardRatePool");
+    const reward_rate_pool          = await upgrades.deployProxy(reward_rate_pool_deployer, [await owner.getAddress(), await token.getAddress()]);
+    await reward_rate_pool.waitForDeployment();
 
-    RewardRatePool = await ethers.getContractFactory("RewardRatePool");
-    rewardRatePool = await upgrades.deployProxy(RewardRatePool, [await owner.getAddress(), await mockERC20.getAddress()]);
+    // NOTE: Fund the reward pool
+    await token.transfer(reward_rate_pool, 40_000_000n * BigInt(1e9));
 
-    await mockERC20.transfer(rewardRatePool, bigAtomicPrincipal);
-
-    // Deploy the ServiceNodeRewards contract
-    ServiceNodeRewardsMaster = await ethers.getContractFactory("ServiceNodeRewards");
-    serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,[
-        await mockERC20.getAddress(),              // token address
-        await rewardRatePool.getAddress(),         // foundation pool address
-        120_000_000_000,                           // staking requirement
-        10,                                        // max contributors
-        1,                                         // liquidator reward ratio
-        0,                                         // pool share of liquidation ratio
-        1                                          // recipient ratio
+    // NOTE: Deploy the rewards contract
+    const sn_rewards_deployer = await ethers.getContractFactory("ServiceNodeRewards");
+    const sn_rewards          = await upgrades.deployProxy(sn_rewards_deployer, [
+        await token.getAddress(),            // token address
+        await reward_rate_pool.getAddress(), // foundation pool address
+        120n * BigInt(1e9),                  // staking requirement
+        10,                                  // max contributors
+        1,                                   // liquidator reward ratio
+        0,                                   // pool share of liquidation ratio
+        1                                    // recipient ratio
     ]);
+    await sn_rewards.waitForDeployment();
 
+    // NOTE: Deploy the multi contribution factory
+    const sn_contrib_factory_deployer = await ethers.getContractFactory("ServiceNodeContributionFactory");
+    const sn_contrib_factory          = await sn_contrib_factory_deployer.deploy(await sn_rewards.getAddress());
+    await sn_contrib_factory.waitForDeployment();
 
-    await serviceNodeRewards.waitForDeployment();
-    const leng = serviceNodeRewards.totalNodes();
-
-    console.log(
-        '  ',
-        chalk.cyan(`Service Node Rewards Contract`),
-        'deployed to:',
-        chalk.greenBright(await serviceNodeRewards.getAddress()),
-    )
-    console.log(
-        '  ',
-        chalk.cyan(`Reward Rate Pool Contract`),
-        'deployed to:',
-        chalk.greenBright(await rewardRatePool.getAddress()),
-    )
-    console.log(
-        '  ',
-        chalk.cyan(`SENT Contract Address`),
-        'deployed to:',
-        chalk.greenBright(await mockERC20.getAddress()),
-    )
+    // NOTE: Output contract addresses
+    console.log('  ', chalk.cyan(`Service Node Rewards Contract`), '    deployed to:', chalk.greenBright(await sn_rewards.getAddress()))
+    console.log('  ', chalk.cyan(`Service Node Contribution Factory`), 'deployed to:', chalk.greenBright(await sn_contrib_factory.getAddress()))
+    console.log('  ', chalk.cyan(`Reward Rate Pool Contract`), '        deployed to:', chalk.greenBright(await reward_rate_pool.getAddress()))
+    console.log('  ', chalk.cyan(`SENT Contract Address`), '            deployed to:', chalk.greenBright(await token.getAddress()))
 }
 
 // We recommend this pattern to be able to use async/await everywhere

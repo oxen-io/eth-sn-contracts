@@ -79,17 +79,18 @@ interface IServiceNodeContribution {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    error CalcMinContributionGivenBadContribArgs       (uint256 numContributors, uint256 maxNumContributors);
+    error CalcMinContributionGivenBadContribArgs  (uint256 numContributors, uint256 maxNumContributors);
     /// @notice Contract is not in a state where it can accept contributions
-    error ContributeFundsNotPossible                   (Status status);
-    error ContributionBelowMinAmount                   (uint256 contributed, uint256 min);
-    error ContributionBelowReservedAmount              (uint256 contributed, uint256 reserved);
-    error ContributionExceedsStakingRequirement        (uint256 totalContributed, uint256 totalReserved, uint256 stakingRequirement);
-    error DuplicateAddressInReservedContributor        (uint256 index);
-    error FeeExceedsPossibleValue                      (uint16 fee, uint16 max);
-    error FeeUpdateNotPossible                         (Status status);
-    error FinalizeNotPossible                          (Status status);
-    error FirstContributionMustBeOperator              (address contributor, address operator);
+    error ContributeFundsNotPossible              (Status status);
+    error ContributionBelowMinAmount              (uint256 contributed, uint256 min);
+    error ContributionBelowReservedAmount         (uint256 contributed, uint256 reserved);
+    error ContributionExceedsStakingRequirement   (uint256 totalContributed, uint256 totalReserved, uint256 stakingRequirement);
+    error DuplicateAddressInReservedContributor   (uint256 index);
+    error FeeExceedsPossibleValue                 (uint16 fee, uint16 max);
+    error FeeUpdateNotPossible                    (Status status);
+    error FinalizeNotPossible                     (Status status);
+    error FirstContributionMustBeOperator         (address contributor, address operator);
+    error BeneficiaryUpdatingDisabledNodeIsNotOpen(uint256 ed25519Pubkey);
 
     /// @notice A wallet has attempted to contribute to the contract
     /// before the operator's wallet has contributed.

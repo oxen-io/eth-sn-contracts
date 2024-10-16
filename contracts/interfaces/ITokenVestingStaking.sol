@@ -118,15 +118,6 @@ interface ITokenVestingStaking {
     /// @param snContribBeneficiary Specify the address that will receive the
     /// rewards. This address may be set to `address(0)` to use the default
     /// behaviour. See `contributeFunds` in `IServiceNodeContribution`
-    /// @param snContribBeneficiary Specify the address that will receive the
-    /// rewards.
-    ///
-    /// This address may not be set to the zero address `address(0)`
-    /// unlike `contributeFunds` in `IServiceNodeContribution` due to the
-    /// default behaviour of assigning the beneficiary to the contributing
-    /// wallet (e.g. the investor contract) which has the effect of locking up
-    /// staking rewards and may not be intended. An explicit address must be
-    /// specified or otherwise the contract reverts.
     function contributeFunds(address snContribAddr,
                              uint256 amount,
                              address snContribBeneficiary) external;
@@ -156,9 +147,7 @@ interface ITokenVestingStaking {
     /// update. Reverts if the contract was not deployed by the factory assigned
     /// to this contract.
     /// @param snContribBeneficiary Specify the address that will receive the
-    /// rewards.
-    ///
-    /// See notes on `snContribBeneficiary` for `contributeFunds`.
+    /// rewards. See notes on `snContribBeneficiary` for `contributeFunds`.
     function updateBeneficiary(address snContribAddr, address snContribBeneficiary) external;
 
     /// @notice Allows the revoker to change the multi-contributor factory which

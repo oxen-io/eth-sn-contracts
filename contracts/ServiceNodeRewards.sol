@@ -408,6 +408,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         sn.operator                              = operator;
         for (uint256 i = 0; i < contributors.length; ) {
             sn.contributors.push(contributors[i]);
+            unchecked { i += 1 };
         }
 
         updateBLSNonSignerThreshold();

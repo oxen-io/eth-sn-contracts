@@ -30,7 +30,9 @@ async function main() {
 
     // NOTE: Deploy the multi contribution factory
     const sn_contrib_factory_deployer = await ethers.getContractFactory("ServiceNodeContributionFactory");
-    const sn_contrib_factory          = await sn_contrib_factory_deployer.deploy(await sn_rewards.getAddress());
+    const sn_contrib_factory          = await upgrades.deployProxy(sn_contrib_factory_deployer, [
+        await sn_rewards.getAddress()
+    ]);
     await sn_contrib_factory.waitForDeployment();
 
     // NOTE: Output contract addresses

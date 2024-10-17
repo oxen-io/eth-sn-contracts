@@ -68,7 +68,8 @@ describe("TokenVestingStaking Contract Tests", function () {
 
         // Deploy ServiceNodeContributionFactory
         ServiceNodeContributionFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
-        snContribFactory = await ServiceNodeContributionFactory.deploy(mockServiceNodeRewards.getAddress());
+        snContribFactory               = await upgrades.deployProxy(ServiceNodeContributionFactory,
+                                                                    [await mockServiceNodeRewards.getAddress()]);
 
         start = await time.latest() + 5;
         end   = start + 2 * 365 * 24 * 60 * 60; // + 2 Years

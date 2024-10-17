@@ -5,16 +5,14 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IServiceNodeRewards.sol";
 
 interface IServiceNodeContributionFactory {
-    function SENT()                     external view returns (IERC20);
     function stakingRewardsContract()   external view returns (IServiceNodeRewards);
-    function maxContributors()          external view returns (uint256);
     function deployedContracts(address) external view returns (bool);
 
     function deploy(BN256G1.G1Point calldata key,
                     IServiceNodeRewards.BLSSignatureParams calldata sig,
                     IServiceNodeRewards.ServiceNodeParams calldata params,
                     IServiceNodeRewards.ReservedContributor[] calldata reserved,
-                    bool manualFinalize) external;
+                    bool manualFinalize) external returns (address result);
 
     function owns(address contractAddress) external view returns (bool);
 }

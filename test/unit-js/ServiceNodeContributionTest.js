@@ -145,7 +145,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         // NOTE: Deploy contract instances
         sentToken             = await sentTokenContractFactory.deploy("SENT Token", "SENT", 9);
         snRewards             = await snRewardsContractFactory.deploy(sentToken, STAKING_TEST_AMNT);
-        snContributionFactory = await snContributionContractFactory.deploy(snRewards);
+        snContributionFactory = await upgrades.deployProxy(snContributionContractFactory, [await snRewards.getAddress()]);
     });
 
     it("Verify staking rewards contract is set", async function () {

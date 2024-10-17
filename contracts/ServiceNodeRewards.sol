@@ -107,6 +107,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         _serviceNodes[LIST_SENTINEL].prev = LIST_SENTINEL;
         _serviceNodes[LIST_SENTINEL].next = LIST_SENTINEL;
         __Ownable_init(msg.sender);
+        __Pausable_init();
     }
 
     mapping(uint64 => ServiceNode) private _serviceNodes;

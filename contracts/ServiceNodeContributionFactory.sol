@@ -4,12 +4,11 @@ pragma solidity ^0.8.26;
 import "./ServiceNodeContribution.sol";
 import "./interfaces/IServiceNodeRewards.sol";
 import "./interfaces/IServiceNodeContributionFactory.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
-contract ServiceNodeContributionFactory is IServiceNodeContributionFactory {
-    IERC20              public immutable SENT;
-    IServiceNodeRewards public immutable stakingRewardsContract;
-    uint256             public immutable maxContributors;
+contract ServiceNodeContributionFactory is Initializable, Ownable2StepUpgradeable, PausableUpgradeable, IServiceNodeContributionFactory {
+    IServiceNodeRewards public stakingRewardsContract;
 
     /// Tracks the contribution contracts that have been deployed from this
     /// factory
@@ -18,21 +17,23 @@ contract ServiceNodeContributionFactory is IServiceNodeContributionFactory {
     // Events
     event NewServiceNodeContributionContract(address indexed contributorContract, uint256 serviceNodePubkey);
 
-    constructor(address _stakingRewardsContract) {
+    function initialize(address _stakingRewardsContract) public initializer {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
-        SENT                   = IERC20(stakingRewardsContract.designatedToken());
-        maxContributors        = stakingRewardsContract.maxContributors();
+        __Ownable_init(msg.sender);
+        __Pausable_init();
     }
 
+    /// @notice Create a new multi-contrib contract, tracked by this factory.
+    /// @return result The address of the new multi-contrib contract
     function deploy(BN256G1.G1Point calldata key,
                     IServiceNodeRewards.BLSSignatureParams calldata sig,
                     IServiceNodeRewards.ServiceNodeParams calldata params,
                     IServiceNodeRewards.ReservedContributor[] calldata reserved,
                     bool manualFinalize
-    ) public {
+    ) external whenNotPaused returns (address result) {
         ServiceNodeContribution newContract = new ServiceNodeContribution(
             address(stakingRewardsContract),
-            maxContributors,
+            stakingRewardsContract.maxContributors(),
             key,
             sig,
             params,
@@ -40,10 +41,23 @@ contract ServiceNodeContributionFactory is IServiceNodeContributionFactory {
             manualFinalize
         );
 
-        deployedContracts[address(newContract)] = true;
-        emit NewServiceNodeContributionContract(address(newContract), params.serviceNodePubkey);
+        result = address(newContract);
+        deployedContracts[result] = true;
+        emit NewServiceNodeContributionContract(result, params.serviceNodePubkey);
+        return result;
     }
 
+    /// @notice Pause to prevent new multi-contrib contracts being deployed
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause allows new multi-contrib contracts to be deployed
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
+    /// @notice Check if the `contractAddress` was deployed by this factory
     function owns(address contractAddress) external view returns (bool) {
         return deployedContracts[contractAddress];
     }

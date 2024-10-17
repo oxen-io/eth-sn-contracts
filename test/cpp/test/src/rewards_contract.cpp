@@ -39,7 +39,10 @@ int main(int argc, char *argv[]) {
     signer.provider->addClient("Client", std::string(config.RPC_URL));
     erc20_contract.provider.addClient("Client", std::string(config.RPC_URL));
     rewards_contract.provider.addClient("Client", std::string(config.RPC_URL));
-    contract_address = defaultProvider.getContractDeployedInLatestBlock();
+
+    // NOTE: The SN rewards contract has a deterministic deployment address
+    // because we use a pre-determined debug wallet provided by Hardhat.
+    contract_address = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707";
 
     // NOTE: Setup keys
     seckey        = ethyl::utils::fromHexString(std::string(config.PRIVATE_KEY));

@@ -13,10 +13,10 @@ std::string_view DOMAIN_SEPARATION_TAG_BYTES32 =
 
 std::array<std::string, 4> convertToHexStrings(const uint8_t md[128]) {
     std::array<std::string, 4> result;
-    for (int i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < result.max_size(); ++i) {
         std::stringstream ss;
         ss << "0x";
-        for (int j = 0; j < 32; ++j) {
+        for (size_t j = 0; j < 32; ++j) {
             ss << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(md[i * 32 + j]);
         }
         result[i] = ss.str();

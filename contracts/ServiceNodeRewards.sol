@@ -1054,22 +1054,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         return (ids, pubkeys);
     }
 
-    /// @notice Getter for obtaining all registered service node pubkeys at once
-    /// @return pubkeys array of all currently registered pubkeys
-    function allServiceNodePubkeys() external view returns (BN256G1.G1Point[] memory pubkeys) {
-        pubkeys = new BN256G1.G1Point[](totalNodes);
-
-        uint64 currentNode = _serviceNodes[LIST_SENTINEL].next;
-        for (uint64 i = 0; currentNode != LIST_SENTINEL; ) {
-            ServiceNode storage sn = _serviceNodes[currentNode];
-            pubkeys[i]             = sn.blsPubkey;
-            currentNode            = sn.next;
-            unchecked { i += 1; }
-        }
-
-        return pubkeys;
-    }
-
     /// @dev Builds a tag string using a base tag and contract-specific
     /// information. This is used when signing messages to prevent reuse of
     /// signatures across different domains (chains/functions/contracts)

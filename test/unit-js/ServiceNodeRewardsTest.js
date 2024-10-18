@@ -6541,8 +6541,6 @@ describe("ServiceNodeRewards Contract Tests", function () {
             }
 
             expect(await serviceNodeRewards.allServiceNodeIDs()).to.deep.equal([expected_ids, expected_pks]);
-            expect(await serviceNodeRewards.allServiceNodePubkeys()).to.deep.equal(expected_pks);
-
             let sn27 = await serviceNodeRewards.serviceNodes(27);
             expect(sn27.operator).to.equal(BigInt(contributors[26][0]["addr"]));
             expect(sn27.contributors.length).to.equal(4);

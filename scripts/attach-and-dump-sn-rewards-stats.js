@@ -22,7 +22,6 @@ async function main() {
     console.log("Removal Tag:                        " + await sn_rewards.removalTag());
     console.log("Reward Tag:                         " + await sn_rewards.rewardTag());
     console.log("Staking Requirement:                " + await sn_rewards.stakingRequirement());
-    console.log("Service Nodes Length:               " + await sn_rewards.serviceNodesLength());
     console.log("Total Nodes:                        " + await sn_rewards.totalNodes());
 
     // NOTE: Print all the Session Node IDs via 'allServiceNodeIDs' into a JS structure

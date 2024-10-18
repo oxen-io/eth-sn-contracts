@@ -834,25 +834,20 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    // @notice Publically allow anyone to recalculate the total nodes in the
-    // contract
-    function updateServiceNodesLength() public {
-        totalNodes = serviceNodesLength();
-    }
-
-    // @notice Publically allow anyone to recalculate the aggregate public key
-    // in the smart contract
-    function updateAggregatePubkey() public {
+    // @notice Publically allow anyone to recalculate the total nodes and
+    // aggregate public key in the smart contract
+    function rederiveTotalNodesAndAggregatePubkey() public {
+        totalNodes = 0;
         uint64 currentNode = _serviceNodes[LIST_SENTINEL].next;
-        for (uint64 i = 0; currentNode != LIST_SENTINEL; ) {
+        while (currentNode != LIST_SENTINEL) {
             ServiceNode storage sn = _serviceNodes[currentNode];
-            if (i == 0) {
+            if (totalNodes == 0) {
                 _aggregatePubkey = sn.blsPubkey;
             } else {
                 _aggregatePubkey = BN256G1.add(_aggregatePubkey, sn.blsPubkey);
             }
             currentNode = sn.next;
-            unchecked { i += 1; }
+            unchecked { totalNodes += 1; }
         }
     }
 
@@ -992,20 +987,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     function signatureTimestampHasExpired(uint256 timestamp) private view returns (bool result) {
         result = block.timestamp > timestamp + signatureExpiry;
         return result;
-    }
-
-    /// @notice Counts the number of service nodes in the linked list.
-    /// @return count The total number of service nodes in the list.
-    function serviceNodesLength() public view returns (uint256 count) {
-        uint64 currentNode = _serviceNodes[LIST_SENTINEL].next;
-        count = 0;
-
-        while (currentNode != LIST_SENTINEL) {
-            count++;
-            currentNode = _serviceNodes[currentNode].next;
-        }
-
-        return count;
     }
 
     /// @notice The maximum number of pubkey aggregations permitted for the

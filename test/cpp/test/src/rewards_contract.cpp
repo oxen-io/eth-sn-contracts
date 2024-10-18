@@ -198,10 +198,27 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
         const uint64_t service_node_to_remove = snl.randomServiceNodeID();
         const auto signers = snl.randomSigners(snl.nodes.size());
-        const auto [pubkey, timestamp, sig] = snl.liquidateNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers);
+        auto [pubkey, timestamp, sig] = snl.liquidateNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers);
         const auto non_signers = snl.findNonSigners(signers);
         tx = rewards_contract.liquidateBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
+
+        // Too soon to liquidate:
+        REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
+
+        defaultProvider.evm_increaseTime(2h);
+
+        // Liquidation signature timestamp expired:
+        REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
+
+        std::tie(pubkey, timestamp, sig) = snl.liquidateNodeFromIndices(
+                service_node_to_remove,
+                config.CHAIN_ID,
+                contract_address,
+                signers,
+                std::chrono::system_clock::now() + 2h);
+        tx = rewards_contract.liquidateBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);
+
         REQUIRE(hash != "");
         REQUIRE(defaultProvider.transactionSuccessful(hash));
         REQUIRE(rewards_contract.serviceNodesLength() == 2);
@@ -224,7 +241,9 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(rewards_contract.serviceNodesLength() == 3);
         const uint64_t service_node_to_remove = snl.randomServiceNodeID();
         const auto signers = snl.randomSigners(snl.nodes.size() - 1);
-        const auto [pubkey, timestamp, sig] = snl.liquidateNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers);
+        defaultProvider.evm_increaseTime(2h);
+        const auto [pubkey, timestamp, sig] = snl.liquidateNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers,
+                std::chrono::system_clock::now() + 2h);
         const auto non_signers = snl.findNonSigners(signers);
         tx = rewards_contract.liquidateBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);

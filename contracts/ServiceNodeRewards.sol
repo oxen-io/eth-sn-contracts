@@ -28,6 +28,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     // contributor may not initiate a leave request within the initial LEAVE_DELAY:
     uint256 public constant SMALL_CONTRIBUTOR_LEAVE_DELAY = 30 days;
     uint256 public constant SMALL_CONTRIBUTOR_DIVISOR = 4;
+    // Minimum time before a node may be liquidated.  This prevents front-running liquidations where
+    // a malicious entity could obtain a "not on the network" signature from service nodes in the
+    // short period before the registration is observed on the Oxen chain.  2 hours matches the
+    // initial decommission credit of Oxen nodes (and so shortly over 2 hours is the soonest we
+    // could expect to see a legitimate deregistration/liquidation request).
+    uint256 public constant MINIMUM_LIQUIDATION_AGE = 2 hours;
 
     uint64 public nextServiceNodeID;
     uint256 public totalNodes;
@@ -205,6 +211,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error InvalidBLSSignature(BN256G1.G1Point aggPubkey);
     error InvalidBLSProofOfPossession();
     error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
+    error LiquidationTooEarly(uint64 serviceNodeID, uint256 addedTimestamp, uint256 currenttime);
     error LiquidatorRewardsTooLow();
     error MaxContributorsExceeded();
     error MaxClaimExceeded();
@@ -572,7 +579,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// approve the liquidation by aggregating a valid BLS signature. The nodes
     /// will only provide this signature if the consensus rules permit the node
     /// to be forcibly removed (e.g. the node was deregistered by consensus in
-    /// Oxen's state-chain).
+    /// Oxen's state-chain, or does not exist on the Oxen chain).
     ///
     /// @param blsPubkey 64 byte BLS public key for the service node to be
     /// removed.
@@ -597,6 +604,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         if (blsPubkey.X != node.blsPubkey.X || blsPubkey.Y != node.blsPubkey.Y) {
             revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
         }
+        if (block.timestamp < node.addedTimestamp + MINIMUM_LIQUIDATION_AGE)
+            revert LiquidationTooEarly(serviceNodeID, node.addedTimestamp, block.timestamp);
 
         // NOTE: Validate signature
         {

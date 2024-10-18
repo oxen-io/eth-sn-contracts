@@ -197,7 +197,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error ContractNotStarted();
     error ContributionTotalMismatch(uint256 required, uint256 provided);
     error DeleteSentinelNodeNotAllowed();
-    error EarlierLeaveRequestMade(uint64 serviceNodeID, address contributor);
     error FirstContributorMismatch(address operator, address contributor);
     error InsufficientBLSSignatures(uint256 numSigners, uint256 requiredSigners);
     error InsufficientContributors();
@@ -481,11 +480,14 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
         if (!isContributor) revert CallerNotContributor(serviceNodeID, caller);
 
-        if (_serviceNodes[serviceNodeID].leaveRequestTimestamp != 0)
-            revert EarlierLeaveRequestMade(serviceNodeID, caller);
-        if (isSmall && block.timestamp < _serviceNodes[serviceNodeID].addedTimestamp + SMALL_CONTRIBUTOR_LEAVE_DELAY)
-            revert SmallContributorLeaveTooEarly(serviceNodeID, caller);
-        _serviceNodes[serviceNodeID].leaveRequestTimestamp = block.timestamp;
+        if (_serviceNodes[serviceNodeID].leaveRequestTimestamp == 0) {
+            if (isSmall && block.timestamp < _serviceNodes[serviceNodeID].addedTimestamp + SMALL_CONTRIBUTOR_LEAVE_DELAY)
+                revert SmallContributorLeaveTooEarly(serviceNodeID, caller);
+            _serviceNodes[serviceNodeID].leaveRequestTimestamp = block.timestamp;
+        }
+        // Otherwise this node is already unlocking, but we allow a repeated call to reissue the
+        // event (in case the original did not get properly handled by the oxen chain for some
+        // reason).
         emit ServiceNodeRemovalRequest(serviceNodeID, caller, _serviceNodes[serviceNodeID].blsPubkey);
     }
 

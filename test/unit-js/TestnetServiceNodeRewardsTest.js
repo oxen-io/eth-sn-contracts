@@ -69,7 +69,7 @@ describe("TestnetServiceNodeRewards Contract Tests", function () {
         ];
 
         await serviceNodeRewards.connect(owner).seedPublicKeyList(seedData);
-        expect(await serviceNodeRewards.serviceNodesLength()).to.equal(1);
+        expect(await serviceNodeRewards.totalNodes()).to.equal(1);
         let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
         expect(aggregate_pubkey[0]).to.equal(seedData[0].blsPubkey.X);
         expect(aggregate_pubkey[1]).to.equal(seedData[0].blsPubkey.Y);
@@ -78,7 +78,7 @@ describe("TestnetServiceNodeRewards Contract Tests", function () {
 
         await serviceNodeRewards.connect(owner).requestRemoveNodeBySNID([1])
         await serviceNodeRewards.connect(owner).removeNodeBySNID([1])
-        expect(await serviceNodeRewards.serviceNodesLength()).to.equal(0);
+        expect(await serviceNodeRewards.totalNodes()).to.equal(0);
     });
 });
 

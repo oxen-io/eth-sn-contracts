@@ -125,8 +125,8 @@ uint64_t ServiceNodeRewardsContract::serviceNodeIDs(const bls::PublicKey& pKey)
     return result;
 }
 
-uint64_t ServiceNodeRewardsContract::serviceNodesLength() {
-    auto data = ethyl::utils::toEthFunctionSignature("serviceNodesLength()");
+uint64_t ServiceNodeRewardsContract::totalNodes() {
+    auto data = ethyl::utils::toEthFunctionSignature("totalNodes()");
     std::string result = provider.callReadFunction(contractAddress, data);
     return ethyl::utils::hexStringToU64(result);
 }

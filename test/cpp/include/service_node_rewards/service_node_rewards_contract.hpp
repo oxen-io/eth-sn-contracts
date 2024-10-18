@@ -45,7 +45,7 @@ public:
 
     ContractServiceNode serviceNodes(uint64_t index);
     uint64_t            serviceNodeIDs(const bls::PublicKey& pKey);
-    uint64_t            serviceNodesLength();
+    uint64_t            totalNodes();
     uint64_t            maxPermittedPubkeyAggregations();
     std::string         designatedToken();
     std::string         aggregatePubkeyString();

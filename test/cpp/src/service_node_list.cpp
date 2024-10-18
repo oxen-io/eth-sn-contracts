@@ -283,24 +283,38 @@ uint64_t ServiceNodeList::randomServiceNodeID() {
     return serviceNodeIDs[0];
 }
 
-std::tuple<std::string, uint64_t, std::string> ServiceNodeList::liquidateNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
-    std::string pubkey = nodes[static_cast<size_t>(findNodeIndex(nodeID))].getPublicKeyHex();
+static uint64_t to_ts(std::chrono::system_clock::time_point tp) {
+    return static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::seconds>(tp.time_since_epoch()).count());
+}
+
+std::tuple<std::string, uint64_t, std::string> ServiceNodeList::liquidateNodeFromIndices(
+        uint64_t nodeID,
+        uint32_t chainID,
+        const std::string& contractAddress,
+        const std::vector<uint64_t>& service_node_ids,
+        std::optional<std::chrono::system_clock::time_point> timestamp) {
+    std::tuple<std::string, uint64_t, std::string> result;
+    auto& [pubkey, ts, sig] = result;
+
+    pubkey = nodes[static_cast<size_t>(findNodeIndex(nodeID))].getPublicKeyHex();
     std::string fullTag = buildTag(liquidateTag, chainID, contractAddress);
-    auto timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
-    std::string message = "0x" + fullTag + pubkey + ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(timestamp), ethyl::utils::PaddingDirection::LEFT);
+    ts = to_ts(timestamp.value_or(std::chrono::system_clock::now()));
+    std::string message = "0x" + fullTag + pubkey + ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(ts), ethyl::utils::PaddingDirection::LEFT);
     bls::Signature aggSig;
     aggSig.clear();
     std::vector<uint8_t> messageBytes = ethyl::utils::fromHexString<uint8_t>(message);
     for(auto& service_node_id: service_node_ids) {
         aggSig.add(nodes[static_cast<size_t>(findNodeIndex(service_node_id))].blsSignHash(messageBytes, chainID, contractAddress));
     }
-    return std::make_tuple(pubkey, timestamp, utils::SignatureToHex(aggSig));
+    sig = utils::SignatureToHex(aggSig);
+    return result;
 }
 
 std::tuple<std::string, uint64_t, std::string> ServiceNodeList::removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
     std::string pubkey = nodes[static_cast<size_t>(findNodeIndex(nodeID))].getPublicKeyHex();
     std::string fullTag = buildTag(removalTag, chainID, contractAddress);
-    auto timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+    auto timestamp = to_ts(std::chrono::system_clock::now());
     std::string message = "0x" + fullTag + pubkey + ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(timestamp), ethyl::utils::PaddingDirection::LEFT);
     bls::Signature aggSig;
     aggSig.clear();

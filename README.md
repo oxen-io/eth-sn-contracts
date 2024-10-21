@@ -100,5 +100,5 @@ make analyze
 
   This script can be run via hardhat, e.g:
 
-    npx hardhat run --network sepoliaarbitrum scripts/attach-and-dump-sn-rewards-stats.js
+    npx hardhat run --network arbitrumSepolia scripts/attach-and-dump-sn-rewards-stats.js
 

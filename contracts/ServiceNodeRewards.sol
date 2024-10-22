@@ -162,7 +162,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     // EVENTS
     event NewSeededServiceNode(uint64 indexed serviceNodeID, BN256G1.G1Point blsPubkey, uint256 ed25519Pubkey);
     event NewServiceNodeV2(
-        uint8 version,
         uint64 indexed serviceNodeID,
         address initiator,
         BN256G1.G1Point pubkey,
@@ -424,7 +423,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
 
         updateBLSNonSignerThreshold();
-        emit NewServiceNodeV2(0, allocID, operator, blsPubkey, serviceNodeParams, contributors);
+        emit NewServiceNodeV2(allocID, operator, blsPubkey, serviceNodeParams, contributors);
         SafeERC20.safeTransferFrom(designatedToken, msg.sender, address(this), stakingRequirement);
     }
 

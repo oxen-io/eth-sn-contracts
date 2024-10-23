@@ -82,7 +82,7 @@ interface IServiceNodeRewards {
     function proofOfPossessionTag() external view returns (bytes32);
     function recipientRatio() external view returns (uint256);
     function recipients(address) external view returns (uint256 rewards, uint256 claimed);
-    function removalTag() external view returns (bytes32);
+    function exitTag() external view returns (bytes32);
     function rewardTag() external view returns (bytes32);
     function serviceNodes(uint64) external view returns (ServiceNode memory);
     function serviceNodeIDs(bytes memory) external view returns (uint64);
@@ -109,14 +109,14 @@ interface IServiceNodeRewards {
         Contributor[] memory contributors
     ) external;
     function validateProofOfPossession(BN256G1.G1Point memory blsPubkey, BLSSignatureParams memory blsSignature, address caller, uint256 serviceNodePubkey) external;
-    function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external;
-    function removeBLSPublicKeyWithSignature(
+    function initiateExitBLSPublicKey(uint64 serviceNodeID) external;
+    function exitBLSPublicKeyWithSignature(
         BN256G1.G1Point calldata blsPubkey,
         uint256 timestamp,
         BLSSignatureParams calldata blsSignature,
         uint64[] memory ids
     ) external;
-    function removeBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external;
+    function exitBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external;
     function liquidateBLSPublicKeyWithSignature(
         BN256G1.G1Point calldata blsPubkey,
         uint256 timestamp,

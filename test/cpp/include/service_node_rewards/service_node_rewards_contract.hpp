@@ -53,9 +53,9 @@ public:
     Recipient           viewRecipientData(const std::string& address);
 
     ethyl::Transaction liquidateBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
-    ethyl::Transaction initiateRemoveBLSPublicKey(const uint64_t service_node_id);
-    ethyl::Transaction removeBLSPublicKeyAfterWaitTime(const uint64_t service_node_id);
-    ethyl::Transaction removeBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
+    ethyl::Transaction initiateExitBLSPublicKey(const uint64_t service_node_id);
+    ethyl::Transaction exitBLSPublicKeyAfterWaitTime(const uint64_t service_node_id);
+    ethyl::Transaction exitBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
     ethyl::Transaction updateRewardsBalance(const std::string& address, const uint64_t amount, const std::string& sig, const std::vector<uint64_t>& non_signer_indices);
     ethyl::Transaction claimRewards();
     ethyl::Transaction claimRewards(uint64_t amount);

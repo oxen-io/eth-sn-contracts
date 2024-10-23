@@ -70,7 +70,7 @@ contract MockServiceNodeRewards is Ownable {
         designatedToken.safeTransferFrom(msg.sender, address(this), stakingRequirement);
     }
 
-    function removeBLSPublicKeyWithSignature(
+    function exitBLSPublicKeyWithSignature(
         uint64 serviceNodeID,
         uint256,
         uint256,

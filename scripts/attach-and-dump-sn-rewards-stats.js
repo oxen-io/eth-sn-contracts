@@ -21,7 +21,7 @@ async function main() {
     console.log("Num Pubkey Aggregations For Height: " + await sn_rewards.numPubkeyAggregationsForHeight());
     console.log("Pool Share of Liquidation Ratio:    " + await sn_rewards.poolShareOfLiquidationRatio());
     console.log("Recipient Ratio:                    " + await sn_rewards.recipientRatio());
-    console.log("Removal Tag:                        " + await sn_rewards.removalTag());
+    console.log("Exit Tag:                           " + await sn_rewards.exitTag());
     console.log("Reward Tag:                         " + await sn_rewards.rewardTag());
     console.log("Staking Requirement:                " + await sn_rewards.stakingRequirement());
     console.log("Total Nodes:                        " + await sn_rewards.totalNodes());

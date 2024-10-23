@@ -47,7 +47,7 @@ describe("TestnetServiceNodeRewards Contract Tests", function () {
             ]);
     });
 
-    it("Seed and test the admin removal", async function () {
+    it("Seed and test the admin exit", async function () {
         let ed25519_generator = 1n;
         const seedData = [
             {
@@ -76,8 +76,8 @@ describe("TestnetServiceNodeRewards Contract Tests", function () {
         verifySeedData(await serviceNodeRewards.serviceNodes(1), seedData[0]);
         await serviceNodeRewards.connect(owner).start();
 
-        await serviceNodeRewards.connect(owner).requestRemoveNodeBySNID([1])
-        await serviceNodeRewards.connect(owner).removeNodeBySNID([1])
+        await serviceNodeRewards.connect(owner).requestExitNodeBySNID([1])
+        await serviceNodeRewards.connect(owner).exitNodeBySNID([1])
         expect(await serviceNodeRewards.totalNodes()).to.equal(0);
     });
 });

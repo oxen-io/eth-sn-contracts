@@ -188,9 +188,9 @@ ethyl::Transaction ServiceNodeRewardsContract::liquidateBLSPublicKeyWithSignatur
     return tx;
 }
 
-ethyl::Transaction ServiceNodeRewardsContract::removeBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
+ethyl::Transaction ServiceNodeRewardsContract::exitBLSPublicKeyWithSignature(const std::string& pubkey, const uint64_t timestamp, const std::string& sig, const std::vector<uint64_t>& non_signer_indices) {
     ethyl::Transaction tx(contractAddress, 0, 30000000);
-    std::string functionSelector = ethyl::utils::toEthFunctionSignature("removeBLSPublicKeyWithSignature((uint256,uint256),uint256,(uint256,uint256,uint256,uint256),uint64[])");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("exitBLSPublicKeyWithSignature((uint256,uint256),uint256,(uint256,uint256,uint256,uint256),uint64[])");
     std::string timestamp_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(timestamp), ethyl::utils::PaddingDirection::LEFT);
     // 8 Params: timestamp, 2x pubkey, 4x sig, pointer to array
     std::string indices_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(8*32), ethyl::utils::PaddingDirection::LEFT);
@@ -203,17 +203,17 @@ ethyl::Transaction ServiceNodeRewardsContract::removeBLSPublicKeyWithSignature(c
     return tx;
 }
 
-ethyl::Transaction ServiceNodeRewardsContract::initiateRemoveBLSPublicKey(const uint64_t service_node_id) {
+ethyl::Transaction ServiceNodeRewardsContract::initiateExitBLSPublicKey(const uint64_t service_node_id) {
     ethyl::Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = ethyl::utils::toEthFunctionSignature("initiateRemoveBLSPublicKey(uint64)");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("initiateExitBLSPublicKey(uint64)");
     std::string node_id_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(service_node_id), ethyl::utils::PaddingDirection::LEFT);
     tx.data = functionSelector + node_id_padded;
     return tx;
 }
 
-ethyl::Transaction ServiceNodeRewardsContract::removeBLSPublicKeyAfterWaitTime(const uint64_t service_node_id) {
+ethyl::Transaction ServiceNodeRewardsContract::exitBLSPublicKeyAfterWaitTime(const uint64_t service_node_id) {
     ethyl::Transaction tx(contractAddress, 0, 3000000);
-    std::string functionSelector = ethyl::utils::toEthFunctionSignature("removeBLSPublicKeyAfterWaitTime(uint64)");
+    std::string functionSelector = ethyl::utils::toEthFunctionSignature("exitBLSPublicKeyAfterWaitTime(uint64)");
     std::string node_id_padded = ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(service_node_id), ethyl::utils::PaddingDirection::LEFT);
     tx.data = functionSelector + node_id_padded;
     return tx;

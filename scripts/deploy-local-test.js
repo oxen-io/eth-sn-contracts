@@ -4,7 +4,7 @@ const chalk = require('chalk')
 async function main() {
     // NOTE: Deploy tokens
     token_deployer = await ethers.getContractFactory("MockERC20");
-    token          = await token_deployer.deploy("SENT Token", "SENT", 100_000_000_000000000);
+    token          = await token_deployer.deploy("SENT Token", "SENT", 240_000_000n * 1_000_000_000n);
     [owner]        = await ethers.getSigners();
 
     // NOTE: Deploy the reward pool contract

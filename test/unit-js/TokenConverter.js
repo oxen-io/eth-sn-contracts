@@ -58,14 +58,14 @@ describe("TokenConverter Contract Tests", function () {
     beforeEach(async function () {
         // Deploy a mock ERC20 token
         try {
-            TokenAERC20 = await ethers.getContractFactory("MockERC20");
-            tokenAERC20 = await TokenAERC20.deploy("WOxen Token", "WOXEN", decimalsTokenA);
+            TokenAERC20 = await ethers.getContractFactory("MockWOXEN");
+            tokenAERC20 = await TokenAERC20.deploy("WOxen Token", "WOXEN", 100_000_000n * 1_000_000_000_000_000_000n);
         } catch (error) {
             console.error("Error deploying TokenAERC20:", error);
         }
         try {
             TokenBERC20 = await ethers.getContractFactory("MockERC20");
-            tokenBERC20 = await TokenBERC20.deploy("SENT Token", "SENT", decimalsTokenB);
+            tokenBERC20 = await TokenBERC20.deploy("SENT Token", "SENT", 240_000_000n * 1_000_000_000n);
         } catch (error) {
             console.error("Error deploying TokenAERC20:", error);
         }

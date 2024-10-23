@@ -143,7 +143,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
     // NOTE: Initialise the contracts for each test
     beforeEach(async function () {
         // NOTE: Deploy contract instances
-        sentToken             = await sentTokenContractFactory.deploy("SENT Token", "SENT", 9);
+        sentToken             = await sentTokenContractFactory.deploy("SENT Token", "SENT", 240_000_000n * 1_000_000_000n);
         snRewards             = await snRewardsContractFactory.deploy(sentToken, STAKING_TEST_AMNT);
         snContributionFactory = await upgrades.deployProxy(snContributionContractFactory, [await snRewards.getAddress()]);
     });

@@ -27,7 +27,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
         try {
             // Deploy a mock ERC20 token
             MockERC20 = await ethers.getContractFactory("MockERC20");
-            mockERC20 = await MockERC20.deploy("SENT Token", "SENT", 18);
+            mockERC20 = await MockERC20.deploy("SENT Token", "SENT", 240_000_000n * 1_000_000_000n);
         } catch (error) {
             console.error("Error deploying MockERC20:", error);
         }

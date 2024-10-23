@@ -57,33 +57,52 @@ describe("ServiceNodeRewards Contract Tests", function () {
 
     describe("Seeding the public key as owner", function () {
 
-        it("Should correctly seed public key list with a single item", async function () {
-            let ed25519Generator = 1n;
-            const seedData = [
-                {
-                    blsPubkey: {
-                        X: "0x0b5e634d0407c021e9e9dd9d03c4965810e236fef0955ab345e1d049a0438ec6",
-                        Y: "0x1dbb7bf2b1f5340d4b5c466a0641b00cd3a9d9588c7bcad1c3158bdcc65c3332",
+        describe("Should correctly seed public key list with a single item", async function () {
+            beforeEach(async function () {
+                let ed25519Generator = 1n;
+                const seedData = [
+                    {
+                        blsPubkey: {
+                            X: "0x0b5e634d0407c021e9e9dd9d03c4965810e236fef0955ab345e1d049a0438ec6",
+                            Y: "0x1dbb7bf2b1f5340d4b5c466a0641b00cd3a9d9588c7bcad1c3158bdcc65c3332",
+                        },
+                        ed25519Pubkey: ed25519Generator++,
+                        contributors: [
+                            {
+                                staker: {
+                                    addr:        await owner.getAddress(),
+                                    beneficiary: await owner.getAddress(),
+                                },
+                                stakedAmount: staking_req,
+                            }
+                        ]
                     },
-                    ed25519Pubkey: ed25519Generator++,
-                    contributors: [
-                        {
-                            staker: {
-                                addr: "0x66d801a70615979d82c304b7db374d11c232db66",
-                                beneficiary: "0x66d801a70615979d82c304b7db374d11c232db66",
-                            },
-                            stakedAmount: staking_req,
-                        }
-                    ]
-                },
-            ];
+                ];
 
-            await serviceNodeRewards.connect(owner).seedPublicKeyList(seedData);
-            expect(await serviceNodeRewards.serviceNodesLength()).to.equal(1);
-            let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
-            expect(aggregate_pubkey[0]).to.equal(seedData[0].blsPubkey.X)
-            expect(aggregate_pubkey[1]).to.equal(seedData[0].blsPubkey.Y)
-            verifySeedData(await serviceNodeRewards.serviceNodes(1), seedData[0]);
+                await serviceNodeRewards.connect(owner).seedPublicKeyList(seedData);
+                expect(await serviceNodeRewards.serviceNodesLength()).to.equal(1);
+                let aggregate_pubkey = await serviceNodeRewards.aggregatePubkey();
+                expect(aggregate_pubkey[0]).to.equal(seedData[0].blsPubkey.X)
+                expect(aggregate_pubkey[1]).to.equal(seedData[0].blsPubkey.Y)
+                verifySeedData(await serviceNodeRewards.serviceNodes(1), seedData[0]);
+                await serviceNodeRewards.start();
+            });
+
+            it("Test initiate leave is permitted", async function () {
+                await serviceNodeRewards.connect(owner).initiateRemoveBLSPublicKey(1);
+            });
+
+            it("Test repeated initiate leave is not permitted before waiting", async function () {
+                await expect(serviceNodeRewards.connect(owner).initiateRemoveBLSPublicKey(1)).to.not.be.reverted;
+                await network.provider.send("evm_increaseTime", [(60 * 60 * 1) - 1]);
+                await expect(serviceNodeRewards.connect(owner).initiateRemoveBLSPublicKey(1)).to.be.reverted;
+            });
+
+            it("Test repeated initiate leave is permitted after waiting", async function () {
+                await expect(serviceNodeRewards.connect(owner).initiateRemoveBLSPublicKey(1)).to.not.be.reverted;
+                await network.provider.send("evm_increaseTime", [(60 * 60 * 1) - 0]);
+                await expect(serviceNodeRewards.connect(owner).initiateRemoveBLSPublicKey(1)).to.not.be.reverted;
+            });
         });
 
         it("Should correctly seed public key list with multiple items", async function () {

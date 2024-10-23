@@ -33,7 +33,17 @@ interface IServiceNodeRewards {
         address         operator;
         BN256G1.G1Point blsPubkey;
         uint256         addedTimestamp;
+        /// Timestamp of the first time a leave request was requeste on the node
         uint256         leaveRequestTimestamp;
+
+        /// Timestamp of the latest time a leave request was requested on the
+        /// node. Multiple leave requests are permitted for node in the event
+        /// that the Session network rejects the request for various possible
+        /// reasons.
+        ///
+        /// Subsequent leave requests can be overlapped to get the network to
+        /// re-emit the event to be witnessed by the Session network again.
+        uint256         latestLeaveRequestTimestamp;
         uint256         deposit;
         Contributor[]   contributors;
         uint256         ed25519Pubkey;

@@ -36,19 +36,20 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
         const size_t        ADDRESS_HEX_SIZE               = 32 * 2;
         const size_t        ETH_ADDRESS_HEX_SIZE           = 20 * 2;
 
-        ContractServiceNode result                   = {};
-        size_t              walkIt                   = 0;
-        std::string_view    initialElementOffset     = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += initialElementOffset.size();
-        std::string_view    nextHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += nextHex.size();
-        std::string_view    prevHex                  = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += prevHex.size();
-        std::string_view    operatorAddressHex       = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);  walkIt += operatorAddressHex.size();
-        std::string_view    pubkeyHex                = callResultIt.substr(walkIt, BLS_PKEY_HEX_SIZE); walkIt += pubkeyHex.size();
-        std::string_view    addedTimestampHex        = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += addedTimestampHex.size();
-        std::string_view    leaveRequestTimestampHex = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += leaveRequestTimestampHex.size();
-        std::string_view    depositHex               = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += depositHex.size();
-        std::string_view    contributorOffsetHex     = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += contributorOffsetHex.size();
-        std::string_view    ed25519PubkeyHex         = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += ed25519PubkeyHex.size();
-        std::string_view    contributorCountHex      = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += contributorCountHex.size();
+        ContractServiceNode result                         = {};
+        size_t              walkIt                         = 0;
+        std::string_view    initialElementOffset           = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += initialElementOffset.size();
+        std::string_view    nextHex                        = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += nextHex.size();
+        std::string_view    prevHex                        = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += prevHex.size();
+        std::string_view    operatorAddressHex             = callResultIt.substr(walkIt, ADDRESS_HEX_SIZE);  walkIt += operatorAddressHex.size();
+        std::string_view    pubkeyHex                      = callResultIt.substr(walkIt, BLS_PKEY_HEX_SIZE); walkIt += pubkeyHex.size();
+        std::string_view    addedTimestampHex              = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += addedTimestampHex.size();
+        std::string_view    leaveRequestTimestampHex       = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += leaveRequestTimestampHex.size();
+        std::string_view    latestLeaveRequestTimestampHex = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += leaveRequestTimestampHex.size();
+        std::string_view    depositHex                     = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += depositHex.size();
+        std::string_view    contributorOffsetHex           = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += contributorOffsetHex.size();
+        std::string_view    ed25519PubkeyHex               = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += ed25519PubkeyHex.size();
+        std::string_view    contributorCountHex            = callResultIt.substr(walkIt, U256_HEX_SIZE);     walkIt += contributorCountHex.size();
 
         // NOTE: Deserialize linked list
         result.next                = ethyl::utils::hexStringToU64(nextHex);
@@ -87,9 +88,12 @@ ContractServiceNode ServiceNodeRewardsContract::serviceNodes(uint64_t index)
 
         // NOTE: Deserialise metadata
         result.addedTimestamp = ethyl::utils::hexStringToU64(addedTimestampHex);
-        result.leaveRequestTimestamp = ethyl::utils::hexStringToU64(leaveRequestTimestampHex);
-        result.deposit               = depositHex;
-        result.ed25519Pubkey         = ed25519PubkeyHex;
+        result.leaveRequestTimestamp =
+            ethyl::utils::hexStringToU64(leaveRequestTimestampHex);
+        result.latestLeaveRequestTimestamp =
+            ethyl::utils::hexStringToU64(latestLeaveRequestTimestampHex);
+        result.deposit = depositHex;
+        result.ed25519Pubkey = ed25519PubkeyHex;
         return result;
     } catch (const std::exception& e) {
         throw std::runtime_error{std::string("response: ") + callResult.dump()};

@@ -2,14 +2,18 @@
 pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import "../libraries/Shared.sol";
 
-contract MockERC20 is ERC20 {
-    uint8 immutable d;
-    constructor(string memory name_, string memory symbol_, uint8 _decimals) ERC20(name_, symbol_) {
-        d = _decimals;
-        _mint(msg.sender, 1e8 * (10 ** uint256(d))); // Mint 100 million tokens for testing
+contract MockERC20 is ERC20, ERC20Permit, Shared {
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        uint256 totalSupply_
+    ) ERC20(name_, symbol_) ERC20Permit(name_) nzUint(totalSupply_) {
+        _mint(msg.sender, totalSupply_);
     }
-    function decimals() public view override returns (uint8) {
-        return d;
+    function decimals() public pure override returns (uint8) {
+        return 9;
     }
 }

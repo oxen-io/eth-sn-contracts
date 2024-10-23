@@ -22,7 +22,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     IERC20 public foundationPool;
 
     uint64 public constant LIST_SENTINEL = 0;
-    uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
+    uint256 public constant MAX_SERVICE_NODE_EXIT_WAIT_TIME = 30 days;
     uint256 public constant MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND = 20;
     uint256 public constant MIN_TIME_BEFORE_REPEATED_LEAVE_REQUEST = 1 hours;
     // A small contributor is one who contributes less than 1/DIVISOR of the total; such a
@@ -44,7 +44,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     bytes32 public proofOfPossessionTag;
     bytes32 public rewardTag;
-    bytes32 public removalTag;
+    bytes32 public exitTag;
     bytes32 public liquidateTag;
     bytes32 public hashToG2Tag;
 
@@ -73,30 +73,30 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     ) public initializer {
         if (recipientRatio_ < 1) revert PositiveNumberRequirement();
         if (liquidatorRewardRatio_< 1) revert LiquidatorRewardsTooLow();
-        isStarted = false;
-        totalNodes = 0;
-        blsNonSignerThreshold = 0;
-        blsNonSignerThresholdMax = 300;
-        proofOfPossessionTag = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
-        rewardTag = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
-        removalTag = buildTag("BLS_SIG_TRYANDINCREMENT_REMOVE");
-        liquidateTag = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
-        hashToG2Tag = buildTag("BLS_SIG_HASH_TO_FIELD_TAG");
-        signatureExpiry = 10 minutes;
+        isStarted                   = false;
+        totalNodes                  = 0;
+        blsNonSignerThreshold       = 0;
+        blsNonSignerThresholdMax    = 300;
+        proofOfPossessionTag        = buildTag("BLS_SIG_TRYANDINCREMENT_POP");
+        rewardTag                   = buildTag("BLS_SIG_TRYANDINCREMENT_REWARD");
+        exitTag                     = buildTag("BLS_SIG_TRYANDINCREMENT_EXIT");
+        liquidateTag                = buildTag("BLS_SIG_TRYANDINCREMENT_LIQUIDATE");
+        hashToG2Tag                 = buildTag("BLS_SIG_HASH_TO_FIELD_TAG");
+        signatureExpiry             = 10 minutes;
 
-        claimThreshold = 1_000_000 * 1e9;
-        claimCycle = 12 hours;
-        currentClaimTotal = 0;
-        currentClaimCycle = 0;
+        claimThreshold              = 1_000_000 * 1e9;
+        claimCycle                  = 12 hours;
+        currentClaimTotal           = 0;
+        currentClaimCycle           = 0;
 
-        designatedToken = IERC20(token_);
-        foundationPool = IERC20(foundationPool_);
-        stakingRequirement = stakingRequirement_;
-        maxContributors = maxContributors_;
-        liquidatorRewardRatio = liquidatorRewardRatio_;
+        designatedToken             = IERC20(token_);
+        foundationPool              = IERC20(foundationPool_);
+        stakingRequirement          = stakingRequirement_;
+        maxContributors             = maxContributors_;
+        liquidatorRewardRatio       = liquidatorRewardRatio_;
         poolShareOfLiquidationRatio = poolShareOfLiquidationRatio_;
-        recipientRatio = recipientRatio_;
-        nextServiceNodeID = LIST_SENTINEL + 1;
+        recipientRatio              = recipientRatio_;
+        nextServiceNodeID           = LIST_SENTINEL + 1;
 
         // Doubly-linked list with sentinel that points to itself.
         //
@@ -178,13 +178,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event PoolShareOfLiquidationRatioUpdated(uint256 newValue);
     event RecipientRatioUpdated(uint256 newValue);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address operator, BN256G1.G1Point pubkey);
-    event ServiceNodeRemoval(
+    event ServiceNodeExit(
         uint64 indexed serviceNodeID,
         address operator,
         uint256 returnedAmount,
         BN256G1.G1Point pubkey
     );
-    event ServiceNodeRemovalRequest(uint64 indexed serviceNodeID, address contributor, BN256G1.G1Point pubkey);
+    event ServiceNodeExitRequest(uint64 indexed serviceNodeID, address contributor, BN256G1.G1Point pubkey);
     event StakingRequirementUpdated(uint256 newRequirement);
     event SignatureExpiryUpdated(uint256 newExpiry);
 
@@ -330,22 +330,22 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     }
 
     /// MANAGING BLS PUBLIC KEY LIST
-    /// This section contains all the functions necessary to add and remove
+    /// This section contains all the functions necessary to add and exit
     /// service nodes from the service nodes linked list. The regular process
     /// for a new user is to call `addBLSPublicKey` with the details of their
     /// service node. The smart contract will do some verification over the bls
     /// key, take a staked amount of SENT tokens, and then add this node to
     /// its internal public key list. Keys that are in this list will be able to
     /// participate in BLS signing events going forward (such as allowing the
-    /// withdrawal of funds and removal of other BLS keys)
+    /// withdrawal of funds and exit of other BLS keys)
     ///
     /// To leave the network and get the staked amount back the user should
-    /// first initate the removal of their key by calling
-    /// `initiateRemoveBLSPublicKey` this function simply notifys the network
+    /// first initate the exit of their key by calling
+    /// `initiateExitBLSPublicKey` this function simply notifys the network
     /// and begins a timer of 15 days which the user must wait before they can
     /// exit. Once the 15 days has passed the network will then provide a bls
-    /// signature so the user can call `removeBLSPublicKeyWithSignature` which
-    /// will remove their public key from the linked list. Once this occurs the
+    /// signature so the user can call `exitBLSPublicKeyWithSignature` which
+    /// will exit their public key from the linked list. Once this occurs the
     /// network will then allow the user to claim their stake back via the
     /// `updateRewards` and `claimRewards` functions.
 
@@ -473,18 +473,18 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// the network. There will be a delay before the network allows this node
     /// to exit gracefully. Should be called first and later once the network
     /// is happy for node to exit the user should call
-    /// `removeBLSPublicKeyWithSignature` with a valid aggregate BLS signature
+    /// `exitBLSPublicKeyWithSignature` with a valid aggregate BLS signature
     /// returned by the network.
     ///
-    /// @param serviceNodeID The ID of the service node to be removed.
-    function initiateRemoveBLSPublicKey(uint64 serviceNodeID) public whenNotPaused {
-        _initiateRemoveBLSPublicKey(serviceNodeID, msg.sender);
+    /// @param serviceNodeID The ID of the service node to be exited.
+    function initiateExitBLSPublicKey(uint64 serviceNodeID) public whenNotPaused {
+        _initiateExitBLSPublicKey(serviceNodeID, msg.sender);
     }
 
-    /// @param serviceNodeID The ID of the service node to be removed.
+    /// @param serviceNodeID The ID of the service node to be exited.
     /// @param caller The address of a contributor associated with the service
-    /// node that is initiating the removal.
-    function _initiateRemoveBLSPublicKey(uint64 serviceNodeID, address caller) internal whenStarted {
+    /// node that is initiating the exit.
+    function _initiateExitBLSPublicKey(uint64 serviceNodeID, address caller) internal whenStarted {
         bool isContributor         = false;
         bool isSmall               = false; // "small" means less than 25% of the SN total stake
 
@@ -518,25 +518,25 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         }
 
         sn.latestLeaveRequestTimestamp = block.timestamp;
-        emit ServiceNodeRemovalRequest(serviceNodeID, caller, sn.blsPubkey);
+        emit ServiceNodeExitRequest(serviceNodeID, caller, sn.blsPubkey);
     }
 
-    /// @notice Removes a BLS public key using an aggregated BLS signature from
+    /// @notice Exits a BLS public key using an aggregated BLS signature from
     /// the network.
     ///
     /// @dev This is the usual path for a node to exit the network.
-    /// Anyone can call this function but only the user being removed will
-    /// benefit from calling this. Once removed from the smart contracts list
+    /// Anyone can call this function but only the user being exited will
+    /// benefit from calling this. Once exited from the smart contracts list
     /// the network will release the staked amount.
     ///
     /// @param blsPubkey 64 byte BLS public key for the service node to be
-    /// removed.
+    /// exited.
     /// @param timestamp The signature creation time.
     /// @param blsSignature 128 byte BLS signature that affirms that the
-    /// `blsPubkey` is to be removed.
+    /// `blsPubkey` is to be exited.
     /// @param ids Array of service node IDs that didn't sign the signature
     /// and are to be excluded from verification.
-    function removeBLSPublicKeyWithSignature(
+    function exitBLSPublicKeyWithSignature(
         BN256G1.G1Point calldata blsPubkey,
         uint256 timestamp,
         BLSSignatureParams calldata blsSignature,
@@ -554,58 +554,58 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
         // NOTE: Validate signature
         {
-            bytes memory encodedMessage = abi.encodePacked(removalTag, blsPubkey.X, blsPubkey.Y, timestamp);
+            bytes memory encodedMessage = abi.encodePacked(exitTag, blsPubkey.X, blsPubkey.Y, timestamp);
             BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage, hashToG2Tag);
             validateSignatureOrRevert(ids, blsSignature, Hm);
         }
 
-        _removeBLSPublicKey(serviceNodeID, _serviceNodes[serviceNodeID].deposit);
+        _exitBLSPublicKey(serviceNodeID, _serviceNodes[serviceNodeID].deposit);
     }
 
-    /// @notice Removes a BLS public key after the required wait time on leave
+    /// @notice Exit a BLS public key after the required wait time on leave
     /// request has transpired.
     ///
     /// @dev This can be called without a signature because the node has
     /// waited the duration permitted to exit the network without a signature.
     ///
-    /// @param serviceNodeID The ID of the service node to be removed..
-    function removeBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external whenNotPaused whenStarted {
+    /// @param serviceNodeID The ID of the service node to be exited.
+    function exitBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external whenNotPaused whenStarted {
         uint256 leaveRequestTimestamp = _serviceNodes[serviceNodeID].leaveRequestTimestamp;
         if (leaveRequestTimestamp == 0)
             revert LeaveRequestNotInitiatedYet(serviceNodeID);
 
-        uint256 endTimestamp = leaveRequestTimestamp + MAX_SERVICE_NODE_REMOVAL_WAIT_TIME;
+        uint256 endTimestamp = leaveRequestTimestamp + MAX_SERVICE_NODE_EXIT_WAIT_TIME;
         if (block.timestamp < endTimestamp)
             revert LeaveRequestTooEarly(serviceNodeID, endTimestamp, block.timestamp);
 
-        _removeBLSPublicKey(serviceNodeID, _serviceNodes[serviceNodeID].deposit);
+        _exitBLSPublicKey(serviceNodeID, _serviceNodes[serviceNodeID].deposit);
     }
 
-    /// @dev Internal function to remove a service node from the contract. This
+    /// @dev Internal function to exit a service node from the contract. This
     /// function updates the linked-list and mapping information for the specified
     /// `serviceNodeID`.
     ///
-    /// @param serviceNodeID The ID of the service node to be removed.
-    function _removeBLSPublicKey(uint64 serviceNodeID, uint256 returnedAmount) internal {
+    /// @param serviceNodeID The ID of the service node to be exited.
+    function _exitBLSPublicKey(uint64 serviceNodeID, uint256 returnedAmount) internal {
         address operator = _serviceNodes[serviceNodeID].operator;
         BN256G1.G1Point memory pubkey = _serviceNodes[serviceNodeID].blsPubkey;
         serviceNodeDelete(serviceNodeID);
 
         updateBLSNonSignerThreshold();
-        emit ServiceNodeRemoval(serviceNodeID, operator, returnedAmount, pubkey);
+        emit ServiceNodeExit(serviceNodeID, operator, returnedAmount, pubkey);
     }
 
-    /// @notice Removes a service node by liquidating their node from the
+    /// @notice Exits a service node by liquidating their node from the
     /// network rewarding the caller for maintaining the list.
     ///
     /// This function can be called by anyone, but requires the network to
     /// approve the liquidation by aggregating a valid BLS signature. The nodes
     /// will only provide this signature if the consensus rules permit the node
-    /// to be forcibly removed (e.g. the node was deregistered by consensus in
+    /// to be forcibly exited (e.g. the node was deregistered by consensus in
     /// Oxen's state-chain, or does not exist on the Oxen chain).
     ///
     /// @param blsPubkey 64 byte BLS public key for the service node to be
-    /// removed.
+    /// exited.
     /// @param timestamp The signature creation time.
     /// @param blsSignature 128 byte BLS signature that affirms that the
     /// `blsPubkey` is to be liquidated.
@@ -646,7 +646,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             ? 0
             : (poolShareOfLiquidationRatio - 1) / ratioSum + 1;
 
-        _removeBLSPublicKey(serviceNodeID, deposit - liquidatorAmount - poolAmount);
+        _exitBLSPublicKey(serviceNodeID, deposit - liquidatorAmount - poolAmount);
 
         // Transfer funds to pool and liquidator
         if (liquidatorRewardRatio > 0) SafeERC20.safeTransfer(designatedToken, msg.sender, liquidatorAmount);
@@ -664,7 +664,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// enumerate the keys from Session Nodes in C++ via cryptographic proofs
     /// which include a proof-of-possession to verify that the
     /// Session Node has the secret-component of the BLS public key they are
-    /// declaring.  Each service node will have its deposit balance set to the
+    /// declaring. Each service node will have its deposit balance set to the
     /// current staking requirement.
     ///
     /// Depending on the number of nodes that must be seeded, this function
@@ -864,7 +864,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         isStarted = true;
     }
 
-    /// @notice Pause will prevent new keys from being added and removed, and
+    /// @notice Pause will prevent new keys from being added and exited, and
     /// also the claiming of rewards
     function pause() public onlyOwner {
         _pause();

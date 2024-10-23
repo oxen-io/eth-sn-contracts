@@ -57,7 +57,7 @@ public:
             const std::string& contractAddress,
             const std::vector<uint64_t>& indices,
             std::optional<std::chrono::system_clock::time_point> timestamp = std::nullopt);
-    std::tuple<std::string, uint64_t, std::string> removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& indices);
+    std::tuple<std::string, uint64_t, std::string> exitNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& indices);
     std::string updateRewardsBalance(const std::string& address, uint64_t amount, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids);
 
     std::vector<uint64_t> findNonSigners(const std::vector<uint64_t>& indices);

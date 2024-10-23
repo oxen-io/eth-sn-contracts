@@ -16,7 +16,7 @@ extern "C" {
 
 const std::string proofOfPossessionTag = "BLS_SIG_TRYANDINCREMENT_POP";
 const std::string rewardTag = "BLS_SIG_TRYANDINCREMENT_REWARD";
-const std::string removalTag = "BLS_SIG_TRYANDINCREMENT_REMOVE";
+const std::string exitTag = "BLS_SIG_TRYANDINCREMENT_EXIT";
 const std::string liquidateTag = "BLS_SIG_TRYANDINCREMENT_LIQUIDATE";
 const std::string hashToG2Tag = "BLS_SIG_HASH_TO_FIELD_TAG";
 
@@ -311,9 +311,9 @@ std::tuple<std::string, uint64_t, std::string> ServiceNodeList::liquidateNodeFro
     return result;
 }
 
-std::tuple<std::string, uint64_t, std::string> ServiceNodeList::removeNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
+std::tuple<std::string, uint64_t, std::string> ServiceNodeList::exitNodeFromIndices(uint64_t nodeID, uint32_t chainID, const std::string& contractAddress, const std::vector<uint64_t>& service_node_ids) {
     std::string pubkey = nodes[static_cast<size_t>(findNodeIndex(nodeID))].getPublicKeyHex();
-    std::string fullTag = buildTag(removalTag, chainID, contractAddress);
+    std::string fullTag = buildTag(exitTag, chainID, contractAddress);
     auto timestamp = to_ts(std::chrono::system_clock::now());
     std::string message = "0x" + fullTag + pubkey + ethyl::utils::padTo32Bytes(ethyl::utils::decimalToHex(timestamp), ethyl::utils::PaddingDirection::LEFT);
     bls::Signature aggSig;

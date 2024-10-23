@@ -125,7 +125,7 @@ describe("TokenVestingStaking Contract Tests", function () {
         it("Should be able to unstake and claim rewards", async function () {
 
             const balanceBefore = await mockERC20.balanceOf(vestingContract);
-            await mockServiceNodeRewards.removeBLSPublicKeyWithSignature(/*serviceNodeID*/ 1,0,0,0,0,0,0,[]);
+            await mockServiceNodeRewards.exitBLSPublicKeyWithSignature(/*serviceNodeID*/ 1,0,0,0,0,0,0,[]);
 
             // TODO: The mock adds +50 $SENT everytime we claim, using mocks
             // isn't great because we're not actually testing against the real
@@ -146,7 +146,7 @@ describe("TokenVestingStaking Contract Tests", function () {
 
             const contractBalanceInitially = await mockERC20.balanceOf(vestingContract);
 
-            // NOTE: Revoke before we remove the BLS public key (e.g. stake is
+            // NOTE: Revoke before we exit the BLS public key (e.g. stake is
             // not returned yet) no funds returned (they are all staked)
             {
                 const revokerBalanceBefore = await mockERC20.balanceOf(revoker);
@@ -155,8 +155,8 @@ describe("TokenVestingStaking Contract Tests", function () {
                 expect(revokerBalanceAfter).to.equal(revokerBalanceBefore);
             }
 
-            // NOTE: Remove the key to return the stake
-            await mockServiceNodeRewards.removeBLSPublicKeyWithSignature(/*serviceNodeID*/ 1,0,0,0,0,0,0,[]);
+            // NOTE: Exit the key to return the stake
+            await mockServiceNodeRewards.exitBLSPublicKeyWithSignature(/*serviceNodeID*/ 1,0,0,0,0,0,0,[]);
 
             // NOTE: Investor can still claim the rewards because they earnt it
             // on the rewards contract.

@@ -147,8 +147,8 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         rewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
     }
 
-    function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external onlyRevokerIfRevokedElseBeneficiary afterStart {
-        rewardsContract.initiateRemoveBLSPublicKey(serviceNodeID);
+    function initiateExitBLSPublicKey(uint64 serviceNodeID) external onlyRevokerIfRevokedElseBeneficiary afterStart {
+        rewardsContract.initiateExitBLSPublicKey(serviceNodeID);
     }
 
     function claimRewards() external onlyRevokerIfRevokedElseBeneficiary afterStart {

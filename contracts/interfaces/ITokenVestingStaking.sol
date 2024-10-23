@@ -94,7 +94,7 @@ interface ITokenVestingStaking {
     /// their service node ID.
     ///
     /// @param serviceNodeID The ID of the service node to be removed.
-    function initiateRemoveBLSPublicKey(uint64 serviceNodeID) external;
+    function initiateExitBLSPublicKey(uint64 serviceNodeID) external;
 
     /// @notice Retrieves the unlocked balance from exited/deregistered nodes
     /// back into this investor's contract.

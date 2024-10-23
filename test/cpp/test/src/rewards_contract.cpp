@@ -196,9 +196,9 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.totalNodes() == 3);
-        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        const uint64_t service_node_to_exit = snl.randomServiceNodeID();
         const auto signers = snl.randomSigners(snl.nodes.size());
-        auto [pubkey, timestamp, sig] = snl.liquidateNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers);
+        auto [pubkey, timestamp, sig] = snl.liquidateNodeFromIndices(service_node_to_exit, config.CHAIN_ID, contract_address, signers);
         const auto non_signers = snl.findNonSigners(signers);
         tx = rewards_contract.liquidateBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
 
@@ -211,7 +211,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
 
         std::tie(pubkey, timestamp, sig) = snl.liquidateNodeFromIndices(
-                service_node_to_remove,
+                service_node_to_exit,
                 config.CHAIN_ID,
                 contract_address,
                 signers,
@@ -222,7 +222,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(hash != "");
         REQUIRE(defaultProvider.transactionSuccessful(hash));
         REQUIRE(rewards_contract.totalNodes() == 2);
-        snl.deleteNode(service_node_to_remove);
+        snl.deleteNode(service_node_to_exit);
         REQUIRE(rewards_contract.aggregatePubkeyString() == "0x" + snl.aggregatePubkeyHex());
 
         verifyEVMServiceNodesAgainstCPPState(snl);
@@ -239,10 +239,10 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.totalNodes() == 3);
-        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        const uint64_t service_node_to_exit = snl.randomServiceNodeID();
         const auto signers = snl.randomSigners(snl.nodes.size() - 1);
         defaultProvider.evm_increaseTime(2h);
-        const auto [pubkey, timestamp, sig] = snl.liquidateNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers,
+        const auto [pubkey, timestamp, sig] = snl.liquidateNodeFromIndices(service_node_to_exit, config.CHAIN_ID, contract_address, signers,
                 std::chrono::system_clock::now() + 2h);
         const auto non_signers = snl.findNonSigners(signers);
         tx = rewards_contract.liquidateBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
@@ -250,7 +250,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(hash != "");
         REQUIRE(defaultProvider.transactionSuccessful(hash));
         REQUIRE(rewards_contract.totalNodes() == 2);
-        snl.deleteNode(service_node_to_remove);
+        snl.deleteNode(service_node_to_exit);
         REQUIRE(rewards_contract.aggregatePubkeyString() == "0x" + snl.aggregatePubkeyHex());
 
         verifyEVMServiceNodesAgainstCPPState(snl);
@@ -267,9 +267,9 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.totalNodes() == 3);
-        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        const uint64_t service_node_to_exit = snl.randomServiceNodeID();
         const auto signers = snl.randomSigners(snl.nodes.size() - 2);
-        const auto [pubkey, timestamp, sig] = snl.liquidateNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers);
+        const auto [pubkey, timestamp, sig] = snl.liquidateNodeFromIndices(service_node_to_exit, config.CHAIN_ID, contract_address, signers);
         const auto non_signers = snl.findNonSigners(signers);
         tx = rewards_contract.liquidateBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
         REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
@@ -280,7 +280,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         resetContractToSnapshot();
     }
 
-    SECTION( "Initiate remove public key with correct signer" ) {
+    SECTION( "Initiate exit public key with correct signer" ) {
         REQUIRE(rewards_contract.totalNodes() == 0);
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -289,8 +289,8 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey" + std::to_string(node.service_node_id), "sig", 0);
             signer.sendTransaction(tx, seckey);
         }
-        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
-        tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
+        const uint64_t service_node_to_exit = snl.randomServiceNodeID();
+        tx = rewards_contract.initiateExitBLSPublicKey(service_node_to_exit);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
         REQUIRE(defaultProvider.transactionSuccessful(hash));
@@ -300,7 +300,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         resetContractToSnapshot();
     }
 
-    SECTION( "Initiate remove public key with incorrect signer" ) {
+    SECTION( "Initiate exit public key with incorrect signer" ) {
         REQUIRE(rewards_contract.totalNodes() == 0);
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -309,8 +309,8 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey" + std::to_string(node.service_node_id), "sig", 0);
             signer.sendTransaction(tx, seckey);
         }
-        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
-        tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
+        const uint64_t service_node_to_exit = snl.randomServiceNodeID();
+        tx = rewards_contract.initiateExitBLSPublicKey(service_node_to_exit);
         std::vector<unsigned char> badseckey = ethyl::utils::fromHexString(std::string(config.ADDITIONAL_PRIVATE_KEY1));
         REQUIRE_THROWS(signer.sendTransaction(tx, badseckey));
         REQUIRE(rewards_contract.totalNodes() == 3);
@@ -319,7 +319,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         resetContractToSnapshot();
     }
 
-    SECTION( "Remove public key after wait time should fail if node hasn't initiated removal" ) {
+    SECTION( "Exit public key after wait time should fail if node hasn't initiated removal" ) {
         REQUIRE(rewards_contract.totalNodes() == 0);
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -328,8 +328,8 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey" + std::to_string(node.service_node_id), "sig", 0);
             signer.sendTransaction(tx, seckey);
         }
-        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
-        tx = rewards_contract.removeBLSPublicKeyAfterWaitTime(service_node_to_remove);
+        const uint64_t service_node_to_exit = snl.randomServiceNodeID();
+        tx = rewards_contract.exitBLSPublicKeyAfterWaitTime(service_node_to_exit);
         REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
         REQUIRE(rewards_contract.totalNodes() == 3);
 
@@ -337,7 +337,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         resetContractToSnapshot();
     }
 
-    SECTION( "Remove public key after wait time should fail if not enough time has passed since node initiated removal" ) {
+    SECTION( "Exit public key after wait time should fail if not enough time has passed since node initiated removal" ) {
         REQUIRE(rewards_contract.totalNodes() == 0);
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -346,12 +346,12 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey" + std::to_string(node.service_node_id), "sig", 0);
             signer.sendTransaction(tx, seckey);
         }
-        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
-        tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
+        const uint64_t service_node_to_exit = snl.randomServiceNodeID();
+        tx = rewards_contract.initiateExitBLSPublicKey(service_node_to_exit);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
         REQUIRE(defaultProvider.transactionSuccessful(hash));
-        tx = rewards_contract.removeBLSPublicKeyAfterWaitTime(service_node_to_remove);
+        tx = rewards_contract.exitBLSPublicKeyAfterWaitTime(service_node_to_exit);
         REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
         REQUIRE(rewards_contract.totalNodes() == 3);
 
@@ -359,7 +359,7 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         resetContractToSnapshot();
     }
 
-    SECTION( "Remove public key after wait time should succeed if enough time has passed since node initiated removal" ) {
+    SECTION( "Exit public key after wait time should succeed if enough time has passed since node initiated removal" ) {
         REQUIRE(rewards_contract.totalNodes() == 0);
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -368,26 +368,26 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             tx = rewards_contract.addBLSPublicKey(pubkey, proof_of_possession, "pubkey" + std::to_string(node.service_node_id), "sig", 0);
             signer.sendTransaction(tx, seckey);
         }
-        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
-        tx = rewards_contract.initiateRemoveBLSPublicKey(service_node_to_remove);
+        const uint64_t service_node_to_exit = snl.randomServiceNodeID();
+        tx = rewards_contract.initiateExitBLSPublicKey(service_node_to_exit);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
         REQUIRE(defaultProvider.transactionSuccessful(hash));
         // Fast forward 31 days
         defaultProvider.evm_increaseTime(std::chrono::hours(31 * 24));
-        tx = rewards_contract.removeBLSPublicKeyAfterWaitTime(service_node_to_remove);
+        tx = rewards_contract.exitBLSPublicKeyAfterWaitTime(service_node_to_exit);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
         REQUIRE(defaultProvider.transactionSuccessful(hash));
         REQUIRE(rewards_contract.totalNodes() == 2);
-        snl.deleteNode(service_node_to_remove);
+        snl.deleteNode(service_node_to_exit);
         REQUIRE(rewards_contract.aggregatePubkeyString() == "0x" + snl.aggregatePubkeyHex());
 
         verifyEVMServiceNodesAgainstCPPState(snl);
         resetContractToSnapshot();
     }
 
-    SECTION( "Add several public keys to the smart contract and remove one of them with a single non signer" ) {
+    SECTION( "Add several public keys to the smart contract and exit one of them with a single non signer" ) {
         REQUIRE(rewards_contract.totalNodes() == 0);
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -397,23 +397,23 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.totalNodes() == 3);
-        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        const uint64_t service_node_to_exit = snl.randomServiceNodeID();
         const auto signers = snl.randomSigners(snl.nodes.size() - 1);
-        const auto [pubkey, timestamp, sig] = snl.removeNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers);
+        const auto [pubkey, timestamp, sig] = snl.exitNodeFromIndices(service_node_to_exit, config.CHAIN_ID, contract_address, signers);
         const auto non_signers = snl.findNonSigners(signers);
-        tx = rewards_contract.removeBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
+        tx = rewards_contract.exitBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);
         REQUIRE(hash != "");
         REQUIRE(defaultProvider.transactionSuccessful(hash));
         REQUIRE(rewards_contract.totalNodes() == 2);
-        snl.deleteNode(service_node_to_remove);
+        snl.deleteNode(service_node_to_exit);
         REQUIRE(rewards_contract.aggregatePubkeyString() == "0x" + snl.aggregatePubkeyHex());
 
         verifyEVMServiceNodesAgainstCPPState(snl);
         resetContractToSnapshot();
     }
 
-    SECTION( "Add several public keys to the smart contract and try remove one of them not enough signers" ) {
+    SECTION( "Add several public keys to the smart contract and try exit one of them not enough signers" ) {
         REQUIRE(rewards_contract.totalNodes() == 0);
         ServiceNodeList snl(3);
         for(auto& node : snl.nodes) {
@@ -423,11 +423,11 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
             signer.sendTransaction(tx, seckey);
         }
         REQUIRE(rewards_contract.totalNodes() == 3);
-        const uint64_t service_node_to_remove = snl.randomServiceNodeID();
+        const uint64_t service_node_to_exit = snl.randomServiceNodeID();
         const auto signers = snl.randomSigners(snl.nodes.size() - 2);
-        const auto [pubkey, timestamp, sig] = snl.removeNodeFromIndices(service_node_to_remove, config.CHAIN_ID, contract_address, signers);
+        const auto [pubkey, timestamp, sig] = snl.exitNodeFromIndices(service_node_to_exit, config.CHAIN_ID, contract_address, signers);
         const auto non_signers = snl.findNonSigners(signers);
-        tx = rewards_contract.removeBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
+        tx = rewards_contract.exitBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
         REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
         REQUIRE(rewards_contract.totalNodes() == 3);
         REQUIRE(rewards_contract.aggregatePubkeyString() == "0x" + snl.aggregatePubkeyHex());

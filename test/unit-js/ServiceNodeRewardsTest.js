@@ -90,19 +90,19 @@ describe("ServiceNodeRewards Contract Tests", function () {
             });
 
             it("Test initiate leave is permitted", async function () {
-                await serviceNodeRewards.connect(owner).initiateRemoveBLSPublicKey(1);
+                await serviceNodeRewards.connect(owner).initiateExitBLSPublicKey(1);
             });
 
             it("Test repeated initiate leave is not permitted before waiting", async function () {
-                await expect(serviceNodeRewards.connect(owner).initiateRemoveBLSPublicKey(1)).to.not.be.reverted;
+                await expect(serviceNodeRewards.connect(owner).initiateExitBLSPublicKey(1)).to.not.be.reverted;
                 await network.provider.send("evm_increaseTime", [(60 * 60 * 1) - 1]);
-                await expect(serviceNodeRewards.connect(owner).initiateRemoveBLSPublicKey(1)).to.be.reverted;
+                await expect(serviceNodeRewards.connect(owner).initiateExitBLSPublicKey(1)).to.be.reverted;
             });
 
             it("Test repeated initiate leave is permitted after waiting", async function () {
-                await expect(serviceNodeRewards.connect(owner).initiateRemoveBLSPublicKey(1)).to.not.be.reverted;
+                await expect(serviceNodeRewards.connect(owner).initiateExitBLSPublicKey(1)).to.not.be.reverted;
                 await network.provider.send("evm_increaseTime", [(60 * 60 * 1) - 0]);
-                await expect(serviceNodeRewards.connect(owner).initiateRemoveBLSPublicKey(1)).to.not.be.reverted;
+                await expect(serviceNodeRewards.connect(owner).initiateExitBLSPublicKey(1)).to.not.be.reverted;
             });
         });
 

@@ -503,7 +503,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         if (!isContributor)
             revert CallerNotContributor(serviceNodeID, caller);
 
-        ServiceNode storage sn = _serviceNodes[serviceNodeID];
         if (sn.leaveRequestTimestamp == 0) {
             if (isSmall && block.timestamp < sn.addedTimestamp + SMALL_CONTRIBUTOR_LEAVE_DELAY)
                 revert SmallContributorLeaveTooEarly(serviceNodeID, caller);

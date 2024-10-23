@@ -29,6 +29,7 @@ struct ContractServiceNode {
     bls::PublicKey                pubkey;
     uint64_t                      addedTimestamp;
     uint64_t                      leaveRequestTimestamp;
+    uint64_t                      latestLeaveRequestTimestamp;
     std::string                   deposit;
     std::vector<Contributor>      contributors;
     std::string                   ed25519Pubkey;

@@ -24,6 +24,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     uint64 public constant LIST_SENTINEL = 0;
     uint256 public constant MAX_SERVICE_NODE_REMOVAL_WAIT_TIME = 30 days;
     uint256 public constant MAX_PERMITTED_PUBKEY_AGGREGATIONS_LOWER_BOUND = 20;
+    uint256 public constant MIN_TIME_BEFORE_REPEATED_LEAVE_REQUEST = 1 hours;
     // A small contributor is one who contributes less than 1/DIVISOR of the total; such a
     // contributor may not initiate a leave request within the initial LEAVE_DELAY:
     uint256 public constant SMALL_CONTRIBUTOR_LEAVE_DELAY = 30 days;
@@ -209,8 +210,13 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error InsufficientNodes();
     error InvalidBLSSignature(BN256G1.G1Point aggPubkey);
     error InvalidBLSProofOfPossession();
-    error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 timestamp, uint256 currenttime);
     error LiquidationTooEarly(uint64 serviceNodeID, uint256 addedTimestamp, uint256 currenttime);
+
+    /// @param endTimestamp Timestamp that must be met to permit a leave request
+    /// @param currTimestamp Timestamp of the current block
+    error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 endTimestamp, uint256 currTimestamp);
+    error LeaveRequestNotInitiatedYet(uint64 serviceNodeID);
+
     error LiquidatorRewardsTooLow();
     error MaxContributorsExceeded();
     error MaxClaimExceeded();
@@ -485,17 +491,26 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
                 break;
             }
         }
-        if (!isContributor) revert CallerNotContributor(serviceNodeID, caller);
 
-        if (_serviceNodes[serviceNodeID].leaveRequestTimestamp == 0) {
-            if (isSmall && block.timestamp < _serviceNodes[serviceNodeID].addedTimestamp + SMALL_CONTRIBUTOR_LEAVE_DELAY)
+        if (!isContributor)
+            revert CallerNotContributor(serviceNodeID, caller);
+
+        ServiceNode storage sn = _serviceNodes[serviceNodeID];
+        if (sn.leaveRequestTimestamp == 0) {
+            if (isSmall && block.timestamp < sn.addedTimestamp + SMALL_CONTRIBUTOR_LEAVE_DELAY)
                 revert SmallContributorLeaveTooEarly(serviceNodeID, caller);
-            _serviceNodes[serviceNodeID].leaveRequestTimestamp = block.timestamp;
+            sn.leaveRequestTimestamp = block.timestamp;
+        } else {
+            // Otherwise this node is already unlocking, but we allow a repeated call to reissue the
+            // event (in case the original did not get properly handled by the oxen chain for some
+            // reason).
+            uint256 endTimestamp = sn.latestLeaveRequestTimestamp + MIN_TIME_BEFORE_REPEATED_LEAVE_REQUEST;
+            if (block.timestamp < endTimestamp)
+                revert LeaveRequestTooEarly(serviceNodeID, endTimestamp, block.timestamp);
         }
-        // Otherwise this node is already unlocking, but we allow a repeated call to reissue the
-        // event (in case the original did not get properly handled by the oxen chain for some
-        // reason).
-        emit ServiceNodeRemovalRequest(serviceNodeID, caller, _serviceNodes[serviceNodeID].blsPubkey);
+
+        sn.latestLeaveRequestTimestamp = block.timestamp;
+        emit ServiceNodeRemovalRequest(serviceNodeID, caller, sn.blsPubkey);
     }
 
     /// @notice Removes a BLS public key using an aggregated BLS signature from
@@ -548,14 +563,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     /// @param serviceNodeID The ID of the service node to be removed..
     function removeBLSPublicKeyAfterWaitTime(uint64 serviceNodeID) external whenNotPaused whenStarted {
         uint256 leaveRequestTimestamp = _serviceNodes[serviceNodeID].leaveRequestTimestamp;
-        if (leaveRequestTimestamp == 0) {
-            revert LeaveRequestTooEarly(serviceNodeID, leaveRequestTimestamp, block.timestamp);
-        }
+        if (leaveRequestTimestamp == 0)
+            revert LeaveRequestNotInitiatedYet(serviceNodeID);
 
-        uint256 timestamp = leaveRequestTimestamp + MAX_SERVICE_NODE_REMOVAL_WAIT_TIME;
-        if (block.timestamp <= timestamp) {
-            revert LeaveRequestTooEarly(serviceNodeID, timestamp, block.timestamp);
-        }
+        uint256 endTimestamp = leaveRequestTimestamp + MAX_SERVICE_NODE_REMOVAL_WAIT_TIME;
+        if (block.timestamp < endTimestamp)
+            revert LeaveRequestTooEarly(serviceNodeID, endTimestamp, block.timestamp);
 
         _removeBLSPublicKey(serviceNodeID, _serviceNodes[serviceNodeID].deposit);
     }

@@ -29,13 +29,19 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
     const SUPPLY = args.SUPPLY || 240_000_000n * SENT_UNIT;
     const POOL_INITIAL = args.POOL_INITIAL || 40_000_000n * SENT_UNIT;
     const STAKING_REQ = args.STAKING_REQ || 20_000n * SENT_UNIT;
-    // Deploy a mock ERC20 token
-    try {
-        // Deploy a mock ERC20 token
-        MockERC20 = await ethers.getContractFactory("MockERC20");
-        mockERC20 = await MockERC20.deploy(tokenName, tokenSymbol, SUPPLY);
-    } catch (error) {
-        console.error("Error deploying MockERC20:", error);
+
+    MockERC20 = await ethers.getContractFactory("MockERC20");
+    mockERC20 = null
+    if (args.TOKEN_ADDRESS) {
+        mockERC20 = await MockERC20.attach(args.TOKEN_ADDRESS);
+    } else {
+        try { // Deploy a mock ERC20 token
+            mockERC20    = await MockERC20.deploy(tokenName, tokenSymbol, SUPPLY);
+            tokenAddress = await mockERC20.getAddress()
+        } catch (error) {
+            console.error("Failed to deploy Testnet contracts, error when deploying MockERC20 contract:", error);
+            return;
+        }
     }
 
     // Get signers
@@ -49,13 +55,13 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
     // Deploy the ServiceNodeRewards contract
     ServiceNodeRewardsMaster = await ethers.getContractFactory("TestnetServiceNodeRewards");
     serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,[
-        await mockERC20.getAddress(),              // token address
-        await rewardRatePool.getAddress(),         // foundation pool address
-        STAKING_REQ,                               // staking requirement
-        10,                                        // max contributors
-        2,                                         // liquidator reward ratio
-        0,                                         // pool share of liquidation ratio
-        998                                        // recipient ratio
+        await mockERC20.getAddress(),      // token address
+        await rewardRatePool.getAddress(), // foundation pool address
+        STAKING_REQ,                       // staking requirement
+        10,                                // max contributors
+        2,                                 // liquidator reward ratio
+        0,                                 // pool share of liquidation ratio
+        998                                // recipient ratio
     ]);
     await serviceNodeRewards.waitForDeployment();
 

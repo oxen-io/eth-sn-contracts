@@ -7,19 +7,24 @@
 const hre = require("hardhat");
 const chalk = require('chalk')
 
-const SENT_UNIT = 1_000000000n;
-const SUPPLY = 240_000_000n * SENT_UNIT;
+const SENT_UNIT    = 1_000000000n;
+const SUPPLY       = 240_000_000n * SENT_UNIT;
 const POOL_INITIAL = 40_000_000n * SENT_UNIT;
-const STAKING_REQ = 20_000n * SENT_UNIT;
+const STAKING_REQ  = 20_000n * SENT_UNIT;
 
-async function deployTestnetContracts(tokenName, tokenSymbol) {
-    // Deploy a mock ERC20 token
-    try {
-        // Deploy a mock ERC20 token
-        MockERC20 = await ethers.getContractFactory("MockERC20");
-        mockERC20 = await MockERC20.deploy(tokenName, tokenSymbol, SUPPLY);
-    } catch (error) {
-        console.error("Error deploying MockERC20:", error);
+async function deployTestnetContracts(tokenName, tokenSymbol, tokenAddress) {
+    MockERC20 = await ethers.getContractFactory("MockERC20");
+    mockERC20 = null
+    if (tokenAddress.length == 0) {
+        try { // Deploy a mock ERC20 token
+            mockERC20    = await MockERC20.deploy(tokenName, tokenSymbol, SUPPLY);
+            tokenAddress = await mockERC20.getAddress()
+        } catch (error) {
+            console.error("Failed to deploy Testnet contracts, error when deploying MockERC20 contract:", error);
+            return;
+        }
+    } else {
+        mockERC20 = await MockERC20.attach(tokenAddress);
     }
 
     // Get signers
@@ -33,13 +38,13 @@ async function deployTestnetContracts(tokenName, tokenSymbol) {
     // Deploy the ServiceNodeRewards contract
     ServiceNodeRewardsMaster = await ethers.getContractFactory("TestnetServiceNodeRewards");
     serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,[
-        await mockERC20.getAddress(),              // token address
-        await rewardRatePool.getAddress(),         // foundation pool address
-        STAKING_REQ,                               // staking requirement
-        10,                                        // max contributors
-        2,                                         // liquidator reward ratio
-        0,                                         // pool share of liquidation ratio
-        998                                        // recipient ratio
+        await mockERC20.getAddress(),      // token address
+        await rewardRatePool.getAddress(), // foundation pool address
+        STAKING_REQ,                       // staking requirement
+        10,                                // max contributors
+        2,                                 // liquidator reward ratio
+        0,                                 // pool share of liquidation ratio
+        998                                // recipient ratio
     ]);
     await serviceNodeRewards.waitForDeployment();
 

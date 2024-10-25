@@ -101,6 +101,7 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
           await hre.run("verify:verify", {
               address: await mockERC20.getAddress(),
               constructorArguments: [tokenName, tokenSymbol, SUPPLY],
+              contract: "contracts/test/MockERC20.sol:MockERC20",
               force: true,
           });
       } catch (error) {}
@@ -130,7 +131,7 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
       try {
           await hre.run("verify:verify", {
               address: await snContributionFactory.getAddress(),
-              constructorArguments: [await serviceNodeRewards.getAddress()],
+              constructorArguments: [],
               force: true,
           });
       } catch (error) {}

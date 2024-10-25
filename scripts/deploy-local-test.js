@@ -17,7 +17,7 @@ async function main() {
         STAKING_REQ,
     };
 
-    await deployTestnetContracts(tokenName, tokenSymbol, args);
+    await deployTestnetContracts(tokenName, tokenSymbol, args, false);
 }
 
 main().catch((error) => {

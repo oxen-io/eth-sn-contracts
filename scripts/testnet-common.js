@@ -7,7 +7,7 @@
 const hre = require("hardhat");
 const chalk = require('chalk')
 
-async function deployTestnetContracts(tokenName, tokenSymbol, args = {}) {
+async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify = true) {
     const SENT_UNIT = args.SENT_UNIT || 1_000000000n;
     const SUPPLY = args.SUPPLY || 240_000_000n * SENT_UNIT;
     const POOL_INITIAL = args.POOL_INITIAL || 40_000_000n * SENT_UNIT;
@@ -74,50 +74,52 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}) {
         chalk.greenBright(await snContributionFactory.getAddress()),
     )
 
-    // Add verify task runners
-    console.log("\nVerifying contracts...");
+    if (verify) {
+      // Add verify task runners
+      console.log("\nVerifying contracts...");
 
-    console.log(chalk.yellow("\n--- Verifying mockERC20 ---\n"));
-    mockERC20.waitForDeployment();
-    try {
-        await hre.run("verify:verify", {
-            address: await mockERC20.getAddress(),
-            constructorArguments: [tokenName, tokenSymbol, SUPPLY],
-            force: true,
-        });
-    } catch (error) {}
+      console.log(chalk.yellow("\n--- Verifying mockERC20 ---\n"));
+      mockERC20.waitForDeployment();
+      try {
+          await hre.run("verify:verify", {
+              address: await mockERC20.getAddress(),
+              constructorArguments: [tokenName, tokenSymbol, SUPPLY],
+              force: true,
+          });
+      } catch (error) {}
 
-    console.log(chalk.yellow("\n--- Verifying rewardRatePool ---\n"));
-    rewardRatePool.waitForDeployment();
-    try {
-        await hre.run("verify:verify", {
-            address: await rewardRatePool.getAddress(),
-            constructorArguments: [],
-            force: true,
-        });
-    } catch (error) {}
+      console.log(chalk.yellow("\n--- Verifying rewardRatePool ---\n"));
+      rewardRatePool.waitForDeployment();
+      try {
+          await hre.run("verify:verify", {
+              address: await rewardRatePool.getAddress(),
+              constructorArguments: [],
+              force: true,
+          });
+      } catch (error) {}
 
-    console.log(chalk.yellow("\n--- Verifying serviceNodeRewards ---\n"));
-    serviceNodeRewards.waitForDeployment();
-    try {
-        await hre.run("verify:verify", {
-            address: await serviceNodeRewards.getAddress(),
-            constructorArguments: [],
-            force: true,
-        });
-    } catch (error) {}
+      console.log(chalk.yellow("\n--- Verifying serviceNodeRewards ---\n"));
+      serviceNodeRewards.waitForDeployment();
+      try {
+          await hre.run("verify:verify", {
+              address: await serviceNodeRewards.getAddress(),
+              constructorArguments: [],
+              force: true,
+          });
+      } catch (error) {}
 
-    console.log(chalk.yellow("\n--- Verifying snContributionFactory ---\n"));
-    snContributionFactory.waitForDeployment();
-    try {
-        await hre.run("verify:verify", {
-            address: await snContributionFactory.getAddress(),
-            constructorArguments: [await serviceNodeRewards.getAddress()],
-            force: true,
-        });
-    } catch (error) {}
+      console.log(chalk.yellow("\n--- Verifying snContributionFactory ---\n"));
+      snContributionFactory.waitForDeployment();
+      try {
+          await hre.run("verify:verify", {
+              address: await snContributionFactory.getAddress(),
+              constructorArguments: [await serviceNodeRewards.getAddress()],
+              force: true,
+          });
+      } catch (error) {}
 
-    console.log("Contract verification complete.");
+      console.log("Contract verification complete.");
+    }
 }
 
 module.exports = function() {

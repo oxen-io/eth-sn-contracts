@@ -8,6 +8,23 @@ const hre = require("hardhat");
 const chalk = require('chalk')
 
 async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify = true) {
+
+    const networkName = hre.network.name;
+    console.log("Deploying contracts to:", networkName);
+
+    if (verify) {
+        let apiKey;
+        if (typeof hre.config.etherscan?.apiKey === 'object') {
+            apiKey = hre.config.etherscan.apiKey[networkName];
+        } else {
+            apiKey = hre.config.etherscan?.apiKey;
+        }
+        if (!apiKey || apiKey == "") {
+            console.error(chalk.red("Error: API key for contract verification is missing."));
+            console.error("Please set it in your Hardhat configuration under 'etherscan.apiKey'.");
+            process.exit(1); // Exit with an error code
+        }
+    }
     const SENT_UNIT = args.SENT_UNIT || 1_000000000n;
     const SUPPLY = args.SUPPLY || 240_000_000n * SENT_UNIT;
     const POOL_INITIAL = args.POOL_INITIAL || 40_000_000n * SENT_UNIT;
@@ -51,7 +68,7 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
 
     console.log(
         '  ',
-        chalk.cyan(`${tokenSymbol} (${tokenName}) Contract Address`),
+        chalk.cyan(`${tokenSymbol} (${tokenName}) Contract`),
         'deployed to:',
         chalk.greenBright(await mockERC20.getAddress()),
     )

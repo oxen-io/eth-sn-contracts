@@ -7,12 +7,11 @@
 const hre = require("hardhat");
 const chalk = require('chalk')
 
-const SENT_UNIT = 1_000000000n;
-const SUPPLY = 240_000_000n * SENT_UNIT;
-const POOL_INITIAL = 40_000_000n * SENT_UNIT;
-const STAKING_REQ = 20_000n * SENT_UNIT;
-
-async function deployTestnetContracts(tokenName, tokenSymbol) {
+async function deployTestnetContracts(tokenName, tokenSymbol, args = {}) {
+    const SENT_UNIT = args.SENT_UNIT || 1_000000000n;
+    const SUPPLY = args.SUPPLY || 240_000_000n * SENT_UNIT;
+    const POOL_INITIAL = args.POOL_INITIAL || 40_000_000n * SENT_UNIT;
+    const STAKING_REQ = args.STAKING_REQ || 20_000n * SENT_UNIT;
     // Deploy a mock ERC20 token
     try {
         // Deploy a mock ERC20 token
@@ -83,7 +82,7 @@ async function deployTestnetContracts(tokenName, tokenSymbol) {
     try {
         await hre.run("verify:verify", {
             address: await mockERC20.getAddress(),
-            constructorArguments: ["SENT Token", "SENT", 9],
+            constructorArguments: [tokenName, tokenSymbol, SUPPLY],
             force: true,
         });
     } catch (error) {}
@@ -123,8 +122,4 @@ async function deployTestnetContracts(tokenName, tokenSymbol) {
 
 module.exports = function() {
     this.deployTestnetContracts = deployTestnetContracts;
-    this.SENT_UNIT = SENT_UNIT;
-    this.SUPPLY = SUPPLY;
-    this.POOL_INITIAL = POOL_INITIAL;
-    this.STAKING_REQ = STAKING_REQ;
 };

@@ -66,8 +66,8 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
     await serviceNodeRewards.waitForDeployment();
 
     snContributionContractFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
-    snContributionFactory = await snContributionContractFactory.deploy(serviceNodeRewards);
-
+    snContributionFactory         = await upgrades.deployProxy(snContributionContractFactory,
+                                                               [await serviceNodeRewards.getAddress()]);
     await snContributionFactory.waitForDeployment();
 
     rewardRatePool.setBeneficiary(serviceNodeRewards);

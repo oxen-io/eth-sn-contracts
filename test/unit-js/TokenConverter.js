@@ -119,5 +119,51 @@ describe("TokenConverter Contract Tests", function () {
             await tokenConverter.connect(user).convertTokens(bigAtomicTestAmount);
             expect(await tokenBERC20.balanceOf(user)).to.equal(ethers.parseUnits((testAmount * (rate + rate2)).toString(), decimalsTokenB));
         });
+
+        it("Should collect tokenA from the user and send tokenB at the specified rate", async function () {
+            // Get initial balances
+            const initialTokenABalance = await tokenAERC20.balanceOf(user.address);
+            const initialTokenBBalance = await tokenBERC20.balanceOf(user.address);
+
+            // Perform conversion
+            await tokenConverter.connect(user).convertTokens(bigAtomicTestAmount);
+
+            // Calculate amount of tokenB to be received
+            const amountB = bigAtomicTestAmount * firstRate.numerator / firstRate.denominator;
+
+            // Get final balances
+            const finalTokenABalance = await tokenAERC20.balanceOf(user.address);
+            const finalTokenBBalance = await tokenBERC20.balanceOf(user.address);
+
+            // Check that tokenA was deducted from user balance
+            expect(finalTokenABalance).to.equal(initialTokenABalance - bigAtomicTestAmount);
+
+            // Check that tokenB was added to user balance
+            expect(finalTokenBBalance).to.equal(initialTokenBBalance + amountB);
+        });
+
+        it("Should revert if _amountA is zero", async function () {
+            await expect(tokenConverter.connect(user).convertTokens(0))
+                .to.be.revertedWith("Amount must be greater than 0");
+        });
+
+        it("Should revert if the user does not have enough tokenA for _amountA", async function () {
+            // Attempt to convert more than the user's balance
+            const userBalance = await tokenAERC20.balanceOf(user.address);
+            const amountToConvert = userBalance + ethers.parseUnits("1", decimalsTokenA);
+
+            await expect(tokenConverter.connect(user).convertTokens(amountToConvert))
+                .to.be.revertedWithCustomError(tokenAERC20, "ERC20InsufficientAllowance")
+        });
+
+        it("Should revert if the contract does not have enough tokenB for the converted amount", async function () {
+            // Withdraw all tokenB from the contract
+            const contractTokenBBalance = await tokenBERC20.balanceOf(tokenConverter.getAddress());
+            await tokenConverter.withdrawTokenB(contractTokenBBalance);
+
+            // Attempt conversion
+            await expect(tokenConverter.connect(user).convertTokens(bigAtomicTestAmount))
+                .to.be.revertedWith("Insufficient Token B in contract");
+        });
     });
 });

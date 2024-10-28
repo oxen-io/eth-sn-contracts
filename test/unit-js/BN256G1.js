@@ -58,14 +58,17 @@ describe("BN256G1 Library Tests", function () {
         expect(result).to.equal(expected);
     });
 
-    it("should fail to add when given an invalid curve point", async function () {
-        const p1 = { X: "1", Y: "2" };
-        const invalidPoint = { X: "1", Y: "1" }; // Not on the curve
+    //TODO sean - review this test again with new hardhat versions. This test was working
+    // with hardhat 2.22.10 but when updated to 2.22.13 throws a internal error.
+    // 2.22.15 also appears to have the error
+    //it("should fail to add when given an invalid curve point", async function () {
+        //const p1 = { X: "1", Y: "2" };
+        //const invalidPoint = { X: "1", Y: "1" }; // Not on the curve
 
-        await expect(bn256G1Test.addPoints(p1, invalidPoint)).to.be.revertedWith(
-            "Call to precompiled contract for add failed"
-        );
-    });
+        //await expect(bn256G1Test.addPoints(p1, invalidPoint)).to.be.revertedWith(
+            //"Call to precompiled contract for add failed"
+        //);
+    //});
 
     it("should correctly add the generator to its negation to get zero point", async function () {
         const P1 = await bn256G1Test.getGenerator();

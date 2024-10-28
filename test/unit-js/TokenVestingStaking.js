@@ -45,10 +45,12 @@ describe("TokenVestingStaking Contract Tests", function () {
     let mockServiceNodeRewards;
     let TokenVestingStaking;
     let vestingContract;
+    let vestingContractNotStarted;
     let revoker;
     let beneficiary;
     let start;
     let end
+
 
     beforeEach(async function () {
         // Deploy a mock ERC20 token
@@ -88,6 +90,15 @@ describe("TokenVestingStaking Contract Tests", function () {
         await mockERC20.transfer(vestingContract, TEST_AMNT);
         await mockERC20.transfer(mockServiceNodeRewards, TEST_AMNT);
 
+        vestingContractNotStarted = await TokenVestingStaking.deploy(beneficiary,
+                                                           /*revoker*/ revoker,
+                                                           end, // Start is at the end, so this contract never starts
+                                                           end + 1,
+                                                           /*transferableBeneficiary*/ true,
+                                                           /*rewardsContract*/ mockServiceNodeRewards,
+                                                           snContribFactory,
+                                                           mockERC20);
+
     });
 
     it("Should deploy and set the correct revoker", async function () {
@@ -96,6 +107,20 @@ describe("TokenVestingStaking Contract Tests", function () {
 
     it("Should deploy and set the correct beneficiary", async function () {
         expect(await vestingContract.beneficiary()).to.equal(await beneficiary.getAddress());
+    });
+
+    it("Should revert addBLSPublicKey if current block.timestamp is before the start", async function () {
+        const node = BLS_NODES[0];
+        await expect(vestingContractNotStarted.connect(beneficiary).addBLSPublicKey(node.blsPubkey,
+                                                                         node.blsSig,
+                                                                         node.snParams,
+                                                                         beneficiary.getAddress()))
+            .to.be.revertedWith("Vesting: not started");
+    });
+
+    it("Should revert initiateExitBLSPublicKey if current block.timestamp is before the start", async function () {
+        await expect(vestingContractNotStarted.connect(beneficiary).initiateExitBLSPublicKey(1))
+            .to.be.revertedWith("Vesting: not started");
     });
 
     describe("Add solo node", function () {
@@ -421,6 +446,167 @@ describe("TokenVestingStaking Contract Tests", function () {
             expect(contributorsInRewardsContract[2].staker.addr)       .to.equal(await anotherContrib.getAddress());
             expect(contributorsInRewardsContract[2].staker.beneficiary).to.equal(await anotherContrib.getAddress());
             expect(contributorsInRewardsContract[2].stakedAmount)      .to.equal(anotherContribAmount);
+        });
+
+
+    });
+
+    describe("Function: addBLSPublicKey", function () {
+        it("Should revert if called by someone other than the beneficiary before revocation", async function () {
+            const node = BLS_NODES[0];
+            await expect(vestingContract.connect(revoker).addBLSPublicKey(node.blsPubkey,
+                                                                         node.blsSig,
+                                                                         node.snParams,
+                                                                         beneficiary.getAddress()))
+                .to.be.revertedWith("Vesting: Caller must be beneficiary");
+        });
+
+        it("Should revert if the contract is revoked and called by beneficiary", async function () {
+            // Revoke the contract
+            await vestingContract.connect(revoker).revoke(mockERC20.getAddress());
+
+            const node = BLS_NODES[0];
+            await expect(vestingContract.connect(beneficiary).addBLSPublicKey(node.blsPubkey,
+                                                                             node.blsSig,
+                                                                             node.snParams,
+                                                                             beneficiary.getAddress()))
+                .to.be.revertedWith("Vesting: Caller must be revoker");
+        });
+
+        it("Should allow revoker to call addBLSPublicKey after revocation", async function () {
+            // Revoke the contract
+            await vestingContract.connect(revoker).revoke(mockERC20.getAddress());
+
+            const node = BLS_NODES[0];
+            await expect(vestingContract.connect(revoker).addBLSPublicKey(node.blsPubkey,
+                                                                         node.blsSig,
+                                                                         node.snParams,
+                                                                         revoker.address))
+                .to.not.be.reverted;
+        });
+
+    });
+
+    describe("Function: initiateExitBLSPublicKey", function () {
+        beforeEach(async function () {
+            // Set time to after start
+            await time.increaseTo(start + 30);
+
+            // Register a node
+            const node = BLS_NODES[0];
+            await vestingContract.connect(beneficiary).addBLSPublicKey(node.blsPubkey,
+                                                                       node.blsSig,
+                                                                       node.snParams,
+                                                                       beneficiary.getAddress());
+        });
+
+        it("Should call initiate function on staking rewards contract with the given service node ID", async function () {
+            await expect(vestingContract.connect(beneficiary).initiateExitBLSPublicKey(1))
+                .to.emit(mockServiceNodeRewards, "ServiceNodeExitRequest")
+                .withArgs(1);
+        });
+
+        it("Should revert if called by someone other than the beneficiary before revocation", async function () {
+            await expect(vestingContract.connect(revoker).initiateExitBLSPublicKey(1))
+                .to.be.revertedWith("Vesting: Caller must be beneficiary");
+        });
+
+        it("Should revert if the contract is revoked and called by beneficiary", async function () {
+            // Revoke the contract
+            await vestingContract.connect(revoker).revoke(mockERC20.getAddress());
+
+            await expect(vestingContract.connect(beneficiary).initiateExitBLSPublicKey(1))
+                .to.be.revertedWith("Vesting: Caller must be revoker");
+        });
+
+        it("Should allow revoker to call initiateExitBLSPublicKey after revocation", async function () {
+            // Revoke the contract
+            await vestingContract.connect(revoker).revoke(mockERC20.getAddress());
+
+            await expect(vestingContract.connect(revoker).initiateExitBLSPublicKey(1))
+                .to.not.be.reverted;
+        });
+
+    });
+
+    describe("Function: release", function () {
+        it("Should calculate and transfer releasable tokens to the beneficiary after vesting period", async function () {
+            // Fast-forward to after end
+            await time.increaseTo(end + 1);
+
+            const beneficiaryBalanceBefore = await mockERC20.balanceOf(beneficiary.getAddress());
+            const contractBalance = await mockERC20.balanceOf(vestingContract.getAddress());
+
+            await expect(vestingContract.connect(beneficiary).release(mockERC20.getAddress()))
+                .to.emit(vestingContract, "TokensReleased")
+                .withArgs(await mockERC20.getAddress(), contractBalance);
+
+            const beneficiaryBalanceAfter = await mockERC20.balanceOf(beneficiary.getAddress());
+            expect(beneficiaryBalanceAfter - beneficiaryBalanceBefore).to.equal(contractBalance);
+        });
+
+        it("Should revert if called by someone other than the beneficiary", async function () {
+            await expect(vestingContract.connect(revoker).release(mockERC20.getAddress()))
+                .to.be.revertedWith("Vesting: Caller must be beneficiary");
+        });
+
+        it("Should revert if the contract is revoked", async function () {
+            await vestingContract.connect(revoker).revoke(mockERC20.getAddress());
+
+            await expect(vestingContract.connect(beneficiary).release(mockERC20.getAddress()))
+                .to.be.revertedWith("Vesting: token revoked");
+        });
+
+        it("Should revert if there are no tokens to be released", async function () {
+            // Ensure current time is before end
+            await time.increaseTo(start + 10);
+
+            await expect(vestingContract.connect(beneficiary).release(mockERC20.getAddress()))
+                .to.be.revertedWith("Vesting: no tokens are due");
+        });
+    });
+
+    describe("Function: revoke", function () {
+        it("Should revoke the vesting and transfer refundable amount to revoker after vesting period", async function () {
+            // Revoke before end
+            await expect(vestingContract.connect(revoker).revoke(mockERC20.getAddress()))
+                .to.emit(vestingContract, "TokenVestingRevoked")
+                .withArgs(await mockERC20.getAddress());
+
+            // Fast-forward to after end
+            await time.increaseTo(end + 1);
+
+            const revokerBalanceBefore = await mockERC20.balanceOf(revoker.getAddress());
+            const contractBalance = await mockERC20.balanceOf(vestingContract.getAddress());
+
+            await expect(vestingContract.connect(revoker).revoke(mockERC20.getAddress()))
+                .to.emit(vestingContract, "TokensRevokedReleased")
+                .withArgs(await mockERC20.getAddress(), contractBalance);
+
+            const revokerBalanceAfter = await mockERC20.balanceOf(revoker.address);
+            expect(revokerBalanceAfter - revokerBalanceBefore).to.equal(contractBalance);
+        });
+
+        it("Should revert if called by someone other than the revoker", async function () {
+            await expect(vestingContract.connect(beneficiary).revoke(mockERC20.getAddress()))
+                .to.be.revertedWith("Vesting: Caller must be revoker");
+        });
+
+        it("Should revert if the contract is already revoked", async function () {
+            // Revoke once
+            await vestingContract.connect(revoker).revoke(mockERC20.getAddress());
+
+            // Try to revoke again
+            await expect(vestingContract.connect(revoker).revoke(mockERC20.getAddress()))
+                .to.not.emit(vestingContract, "TokenVestingRevoked");
+        });
+
+        it("Should revert if current block.timestamp is after the end of the vesting period", async function () {
+            // Fast-forward to after end
+            await time.increaseTo(end + 1);
+
+            await expect(vestingContract.connect(revoker).revoke(mockERC20.getAddress()))
+                .to.be.revertedWith("Vesting: vesting expired");
         });
     });
 });

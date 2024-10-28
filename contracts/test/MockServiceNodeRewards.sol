@@ -25,6 +25,8 @@ contract MockServiceNodeRewards is Ownable {
     mapping(uint64 => IServiceNodeRewards.ServiceNode) _serviceNodes;
     mapping(address => IServiceNodeRewards.Recipient) public recipients;
 
+    event ServiceNodeExitRequest(uint64 indexed serviceNodeID);
+
     constructor(address _token, uint256 _stakingRequirement) Ownable(msg.sender) {
         designatedToken = IERC20(_token);
         stakingRequirement = _stakingRequirement;
@@ -91,6 +93,18 @@ contract MockServiceNodeRewards is Ownable {
         require(amount > 0, "No rewards to claim");
         recipients[msg.sender].claimed += amount;
         SafeERC20.safeTransfer(designatedToken, msg.sender, amount);
+    }
+
+    function claimRewards(uint256 _amount) external {
+        recipients[msg.sender].rewards += _amount;
+        uint256 amount = recipients[msg.sender].rewards - recipients[msg.sender].claimed;
+        require(amount > 0, "No rewards to claim");
+        recipients[msg.sender].claimed += amount;
+        SafeERC20.safeTransfer(designatedToken, msg.sender, amount);
+    }
+
+    function initiateExitBLSPublicKey(uint64 serviceNodeID) external {
+        emit ServiceNodeExitRequest(serviceNodeID);
     }
 
     function serviceNodes(uint64 serviceNodeID) external view returns (IServiceNodeRewards.ServiceNode memory) {

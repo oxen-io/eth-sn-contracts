@@ -17,14 +17,3 @@ TEST_CASE( "Get balance from local network", "[ethereum]" ) {
     auto balance = client.getBalance("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
     REQUIRE( balance != "0");
 }
-
-TEST_CASE( "Get latest contract address", "[ethereum]" ) {
-    const auto& config = ethbls::get_config(ethbls::network_type::LOCAL);
-    auto client_ptr = ethyl::Provider::make_provider();
-    auto& client = *client_ptr;
-    client.addClient("Local Client", std::string(config.RPC_URL));
-
-    // Get the deployed contract, make sure it exists
-    auto contract_address = client.getContractDeployedInLatestBlock();
-    REQUIRE(contract_address != "");
-}

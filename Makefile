@@ -26,7 +26,7 @@ deploy-local:
 	npx hardhat run scripts/deploy-local-test.js --network localhost
 
 deploy-testnet:
-	npx hardhat run scripts/deploy-testnet.js --network arbitrumSepolia
+	npx hardhat run scripts/deploy-devnet.js --network arbitrumSepolia
 
 otterscan:
 	docker run --rm -p 5100:80 --name otterscan --env ERIGON_URL="http://127.0.0.1:8545" otterscan/otterscan:latest

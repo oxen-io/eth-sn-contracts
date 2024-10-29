@@ -1,9 +1,9 @@
 const { ethers } = require('hardhat');
 async function main() {
     const sn_rewards_factory = await ethers.getContractFactory('TestnetServiceNodeRewards');
-    const stagenet           = '0xb691e7C159369475D0a3d4694639ae0144c7bAB2';
-    const devnet             = '0x3433798131A72d99C5779E2B4998B17039941F7b';
-    const sn_rewards         = await sn_rewards_factory.attach(stagenet);
+    const stagenet           = '0x4abfFB7f922767f22c7aa6524823d93FDDaB54b1';
+    const devnet             = '0x75Dc11700b2D03902FCb5Ca7aFd6A859a1Fa25Cb';
+    const sn_rewards         = await sn_rewards_factory.attach(devnet);
 
     const aggregate_pubkey = await sn_rewards.aggregatePubkey();
     console.log("Aggregate Pubkey:                   " + aggregate_pubkey[0].toString(16) + " " + aggregate_pubkey[1].toString(16));

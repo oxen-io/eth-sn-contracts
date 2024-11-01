@@ -974,9 +974,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             [blsSignature.sigs3, blsSignature.sigs2]
         );
 
-        BN256G1.G1Point memory aggPubkey = BN256G1.negate(blsPubkey);
-        if (!Pairing.pairing2(BN256G1.P1(), signature, aggPubkey, hashToVerify)) {
-            revert InvalidBLSSignature(aggPubkey);
+        BN256G1.G1Point memory negPubkey = BN256G1.negate(blsPubkey);
+        if (!Pairing.pairing2(BN256G1.P1(), signature, negPubkey, hashToVerify)) {
+            revert InvalidBLSSignature(blsPubkey);
         }
     }
 

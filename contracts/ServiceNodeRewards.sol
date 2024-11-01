@@ -190,6 +190,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
 
     // ERRORS
     error BLSPubkeyAlreadyExists(uint64 serviceNodeID);
+    error BLSPubkeyDoesNotExist(BN256G1.G1Point pubkey);
     error BLSPubkeyDoesNotMatch(uint64 serviceNodeID, BN256G1.G1Point pubkey);
 
     // @notice The Ed25519 public key to register as a node is already being
@@ -543,6 +544,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     ) external whenNotPaused whenStarted hasEnoughSigners(ids.length) {
         bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
         uint64 serviceNodeID = serviceNodeIDs[pubkeyBytes];
+        if (serviceNodeID == 0)
+            revert BLSPubkeyDoesNotExist(blsPubkey);
         if (signatureTimestampHasExpired(timestamp)) {
             revert SignatureExpired(serviceNodeID, timestamp, block.timestamp);
         }
@@ -618,6 +621,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     ) external whenNotPaused whenStarted hasEnoughSigners(ids.length) {
         bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
         uint64 serviceNodeID = serviceNodeIDs[pubkeyBytes];
+        if (serviceNodeID == 0)
+            revert BLSPubkeyDoesNotExist(blsPubkey);
         if (signatureTimestampHasExpired(timestamp)) {
             revert SignatureExpired(serviceNodeID, timestamp, block.timestamp);
         }

@@ -399,10 +399,27 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
         REQUIRE(rewards_contract.totalNodes() == 3);
         const uint64_t service_node_to_exit = snl.randomServiceNodeID();
         const auto signers = snl.randomSigners(snl.nodes.size() - 1);
-        const auto [pubkey, timestamp, sig] = snl.exitNodeFromIndices(service_node_to_exit, config.CHAIN_ID, contract_address, signers);
+        auto [pubkey, timestamp, sig] = snl.exitNodeFromIndices(service_node_to_exit, config.CHAIN_ID, contract_address, signers);
         const auto non_signers = snl.findNonSigners(signers);
         tx = rewards_contract.exitBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
+
+        // Too soon to exit:
+        REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
+
+        defaultProvider.evm_increaseTime(2h);
+
+        // Exit signature timestamp expired:
+        REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
+
+        std::tie(pubkey, timestamp, sig) = snl.exitNodeFromIndices(
+                service_node_to_exit,
+                config.CHAIN_ID,
+                contract_address,
+                signers,
+                std::chrono::system_clock::now() + 2h);
+        tx = rewards_contract.exitBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);
+
         REQUIRE(hash != "");
         REQUIRE(defaultProvider.transactionSuccessful(hash));
         REQUIRE(rewards_contract.totalNodes() == 2);

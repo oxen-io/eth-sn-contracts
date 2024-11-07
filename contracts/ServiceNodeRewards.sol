@@ -29,12 +29,12 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     // contributor may not initiate a leave request within the initial LEAVE_DELAY:
     uint256 public constant SMALL_CONTRIBUTOR_LEAVE_DELAY = 30 days;
     uint256 public constant SMALL_CONTRIBUTOR_DIVISOR = 4;
-    // Minimum time before a node may be liquidated.  This prevents front-running liquidations where
-    // a malicious entity could obtain a "not on the network" signature from service nodes in the
-    // short period before the registration is observed on the Oxen chain.  2 hours matches the
-    // initial decommission credit of Oxen nodes (and so shortly over 2 hours is the soonest we
-    // could expect to see a legitimate deregistration/liquidation request).
-    uint256 public constant MINIMUM_LIQUIDATION_AGE = 2 hours;
+    // Minimum time before a node may exit (normally or via liquidation).  This prevents
+    // front-running exits where a malicious entity could obtain a "not on the network" signature
+    // from service nodes in the short period before the registration is observed on the Oxen chain.
+    // 2 hours matches the initial decommission credit of Oxen nodes (and so shortly over 2 hours is
+    // the soonest we could expect to see a legitimate deregistration/liquidation request).
+    uint256 public constant MINIMUM_EXIT_AGE = 2 hours;
 
     uint64 public nextServiceNodeID;
     uint256 public totalNodes;
@@ -211,7 +211,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error InsufficientNodes();
     error InvalidBLSSignature(BN256G1.G1Point aggPubkey);
     error InvalidBLSProofOfPossession();
-    error LiquidationTooEarly(uint64 serviceNodeID, uint256 addedTimestamp, uint256 currenttime);
+    error ExitTooEarly(uint64 serviceNodeID, uint256 addedTimestamp, uint256 currenttime);
 
     /// @param endTimestamp Timestamp that must be met to permit a leave request
     /// @param currTimestamp Timestamp of the current block
@@ -553,6 +553,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         if (
             blsPubkey.X != _serviceNodes[serviceNodeID].blsPubkey.X || blsPubkey.Y != _serviceNodes[serviceNodeID].blsPubkey.Y
         ) revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
+        if (block.timestamp < node.addedTimestamp + MINIMUM_EXIT_AGE)
+            revert ExitTooEarly(serviceNodeID, node.addedTimestamp, block.timestamp);
 
         // NOTE: Validate signature
         {
@@ -631,8 +633,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         if (blsPubkey.X != node.blsPubkey.X || blsPubkey.Y != node.blsPubkey.Y) {
             revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
         }
-        if (block.timestamp < node.addedTimestamp + MINIMUM_LIQUIDATION_AGE)
-            revert LiquidationTooEarly(serviceNodeID, node.addedTimestamp, block.timestamp);
+        if (block.timestamp < node.addedTimestamp + MINIMUM_EXIT_AGE)
+            revert ExitTooEarly(serviceNodeID, node.addedTimestamp, block.timestamp);
 
         // NOTE: Validate signature
         {

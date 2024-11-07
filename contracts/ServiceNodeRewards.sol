@@ -542,26 +542,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         BLSSignatureParams calldata blsSignature,
         uint64[] memory ids
     ) external whenNotPaused whenStarted hasEnoughSigners(ids.length) {
-        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
-        uint64 serviceNodeID = serviceNodeIDs[pubkeyBytes];
-        if (serviceNodeID == 0)
-            revert BLSPubkeyDoesNotExist(blsPubkey);
-        if (signatureTimestampHasExpired(timestamp)) {
-            revert SignatureExpired(serviceNodeID, timestamp, block.timestamp);
-        }
 
-        if (
-            blsPubkey.X != _serviceNodes[serviceNodeID].blsPubkey.X || blsPubkey.Y != _serviceNodes[serviceNodeID].blsPubkey.Y
-        ) revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
-        if (block.timestamp < node.addedTimestamp + MINIMUM_EXIT_AGE)
-            revert ExitTooEarly(serviceNodeID, node.addedTimestamp, block.timestamp);
-
-        // NOTE: Validate signature
-        {
-            bytes memory encodedMessage = abi.encodePacked(exitTag, blsPubkey.X, blsPubkey.Y, timestamp);
-            BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage, hashToG2Tag);
-            validateSignatureOrRevert(ids, blsSignature, Hm);
-        }
+        (uint64 serviceNodeID,) = _validateBLSExitWithSignature(
+            blsPubkey, timestamp, blsSignature, exitTag, ids);
 
         _exitBLSPublicKey(serviceNodeID, _serviceNodes[serviceNodeID].deposit);
     }
@@ -599,6 +582,43 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         emit ServiceNodeExit(serviceNodeID, operator, returnedAmount, pubkey);
     }
 
+    /// @dev Internal function to handle common liquidate/exit checks when
+    /// exiting/liquidating with a service node network signature.
+    ///
+    /// @return serviceNodeID the ID of the service node containing `blsPubkey`
+    /// @return node the ServiceNode info for the node
+    function _validateBLSExitWithSignature(
+        BN256G1.G1Point calldata blsPubkey,
+        uint256 timestamp,
+        BLSSignatureParams calldata blsSignature,
+        bytes32 signatureTag,
+        uint64[] memory ids
+    ) internal returns (uint64 serviceNodeID, ServiceNode memory node) {
+
+        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
+        serviceNodeID = serviceNodeIDs[pubkeyBytes];
+        if (serviceNodeID == 0)
+            revert BLSPubkeyDoesNotExist(blsPubkey);
+        if (signatureTimestampHasExpired(timestamp)) {
+            revert SignatureExpired(serviceNodeID, timestamp, block.timestamp);
+        }
+
+        node = _serviceNodes[serviceNodeID];
+        if (blsPubkey.X != node.blsPubkey.X || blsPubkey.Y != node.blsPubkey.Y) {
+            revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
+        }
+
+        if (block.timestamp < node.addedTimestamp + MINIMUM_EXIT_AGE)
+            revert ExitTooEarly(serviceNodeID, node.addedTimestamp, block.timestamp);
+
+        // NOTE: Validate signature
+        {
+            bytes memory encodedMessage = abi.encodePacked(signatureTag, blsPubkey.X, blsPubkey.Y, timestamp);
+            BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage, hashToG2Tag);
+            validateSignatureOrRevert(ids, blsSignature, Hm);
+        }
+    }
+
     /// @notice Exits a service node by liquidating their node from the
     /// network rewarding the caller for maintaining the list.
     ///
@@ -621,27 +641,9 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         BLSSignatureParams calldata blsSignature,
         uint64[] memory ids
     ) external whenNotPaused whenStarted hasEnoughSigners(ids.length) {
-        bytes memory pubkeyBytes = BN256G1.getKeyForG1Point(blsPubkey);
-        uint64 serviceNodeID = serviceNodeIDs[pubkeyBytes];
-        if (serviceNodeID == 0)
-            revert BLSPubkeyDoesNotExist(blsPubkey);
-        if (signatureTimestampHasExpired(timestamp)) {
-            revert SignatureExpired(serviceNodeID, timestamp, block.timestamp);
-        }
 
-        ServiceNode memory node = _serviceNodes[serviceNodeID];
-        if (blsPubkey.X != node.blsPubkey.X || blsPubkey.Y != node.blsPubkey.Y) {
-            revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
-        }
-        if (block.timestamp < node.addedTimestamp + MINIMUM_EXIT_AGE)
-            revert ExitTooEarly(serviceNodeID, node.addedTimestamp, block.timestamp);
-
-        // NOTE: Validate signature
-        {
-            bytes memory encodedMessage = abi.encodePacked(liquidateTag, blsPubkey.X, blsPubkey.Y, timestamp);
-            BN256G2.G2Point memory Hm = BN256G2.hashToG2(encodedMessage, hashToG2Tag);
-            validateSignatureOrRevert(ids, blsSignature, Hm);
-        }
+        (uint64 serviceNodeID, ServiceNode memory node) = _validateBLSExitWithSignature(
+            blsPubkey, timestamp, blsSignature, liquidateTag, ids);
 
         // Calculating how much liquidator is paid out
         emit ServiceNodeLiquidated(serviceNodeID, node.operator, node.blsPubkey);

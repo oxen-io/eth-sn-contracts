@@ -543,8 +543,11 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         uint64[] memory ids
     ) external whenNotPaused whenStarted hasEnoughSigners(ids.length) {
 
-        (uint64 serviceNodeID,) = _validateBLSExitWithSignature(
+        (uint64 serviceNodeID, ServiceNode memory node) = _validateBLSExitWithSignature(
             blsPubkey, timestamp, blsSignature, exitTag, ids);
+
+        if (node.leaveRequestTimestamp == 0)
+            revert LeaveRequestNotInitiatedYet(serviceNodeID);
 
         _exitBLSPublicKey(serviceNodeID, _serviceNodes[serviceNodeID].deposit);
     }

@@ -16,6 +16,11 @@ module.exports = {
          chainId: 42161,
          accounts: arb_account,
       },
+      sepolia: {
+        url: "https://ethereum-sepolia-rpc.publicnode.com",
+        chainId: 11155111,
+        accounts: arb_sepolia_account,
+      },
       arbitrumSepolia: {
          url: "https://sepolia-rollup.arbitrum.io/rpc",
          chainId: 421614,

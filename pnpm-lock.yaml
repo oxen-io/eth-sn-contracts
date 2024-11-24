@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@arbitrum/sdk':
+        specifier: ^4.0.2
+        version: 4.0.2
       '@openzeppelin/contracts':
         specifier: ^5.0.2
         version: 5.0.2
@@ -92,6 +95,10 @@ packages:
 
   '@adraffy/ens-normalize@1.10.1':
     resolution: {integrity: sha512-96Z2IP3mYmF1Xg2cDm8f1gWGf/HUVedQ3FMifV4kG/PQ4yEP51xDtRAEfhVNt5f/uzpNkZHwWQuUcu6D6K+Ekw==}
+
+  '@arbitrum/sdk@4.0.2':
+    resolution: {integrity: sha512-KkuXNwbG5c/hCT66EG2tFMHXxIDCvt9dxAIeykZYnW7KyEH5GNlRwaPzwo6MU0shHNc0qg6pZzy2XakJWuSw2Q==}
+    engines: {node: '>=v11', npm: please-use-yarn, yarn: '>= 1.0.0'}
 
   '@aws-crypto/sha256-js@1.2.2':
     resolution: {integrity: sha512-Nr1QJIbW/afYYGzYvrF70LtaHrIRtd4TNAglX8BvlfxJLZ45SAmueIKYl5tWoNBPzp65ymXGFK0Bb1vZUpuc9g==}
@@ -815,6 +822,9 @@ packages:
   astral-regex@2.0.0:
     resolution: {integrity: sha512-Z7tMw1ytTXt5jqMcOP+OQteU1VuNK9Y02uuJtKQ1Sv69jXQKKg5cibLwGJow8yzZP+eAc18EmLGPal0bp36rvQ==}
     engines: {node: '>=8'}
+
+  async-mutex@0.4.1:
+    resolution: {integrity: sha512-WfoBo4E/TbCX1G95XTjbWTE3X2XLG0m1Xbv2cwOtuPdyH9CZvnaA5nCt1ucjaKEgW2A5IF71hxrRhr83Je5xjA==}
 
   async-retry@1.3.3:
     resolution: {integrity: sha512-wfr/jstw9xNi/0teMHrRW7dsz3Lt5ARhYNZ2ewpadnhaIp5mbALhOAP+EAdsC7t4Z6wqsDVv9+W6gm1Dk9mEyw==}
@@ -2433,6 +2443,17 @@ snapshots:
 
   '@adraffy/ens-normalize@1.10.1': {}
 
+  '@arbitrum/sdk@4.0.2':
+    dependencies:
+      '@ethersproject/address': 5.7.0
+      '@ethersproject/bignumber': 5.7.0
+      '@ethersproject/bytes': 5.7.0
+      async-mutex: 0.4.1
+      ethers: 5.7.2
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   '@aws-crypto/sha256-js@1.2.2':
     dependencies:
       '@aws-crypto/util': 1.2.2
@@ -3361,6 +3382,10 @@ snapshots:
   assertion-error@1.1.0: {}
 
   astral-regex@2.0.0: {}
+
+  async-mutex@0.4.1:
+    dependencies:
+      tslib: 2.7.0
 
   async-retry@1.3.3:
     dependencies:

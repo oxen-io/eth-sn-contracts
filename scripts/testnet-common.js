@@ -7,7 +7,7 @@
 const hre = require("hardhat");
 const chalk = require('chalk')
 
-async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify = true) {
+async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify = true, local_devnet = false) {
 
     const networkName = hre.network.name;
     console.log("Deploying contracts to:", networkName);
@@ -53,7 +53,8 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
     await mockERC20.transfer(rewardRatePool, POOL_INITIAL);
 
     // Deploy the ServiceNodeRewards contract
-    ServiceNodeRewardsMaster = await ethers.getContractFactory("TestnetServiceNodeRewards");
+    const serviceNodeRewardsDeployContract = local_devnet ? "LocalDevnetServiceNodeRewards" : "TestnetServiceNodeRewards";
+    ServiceNodeRewardsMaster = await ethers.getContractFactory(serviceNodeRewardsDeployContract);
     serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,[
         await mockERC20.getAddress(),      // token address
         await rewardRatePool.getAddress(), // foundation pool address

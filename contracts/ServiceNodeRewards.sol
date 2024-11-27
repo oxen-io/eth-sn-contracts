@@ -29,12 +29,6 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     // contributor may not initiate a leave request within the initial LEAVE_DELAY:
     uint256 public constant SMALL_CONTRIBUTOR_LEAVE_DELAY = 30 days;
     uint256 public constant SMALL_CONTRIBUTOR_DIVISOR = 4;
-    // Minimum time before a node may exit (normally or via liquidation).  This prevents
-    // front-running exits where a malicious entity could obtain a "not on the network" signature
-    // from service nodes in the short period before the registration is observed on the Oxen chain.
-    // 2 hours matches the initial decommission credit of Oxen nodes (and so shortly over 2 hours is
-    // the soonest we could expect to see a legitimate deregistration/liquidation request).
-    uint256 public constant MINIMUM_EXIT_AGE = 2 hours;
 
     uint64 public nextServiceNodeID;
     uint256 public totalNodes;
@@ -585,6 +579,16 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         emit ServiceNodeExit(serviceNodeID, operator, returnedAmount, pubkey);
     }
 
+    /// @notice Minimum time before a node may exit (normally or via liquidation). This prevents
+    /// front-running exits where a malicious entity could obtain a "not on the network" signature
+    /// from service nodes in the short period before the registration is observed on the Oxen chain.
+    /// 2 hours matches the initial decommission credit of Oxen nodes (and so shortly over 2 hours is
+    /// the soonest we could expect to see a legitimate deregistration/liquidation request).
+    ///
+    /// @dev This is internal to allow overriding in local-devnet integration tests to bypass the
+    /// time requirement.
+    function minimumExitAge() virtual internal returns (uint64 result) { result = 2 hours; }
+
     /// @dev Internal function to handle common liquidate/exit checks when
     /// exiting/liquidating with a service node network signature.
     ///
@@ -611,7 +615,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             revert BLSPubkeyDoesNotMatch(serviceNodeID, blsPubkey);
         }
 
-        if (block.timestamp < node.addedTimestamp + MINIMUM_EXIT_AGE)
+        if (block.timestamp < node.addedTimestamp + minimumExitAge())
             revert ExitTooEarly(serviceNodeID, node.addedTimestamp, block.timestamp);
 
         // NOTE: Validate signature

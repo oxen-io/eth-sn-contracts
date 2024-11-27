@@ -25,6 +25,9 @@ fuzz:
 deploy-local:
 	npx hardhat run scripts/deploy-local-test.js --network localhost
 
+deploy-local-devnet:
+	npx hardhat run scripts/deploy-local-devnet.js --network localhost
+
 deploy-testnet:
 	npx hardhat run scripts/deploy-devnet.js --network arbitrumSepolia
 

@@ -170,6 +170,12 @@ elif args.stagenet:
         "0x70c1f36C9cEBCa51B9344121D284D85BE36CD6bB",
         "0x4abfFB7f922767f22c7aa6524823d93FDDaB54b1",
     )
+elif args.testnet:
+    print("Configured for Oxen testnet")
+    sent_addr, snrewards_addr = (
+        "0xA5E28A879F464438Bb300903464382feA62828D0",
+        "0x0B5C58A27A41D5fE3FF83d74060d761D7dDDc1D2",
+    )
 else:
     print(f"This script does not support Session {netname} yet!", file=sys.stderr)
     sys.exit(1)

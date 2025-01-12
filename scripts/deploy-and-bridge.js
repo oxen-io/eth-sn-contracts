@@ -143,7 +143,7 @@ async function bridgeSENT(l1ERC20Contract, args = {}) {
   console.log("  ", "Calculated L2TokenAddress: ", chalk.green(l2TokenAddress));
 
   // Approve the token for the gateway
-  const tokensToSend = "1000"
+  const tokensToSend = "200000000"
   const depositAmount = ethers.parseUnits(tokensToSend, 9);
   console.log(`   Approving ${tokensToSend} SENT for L1 Gateway...`);
   const approveTx = await l1ERC20Contract.approve(l1ERC20Gateway, depositAmount);

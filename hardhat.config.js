@@ -45,6 +45,7 @@ module.exports = {
   etherscan: {
     apiKey: {
       mainnet: process.env.ETHERSCAN_API_KEY,
+      arbitrum: process.env.ARBISCAN_API_KEY,
       arbitrumOne: process.env.ARBISCAN_API_KEY,
       arbitrumSepolia: process.env.ARBISCAN_API_KEY,
       holesky: process.env.ETHERSCAN_API_KEY,

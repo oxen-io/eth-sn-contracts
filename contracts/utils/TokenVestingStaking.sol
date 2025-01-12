@@ -75,7 +75,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
 
     // Contracts
     /// solhint-disable-next-line var-name-mixedcase
-    IERC20                          public immutable SENT;
+    IERC20                          public immutable SESH;
     IServiceNodeRewards             public immutable rewardsContract;
     IServiceNodeContributionFactory public           snContribFactory;
 
@@ -95,9 +95,9 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     /// withdrawable after
     /// @param transferableBeneficiary_ Whether the beneficiary address can be
     /// transferred
-    /// @param rewardsContract_ The SENT staking rewards contract that can
+    /// @param rewardsContract_ The SESH staking rewards contract that can
     /// be interacted with
-    /// @param sent_ The SENT token address.
+    /// @param sesh_ The SESH token address.
     constructor(
         address beneficiary_,
         address revoker_,
@@ -106,8 +106,8 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         bool transferableBeneficiary_,
         IServiceNodeRewards rewardsContract_,
         IServiceNodeContributionFactory snContribFactory_,
-        IERC20 sent_
-    ) nzAddr(beneficiary_) nzAddr(address(rewardsContract_)) nzAddr(address(sent_)) {
+        IERC20 sesh_
+    ) nzAddr(beneficiary_) nzAddr(address(rewardsContract_)) nzAddr(address(sesh_)) {
         require(start_ <= end_, "Vesting: start_ after end_");
         require(block.timestamp < start_, "Vesting: start before current time");
 
@@ -118,7 +118,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
         transferableBeneficiary = transferableBeneficiary_;
         rewardsContract         = rewardsContract_;
         snContribFactory        = snContribFactory_;
-        SENT                    = sent_;
+        SESH                    = sesh_;
     }
 
     //////////////////////////////////////////////////////////////
@@ -141,7 +141,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
                                                                                      stakingRequirement);
 
         // NOTE: Allow staking requirement to be transferred
-        SENT.approve(address(rewardsContract), stakingRequirement);
+        SESH.approve(address(rewardsContract), stakingRequirement);
 
         // NOTE: Register node
         rewardsContract.addBLSPublicKey(blsPubkey, blsSignature, serviceNodeParams, contributors);
@@ -178,7 +178,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     ) external onlyRevokerIfRevokedElseBeneficiary afterStart nzAddr(snContribBeneficiary) {
         // NOTE: Approve and contribute funds
         IServiceNodeContribution snContrib = getContributionContract(snContribAddr);
-        SENT.approve(snContribAddr, amount);
+        SESH.approve(snContribAddr, amount);
         snContrib.contributeFunds(amount, snContribBeneficiary);
     }
 

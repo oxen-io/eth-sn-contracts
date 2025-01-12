@@ -76,11 +76,11 @@ async function main() {
 
   console.log("Deploying contracts with the account:", deployer.address);
 
-  sentTokenContractFactory      = await ethers.getContractFactory("MockERC20");
+  seshTokenContractFactory      = await ethers.getContractFactory("MockERC20");
   snRewardsContractFactory      = await ethers.getContractFactory("MockServiceNodeRewards");
   snContributionContractFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
-  sentToken             = await sentTokenContractFactory.deploy("SENT Token", "SENT", 240_000_000n * 1_000_000_000n);
-  snRewards             = await snRewardsContractFactory.deploy(sentToken, STAKING_TEST_AMNT);
+  seshToken             = await seshTokenContractFactory.deploy("SESH Token", "SESH", 240_000_000n * 1_000_000_000n);
+  snRewards             = await snRewardsContractFactory.deploy(seshToken, STAKING_TEST_AMNT);
   snContributionFactory = await upgrades.deployProxy(snContributionContractFactory, [await snRewards.getAddress()]);
 
   // Prepare constructor arguments

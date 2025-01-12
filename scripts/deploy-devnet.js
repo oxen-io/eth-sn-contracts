@@ -2,7 +2,7 @@
 require("./testnet-common.js")();
 
 async function main() {
-    await deployTestnetContracts("SENT Token (devnet v3)", "DEVSENT3");
+    await deployTestnetContracts("SESH Token (devnet v3)", "DEVSESH3");
 }
 
 main().catch((error) => {

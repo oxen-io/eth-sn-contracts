@@ -40,7 +40,7 @@ contract ServiceNodeContributionEchidnaTest {
     // TODO: Staking requirement is currently hard-coded to value in script/deploy-local-test.js
     // TODO: Immutable variables in the testing contract causes Echidna 2.2.3 to crash
     uint256                                public constant STAKING_REQUIREMENT = 1e11;
-    IERC20                                 public sentToken;
+    IERC20                                 public seshToken;
     MockServiceNodeRewards                 public snRewards;
     ServiceNodeContribution                public snContribution;
     IServiceNodeRewards.ServiceNodeParams  public snParams;
@@ -50,8 +50,8 @@ contract ServiceNodeContributionEchidnaTest {
 
     constructor() {
         snOperator = msg.sender;
-        sentToken = new MockERC20("Session Token", "SENT", 9);
-        snRewards = new MockServiceNodeRewards(address(sentToken), STAKING_REQUIREMENT);
+        seshToken = new MockERC20("Session Token", "SESH", 9);
+        snRewards = new MockServiceNodeRewards(address(seshToken), STAKING_REQUIREMENT);
 
         snParams.serviceNodePubkey = 1;
         snParams.serviceNodeSignature1 = 2;
@@ -82,9 +82,9 @@ contract ServiceNodeContributionEchidnaTest {
     }
 
     function mintTokensForTesting() internal {
-        if (sentToken.allowance(msg.sender, address(snRewards)) <= 0) {
-            assert(sentToken.transferFrom(address(0), msg.sender, type(uint64).max));
-            sentToken.approve(address(snContribution), type(uint64).max);
+        if (seshToken.allowance(msg.sender, address(snRewards)) <= 0) {
+            assert(seshToken.transferFrom(address(0), msg.sender, type(uint64).max));
+            seshToken.approve(address(snContribution), type(uint64).max);
         }
     }
 
@@ -133,7 +133,7 @@ contract ServiceNodeContributionEchidnaTest {
             STAKING_REQUIREMENT == snContribution.stakingRequirement() &&
             snRewards.maxContributors() == snContribution.maxContributors() &&
             snOperator == snContribution.operator() &&
-            sentToken == snContribution.stakingRewardsContract().designatedToken() &&
+            seshToken == snContribution.stakingRewardsContract().designatedToken() &&
             blsPubkey.X == blsPKeyX &&
             blsPubkey.Y == blsPKeyY &&
             snParamsLockedIn;
@@ -157,7 +157,7 @@ contract ServiceNodeContributionEchidnaTest {
             snContribution.operatorContribution() == 0 &&
             _amount >= snContribution.minimumContribution()
         ) {
-            uint256 balanceBeforeContribute = sentToken.balanceOf(msg.sender);
+            uint256 balanceBeforeContribute = seshToken.balanceOf(msg.sender);
 
             assert(snContribution.contributions(snContribution.operator()) == 0);
             assert(snContribution.operatorContribution() == 0);
@@ -173,7 +173,7 @@ contract ServiceNodeContributionEchidnaTest {
             assert(snContribution.totalContribution() >= snContribution.minimumContribution());
             assert(snContribution.contributorAddressesLength() == 1);
 
-            assert(sentToken.balanceOf(msg.sender) == balanceBeforeContribute - _amount);
+            assert(seshToken.balanceOf(msg.sender) == balanceBeforeContribute - _amount);
         } else {
             try snContribution.contributeFunds(_amount, defaultBeneficiary) {
                 assert(false); // Contribute as operator must not succeed
@@ -183,7 +183,7 @@ contract ServiceNodeContributionEchidnaTest {
 
     function testContributeFunds(uint256 amount) public {
         mintTokensForTesting();
-        uint256 balanceBeforeContribute = sentToken.balanceOf(msg.sender);
+        uint256 balanceBeforeContribute = seshToken.balanceOf(msg.sender);
         address defaultBeneficiary = address(0);
 
         if (snContribution.totalContribution() < STAKING_REQUIREMENT) {
@@ -198,17 +198,17 @@ contract ServiceNodeContributionEchidnaTest {
         assert(snContribution.contributorAddressesLength() < snContribution.maxContributors());
         assert(snContribution.totalContribution() <= STAKING_REQUIREMENT);
 
-        assert(sentToken.balanceOf(msg.sender) == balanceBeforeContribute - amount);
+        assert(seshToken.balanceOf(msg.sender) == balanceBeforeContribute - amount);
 
         if (snContribution.totalContribution() == STAKING_REQUIREMENT) {
             assert(snContribution.status() == IServiceNodeContribution.Status.Finalized);
-            assert(sentToken.balanceOf(address(snContribution)) == 0);
+            assert(seshToken.balanceOf(address(snContribution)) == 0);
         }
     }
 
     function testWithdrawContribution() public {
         uint256 contribution = snContribution.contributions(msg.sender);
-        uint256 balanceBeforeWithdraw = sentToken.balanceOf(msg.sender);
+        uint256 balanceBeforeWithdraw = seshToken.balanceOf(msg.sender);
         uint256 numberContributorsBefore = snContribution.contributorAddressesLength();
 
         try snContribution.withdrawContribution() {
@@ -231,7 +231,7 @@ contract ServiceNodeContributionEchidnaTest {
         assert(snContribution.operatorContribution() <= STAKING_REQUIREMENT);
         assert(snContribution.totalContribution() <= STAKING_REQUIREMENT);
 
-        assert(sentToken.balanceOf(msg.sender) == balanceBeforeWithdraw + contribution);
+        assert(seshToken.balanceOf(msg.sender) == balanceBeforeWithdraw + contribution);
     }
 
     function testReset() public {
@@ -254,19 +254,19 @@ contract ServiceNodeContributionEchidnaTest {
             (snContribution.status() == IServiceNodeContribution.Status.WaitForOperatorContrib ||
              snContribution.status() == IServiceNodeContribution.Status.Finalized)) {
             bool fundTheContract = (amount % 2 == 0); // NOTE: 50% chance of funding
-            if (fundTheContract) assert(sentToken.transferFrom(address(0), address(snContribution), amount));
+            if (fundTheContract) assert(seshToken.transferFrom(address(0), address(snContribution), amount));
 
             if (fundTheContract) {
-                try snContribution.rescueERC20(address(sentToken)) {} catch {
+                try snContribution.rescueERC20(address(seshToken)) {} catch {
                     assert(false); // Rescue should be allowed because we just funded the contract
                 }
             } else {
-                try snContribution.rescueERC20(address(sentToken)) {
+                try snContribution.rescueERC20(address(seshToken)) {
                     assert(false); // Can't rescue because contract was not funded
                 } catch {}
             }
         } else {
-            try snContribution.rescueERC20(address(sentToken)) {
+            try snContribution.rescueERC20(address(seshToken)) {
                 assert(false); // Contract is not finalized or it is cancelled so we can't rescue
             } catch {}
         }

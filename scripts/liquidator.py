@@ -2,12 +2,12 @@
 
 # Session Token network auto-liquidation script.  This script scans the network for liquidatable
 # nodes and submits liquidation requests for any liquidatable nodes to remove them from the Service
-# Node contract, rewarding the wallet holder with a small penalty (0.2%) of the node's staked SENT,
+# Node contract, rewarding the wallet holder with a small penalty (0.2%) of the node's staked SESH,
 # deducted from the operator's stake.
 #
 # To run it, you need various Python dependencies (easily installed via pip or system dependencies),
 # and you need to set up a wallet with ARB-ETH funds to submit the transactions; this wallet then
-# receives the SENT in return for the liquidation.  Run with ETH_PRIVATE_KEY set in the enviroment
+# receives the SESH in return for the liquidation.  Run with ETH_PRIVATE_KEY set in the enviroment
 # to an ethereum private key (for example, one generated with Metamask) for the script to use for
 # network interactions.
 #
@@ -97,7 +97,7 @@ basedir = os.path.dirname(__file__) + "/.."
 install_solc("0.8.26")
 compiled_sol = compile_source(
     """
-import "SENT.sol";
+import "SESH.sol";
 import "ServiceNodeRewards.sol";
 """,
     base_path=basedir,
@@ -160,13 +160,13 @@ def get_contract(name, addr):
 
 if args.devnet:
     print("Configured for Oxen devnet(v3)")
-    sent_addr, snrewards_addr = (
+    sesh_addr, snrewards_addr = (
         "0x8CB4DC28d63868eCF7Da6a31768a88dCF4465def",
         "0x75Dc11700b2D03902FCb5Ca7aFd6A859a1Fa25Cb",
     )
 elif args.stagenet:
     print("Configured for Oxen stagenet")
-    sent_addr, snrewards_addr = (
+    sesh_addr, snrewards_addr = (
         "0x70c1f36C9cEBCa51B9344121D284D85BE36CD6bB",
         "0x4abfFB7f922767f22c7aa6524823d93FDDaB54b1",
     )
@@ -175,7 +175,7 @@ else:
     sys.exit(1)
 
 
-SENT = get_contract("SENT.sol:SENT", sent_addr).functions
+SESH = get_contract("SESH.sol:SESH", sesh_addr).functions
 ServiceNodeRewards = get_contract(
     "ServiceNodeRewards.sol:ServiceNodeRewards", snrewards_addr
 ).functions

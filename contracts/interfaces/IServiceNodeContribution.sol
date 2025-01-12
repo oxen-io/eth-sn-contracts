@@ -53,7 +53,7 @@ interface IServiceNodeContribution {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    function SENT()                                  external view returns (IERC20);
+    function SESH()                                  external view returns (IERC20);
     function stakingRewardsContract()                external view returns (IServiceNodeRewards);
     function stakingRequirement()                    external view returns (uint256);
 
@@ -186,7 +186,7 @@ interface IServiceNodeContribution {
     function updateBeneficiary(address newBeneficiary) external;
 
     /// @notice Contribute funds to the contract for the node run by
-    /// `operator`. The `amount` of SENT token must be at least the
+    /// `operator`. The `amount` of SESH token must be at least the
     /// `minimumContribution` or their amount specified in their reserved
     /// contribution (if applicable) otherwise the contribution is reverted.
     ///
@@ -198,7 +198,7 @@ interface IServiceNodeContribution {
     /// The minimum an operator can contribute is 25% of the staking requirement
     /// regardless of having a reservation or not.
     ///
-    /// @param amount The amount of SENT token to contribute to the contract.
+    /// @param amount The amount of SESH token to contribute to the contract.
     /// @param beneficiary Optionally specify a beneficiary where rewards will
     /// be paid out to. You may set this to `address(0)` to omit this field and
     /// use the default behaviour which does one of two things,

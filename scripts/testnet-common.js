@@ -25,10 +25,10 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
             process.exit(1); // Exit with an error code
         }
     }
-    const SENT_UNIT = args.SENT_UNIT || 1_000000000n;
-    const SUPPLY = args.SUPPLY || 240_000_000n * SENT_UNIT;
-    const POOL_INITIAL = args.POOL_INITIAL || 40_000_000n * SENT_UNIT;
-    const STAKING_REQ = args.STAKING_REQ || 20_000n * SENT_UNIT;
+    const SESH_UNIT = args.SESH_UNIT || 1_000000000n;
+    const SUPPLY = args.SUPPLY || 240_000_000n * SESH_UNIT;
+    const POOL_INITIAL = args.POOL_INITIAL || 40_000_000n * SESH_UNIT;
+    const STAKING_REQ = args.STAKING_REQ || 20_000n * SESH_UNIT;
 
     MockERC20 = await ethers.getContractFactory("MockERC20");
     mockERC20 = null

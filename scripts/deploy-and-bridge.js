@@ -8,30 +8,30 @@ const { getArbitrumNetwork } = require("@arbitrum/sdk");
 const ethers = hre.ethers;
 
 async function main() {
-  const SENT_UNIT = 1_000_000_000n;
-  const SUPPLY = 240_000_000n * SENT_UNIT;
+  const SESH_UNIT = 1_000_000_000n;
+  const SUPPLY = 240_000_000n * SESH_UNIT;
   //const L1_CHAIN_ID = 1 // mainnet (Sepolia 11155111)
   //const L2_CHAIN_ID = 42161 // ARB (ARB Sepolia 421614)
   const L1_CHAIN_ID = 11155111; // Sepolia
   const L2_CHAIN_ID = 421614; // ARB Sepolia
 
   const args = {
-    SENT_UNIT,
+    SESH_UNIT,
     SUPPLY,
     L1_CHAIN_ID,
     L2_CHAIN_ID,
   };
 
-  const { sentERC20 } = await deploySENT(args);
-  await bridgeSENT(sentERC20, args);
+  const { seshERC20 } = await deploySESH(args);
+  await bridgeSESH(seshERC20, args);
 }
 
-async function deploySENT(args = {}, verify = true) {
+async function deploySESH(args = {}, verify = true) {
   [owner] = await ethers.getSigners();
   const ownerAddress = await owner.getAddress();
 
   const networkName = hre.network.name;
-  console.log("Deploying SENT contract to:", chalk.yellow(networkName));
+  console.log("Deploying SESH contract to:", chalk.yellow(networkName));
 
   if (verify) {
     let apiKey;
@@ -50,24 +50,24 @@ async function deploySENT(args = {}, verify = true) {
       process.exit(1);
     }
   }
-  const SENT_UNIT = args.SENT_UNIT || 1_000_000_000n;
-  const SUPPLY = args.SUPPLY || 240_000_000n * SENT_UNIT;
+  const SESH_UNIT = args.SESH_UNIT || 1_000_000_000n;
+  const SUPPLY = args.SUPPLY || 240_000_000n * SESH_UNIT;
 
-  const SentERC20 = await ethers.getContractFactory("SENT", owner);
-  let sentERC20;
+  const SeshERC20 = await ethers.getContractFactory("SESH", owner);
+  let seshERC20;
 
   try {
-    sentERC20 = await SentERC20.deploy(SUPPLY, ownerAddress);
+    seshERC20 = await SeshERC20.deploy(SUPPLY, ownerAddress);
   } catch (error) {
-    console.error("Failed to deploy SENT contract:", error);
+    console.error("Failed to deploy SESH contract:", error);
     process.exit(1);
   }
 
   console.log(
     "  ",
-    chalk.cyan(`SENT Contract`),
+    chalk.cyan(`SESH Contract`),
     "deployed to:",
-    chalk.greenBright(await sentERC20.getAddress()),
+    chalk.greenBright(await seshERC20.getAddress()),
     "on network:",
     chalk.yellow(networkName),
   );
@@ -76,18 +76,18 @@ async function deploySENT(args = {}, verify = true) {
     "Initial Supply will be received by:",
     chalk.green(ownerAddress),
   );
-  await sentERC20.waitForDeployment();
+  await seshERC20.waitForDeployment();
 
   if (verify) {
-    console.log(chalk.yellow("\n--- Verifying SENT ---\n"));
+    console.log(chalk.yellow("\n--- Verifying SESH ---\n"));
     console.log("Waiting 6 confirmations to ensure etherscan has processed tx");
-    await sentERC20.deploymentTransaction().wait(6);
+    await seshERC20.deploymentTransaction().wait(6);
     console.log("Finished Waiting");
     try {
       await hre.run("verify:verify", {
-        address: await sentERC20.getAddress(),
+        address: await seshERC20.getAddress(),
         constructorArguments: [SUPPLY, ownerAddress],
-        contract: "contracts/SENT.sol:SENT",
+        contract: "contracts/SESH.sol:SESH",
         force: true,
       });
     } catch (error) {
@@ -96,10 +96,10 @@ async function deploySENT(args = {}, verify = true) {
     console.log(chalk.green("Contract verification complete."));
   }
 
-  return { sentERC20 };
+  return { seshERC20 };
 }
 
-async function bridgeSENT(l1ERC20Contract, args = {}) {
+async function bridgeSESH(l1ERC20Contract, args = {}) {
   [owner] = await ethers.getSigners();
   const L1_CHAIN_ID = args.L1_CHAIN_ID || 1; // mainnet
   const L2_CHAIN_ID = args.L2_CHAIN_ID || 42161; // Arbitrum One
@@ -145,7 +145,7 @@ async function bridgeSENT(l1ERC20Contract, args = {}) {
   // Approve the token for the gateway
   const tokensToSend = "200000000"
   const depositAmount = ethers.parseUnits(tokensToSend, 9);
-  console.log(`   Approving ${tokensToSend} SENT for L1 Gateway...`);
+  console.log(`   Approving ${tokensToSend} SESH for L1 Gateway...`);
   const approveTx = await l1ERC20Contract.approve(l1ERC20Gateway, depositAmount);
   await approveTx.wait();
 

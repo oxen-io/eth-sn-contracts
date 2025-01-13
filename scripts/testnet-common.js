@@ -101,16 +101,18 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
       // Add verify task runners
       console.log("\nVerifying contracts...");
 
-      console.log(chalk.yellow("\n--- Verifying mockERC20 ---\n"));
-      mockERC20.waitForDeployment();
-      try {
-          await hre.run("verify:verify", {
-              address: await mockERC20.getAddress(),
-              constructorArguments: [tokenName, tokenSymbol, SUPPLY],
-              contract: "contracts/test/MockERC20.sol:MockERC20",
-              force: true,
-          });
-      } catch (error) {}
+      if (!args.TOKEN_ADDRESS) {
+          console.log(chalk.yellow("\n--- Verifying mockERC20 ---\n"));
+          mockERC20.waitForDeployment();
+          try {
+              await hre.run("verify:verify", {
+                  address: await mockERC20.getAddress(),
+                  constructorArguments: [tokenName, tokenSymbol, SUPPLY],
+                  contract: "contracts/test/MockERC20.sol:MockERC20",
+                  force: true,
+              });
+          } catch (error) {}
+      }
 
       console.log(chalk.yellow("\n--- Verifying rewardRatePool ---\n"));
       rewardRatePool.waitForDeployment();

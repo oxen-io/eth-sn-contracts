@@ -39,7 +39,7 @@ describe("TokenConverter Contract Tests", function () {
     const rate = 0.75;
     const rate2 = 2;
     const decimalsTokenA = 18; // WOxen has 18 decimals
-    const decimalsTokenB = 9; // Sent to have 9 decimals
+    const decimalsTokenB = 9; // SESH to have 9 decimals
     const firstRate = calculateFraction(rate, decimalsTokenA, decimalsTokenB);
     const secondRate = calculateFraction(rate2, decimalsTokenA, decimalsTokenB);
     let TokenAERC20;
@@ -65,7 +65,7 @@ describe("TokenConverter Contract Tests", function () {
         }
         try {
             TokenBERC20 = await ethers.getContractFactory("MockERC20");
-            tokenBERC20 = await TokenBERC20.deploy("SENT Token", "SENT", 240_000_000n * 1_000_000_000n);
+            tokenBERC20 = await TokenBERC20.deploy("SESH Token", "SESH", 240_000_000n * 1_000_000_000n);
         } catch (error) {
             console.error("Error deploying TokenAERC20:", error);
         }

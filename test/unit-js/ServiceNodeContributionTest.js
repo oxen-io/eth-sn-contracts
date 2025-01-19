@@ -69,9 +69,9 @@ const BLS_NODES =
 // Withdraw a contributor from the service node contribution contract
 // `snContribution`. This function expects to succeed (e.g. the contributor must
 // have successfully contributed to the contract prior).
-async function withdrawContributor(sentToken, snContribution, contributor) {
+async function withdrawContributor(seshToken, snContribution, contributor) {
     // NOTE: Collect contract initial state
-    const contributorTokenBalanceBefore = await sentToken.balanceOf(contributor);
+    const contributorTokenBalanceBefore = await seshToken.balanceOf(contributor);
     const contributorAmount             = await snContribution.contributions(contributor);
     const totalContribution             = await snContribution.totalContribution();
     const contributorAddressesLength    = await snContribution.contributorAddressesLength();
@@ -86,11 +86,11 @@ async function withdrawContributor(sentToken, snContribution, contributor) {
     await snContribution.connect(contributor).withdrawContribution();
 
     // NOTE: Test stake is withdrawn to contributor
-    expect(await sentToken.balanceOf(contributor)).to.equal(contributorTokenBalanceBefore + contributorAmount);
+    expect(await seshToken.balanceOf(contributor)).to.equal(contributorTokenBalanceBefore + contributorAmount);
 
     // NOTE: Test repeated withdraw is allowed but balance should not change because we've already withdrawn
     await expect(snContribution.connect(contributor).withdrawContribution()).to.not.be.reverted;
-    expect(await sentToken.balanceOf(contributor)).to.equal(contributorTokenBalanceBefore + contributorAmount);
+    expect(await seshToken.balanceOf(contributor)).to.equal(contributorTokenBalanceBefore + contributorAmount);
 
     // NOTE: Test contract state
     expect(await snContribution.totalContribution()).to.equal(totalContribution - contributorAmount);
@@ -121,19 +121,19 @@ async function withdrawContributor(sentToken, snContribution, contributor) {
 
 describe("ServiceNodeContribution Contract Tests", function () {
     // NOTE: Contract factories for deploying onto the blockchain
-    let sentTokenContractFactory;
+    let seshTokenContractFactory;
     let snRewardsContractFactory;
     let snContributionContractFactory;
 
     // NOTE: Contract instances
-    let sentToken;             // ERC20 token contract
+    let seshToken;             // ERC20 token contract
     let snRewards;             // Rewards contract that pays out SN's
     let snContributionFactory; // Smart contract that deploys `ServiceNodeContribution` contracts
     const beneficiaryData = "0x0000000000000000000000000000000000000000";
 
     // NOTE: Load the contracts factories in
     before(async function () {
-        sentTokenContractFactory      = await ethers.getContractFactory("MockERC20");
+        seshTokenContractFactory      = await ethers.getContractFactory("MockERC20");
         snRewardsContractFactory      = await ethers.getContractFactory("MockServiceNodeRewards");
         snContributionContractFactory = await ethers.getContractFactory("ServiceNodeContributionFactory");
 
@@ -143,8 +143,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
     // NOTE: Initialise the contracts for each test
     beforeEach(async function () {
         // NOTE: Deploy contract instances
-        sentToken             = await sentTokenContractFactory.deploy("SENT Token", "SENT", 240_000_000n * 1_000_000_000n);
-        snRewards             = await snRewardsContractFactory.deploy(sentToken, STAKING_TEST_AMNT);
+        seshToken             = await seshTokenContractFactory.deploy("SESH Token", "SESH", 240_000_000n * 1_000_000_000n);
+        snRewards             = await snRewardsContractFactory.deploy(seshToken, STAKING_TEST_AMNT);
         snContributionFactory = await upgrades.deployProxy(snContributionContractFactory, [await snRewards.getAddress()]);
     });
 
@@ -288,8 +288,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
          it("Does not allow contributions if operator hasn't contributed", async function () {
              const [owner, contributor] = await ethers.getSigners();
              const minContribution      = await snContribution.minimumContribution();
-             await sentToken.transfer(contributor, TEST_AMNT);
-             await sentToken.connect(contributor).approve(snContributionAddress, minContribution);
+             await seshToken.transfer(contributor, TEST_AMNT);
+             await seshToken.connect(contributor).approve(snContributionAddress, minContribution);
              await expect(snContribution.connect(contributor).contributeFunds(minContribution, beneficiaryData))
                  .to.be.revertedWithCustomError(snContribution, "FirstContributionMustBeOperator");
          });
@@ -316,16 +316,16 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
          it("Prevents operator contributing less than min amount", async function () {
              const minContribution = await snContribution.minimumContribution();
-             await sentToken.transfer(snOperator, TEST_AMNT);
-             await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
+             await seshToken.transfer(snOperator, TEST_AMNT);
+             await seshToken.connect(snOperator).approve(snContributionAddress, minContribution);
              await expect(snContribution.connect(snOperator).contributeFunds(minContribution - BigInt(1), beneficiaryData))
                  .to.be.revertedWithCustomError(snContribution, "ContributionBelowMinAmount");
          });
 
          it("Allows operator to contribute and records correct balance", async function () {
              const minContribution = await snContribution.minimumContribution();
-             await sentToken.transfer(snOperator, TEST_AMNT);
-             await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
+             await seshToken.transfer(snOperator, TEST_AMNT);
+             await seshToken.connect(snOperator).approve(snContributionAddress, minContribution);
              await expect(snContribution.connect(snOperator).contributeFunds(minContribution, beneficiaryData))
                    .to.emit(snContribution, "NewContribution")
                    .withArgs(await snOperator.getAddress(), minContribution);
@@ -343,8 +343,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                  const [owner]         = await ethers.getSigners();
                  const minContribution = await snContribution.minimumContribution();
 
-                 await sentToken.transfer(snOperator, TEST_AMNT);
-                 await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
+                 await seshToken.transfer(snOperator, TEST_AMNT);
+                 await seshToken.connect(snOperator).approve(snContributionAddress, minContribution);
                  await expect(snContribution.connect(snOperator)
                                             .contributeFunds(minContribution, beneficiaryData)).to
                                                                              .emit(snContribution, "NewContribution")
@@ -355,8 +355,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                  const [owner, contributor] = await ethers.getSigners();
                  const minContribution = await snContribution.minimumContribution();
                  let previousContribution = await snContribution.totalContribution();
-                 await sentToken.transfer(contributor, TEST_AMNT);
-                 await sentToken.connect(contributor).approve(snContribution, minContribution);
+                 await seshToken.transfer(contributor, TEST_AMNT);
+                 await seshToken.connect(contributor).approve(snContribution, minContribution);
                  await expect(snContribution.connect(contributor).contributeFunds(minContribution, beneficiaryData))
                        .to.emit(snContribution, "NewContribution")
                        .withArgs(await contributor.getAddress(), minContribution);
@@ -373,7 +373,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                  const topup = BigInt(9_000000000);
                  await expect(topup).to.be.below(minContribution)
                  const currTotal = await snContribution.totalContribution();
-                 await sentToken.connect(snOperator).approve(snContribution, topup);
+                 await seshToken.connect(snOperator).approve(snContribution, topup);
                  await expect(snContribution.connect(snOperator).contributeFunds(topup, beneficiaryData))
                        .to.emit(snContribution, "NewContribution")
                        .withArgs(await snOperator.getAddress(), topup);
@@ -398,8 +398,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
                      // NOTE: Contributor 1 w/ minContribution()
                      const minContribution1                   = await snContribution.minimumContribution();
-                     await sentToken.transfer(contributor1, minContribution1);
-                     await sentToken.connect(contributor1).approve(snContribution, minContribution1);
+                     await seshToken.transfer(contributor1, minContribution1);
+                     await seshToken.connect(contributor1).approve(snContribution, minContribution1);
                      await expect(snContribution.connect(contributor1)
                                                          .contributeFunds(minContribution1, beneficiaryData)).to
                                                                                             .emit(snContribution, "NewContribution")
@@ -407,8 +407,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
                      // NOTE: Contributor 2 w/ minContribution()
                      const minContribution2 = await snContribution.minimumContribution();
-                     await sentToken.transfer(contributor2, minContribution2);
-                     await sentToken.connect(contributor2)
+                     await seshToken.transfer(contributor2, minContribution2);
+                     await seshToken.connect(contributor2)
                                     .approve(snContribution,
                                             minContribution2);
                      await expect(snContribution.connect(contributor2)
@@ -432,18 +432,18 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      const initialContribution = await snContribution.totalContribution();
 
                      const topup1 = BigInt(1_000000000);
-                     await sentToken.transfer(contributor1, topup1);
+                     await seshToken.transfer(contributor1, topup1);
                      await expect(topup1).to.be.below(minContribution)
-                     await sentToken.connect(contributor1).approve(snContribution, topup1);
+                     await seshToken.connect(contributor1).approve(snContribution, topup1);
                      await expect(snContribution.connect(contributor1).contributeFunds(topup1, beneficiaryData))
                            .to.emit(snContribution, "NewContribution")
                            .withArgs(await contributor1.getAddress(), topup1);
 
                      const minContribution2 = await snContribution.minimumContribution();
                      const topup2 = BigInt(13_000000000);
-                     await sentToken.transfer(contributor2, topup2);
+                     await seshToken.transfer(contributor2, topup2);
                      await expect(topup2).to.be.below(minContribution2)
-                     await sentToken.connect(contributor2).approve(snContribution, topup2);
+                     await seshToken.connect(contributor2).approve(snContribution, topup2);
                      await expect(snContribution.connect(contributor2).contributeFunds(topup2, beneficiaryData))
                            .to.emit(snContribution, "NewContribution")
                            .withArgs(await contributor2.getAddress(), topup2);
@@ -473,13 +473,13 @@ describe("ServiceNodeContribution Contract Tests", function () {
                           await network.provider.send("evm_increaseTime", [60 * 60 * 24]);
                           await network.provider.send("evm_mine");
 
-                          await withdrawContributor(sentToken, snContribution, contributor1);
+                          await withdrawContributor(seshToken, snContribution, contributor1);
                       });
 
                       describe("Withdraw contributor 2", async function () {
                           beforeEach(async function () {
                               const [owner, contributor1, contributor2] = await ethers.getSigners();
-                              await withdrawContributor(sentToken, snContribution, contributor2);
+                              await withdrawContributor(seshToken, snContribution, contributor2);
                           });
 
                           describe("Contributor 1, 2 rejoin", async function() {
@@ -493,8 +493,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
                                   // NOTE: Contributor 1 w/ minContribution()
                                   const minContribution1                   = await snContribution.minimumContribution();
-                                  await sentToken.transfer(contributor1, minContribution1);
-                                  await sentToken.connect(contributor1).approve(snContribution, minContribution1);
+                                  await seshToken.transfer(contributor1, minContribution1);
+                                  await seshToken.connect(contributor1).approve(snContribution, minContribution1);
                                   await expect(snContribution.connect(contributor1)
                                                                       .contributeFunds(minContribution1, beneficiaryData)).to
                                                                                                          .emit(snContribution, "NewContribution")
@@ -502,8 +502,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
                                   // NOTE: Contributor 2 w/ minContribution()
                                   const minContribution2 = await snContribution.minimumContribution();
-                                  await sentToken.transfer(contributor2, minContribution2);
-                                  await sentToken.connect(contributor2)
+                                  await seshToken.transfer(contributor2, minContribution2);
+                                  await seshToken.connect(contributor2)
                                                  .approve(snContribution,
                                                          minContribution2);
                                   await expect(snContribution.connect(contributor2)
@@ -523,16 +523,16 @@ describe("ServiceNodeContribution Contract Tests", function () {
                               it("Reset node and check contributor funds have been returned", async function() {
                                   const [owner, contributor1, contributor2] = await ethers.getSigners();
                                   // Get initial balances
-                                  const initialBalance1 = await sentToken.balanceOf(contributor1.address);
-                                  const initialBalance2 = await sentToken.balanceOf(contributor2.address);
+                                  const initialBalance1 = await seshToken.balanceOf(contributor1.address);
+                                  const initialBalance2 = await seshToken.balanceOf(contributor2.address);
                                   // Get contribution amounts
                                   const contribution1 = await snContribution.contributions(contributor1.address);
                                   const contribution2 = await snContribution.contributions(contributor2.address);
                                   // Cancel the node
                                   // await snContribution.connect(owner).reset();
                                   // Check final balances
-                                  // const finalBalance1 = await sentToken.balanceOf(contributor1.address);
-                                  // const finalBalance2 = await sentToken.balanceOf(contributor2.address);
+                                  // const finalBalance1 = await seshToken.balanceOf(contributor1.address);
+                                  // const finalBalance2 = await seshToken.balanceOf(contributor2.address);
                                   // expect(finalBalance1).to.equal(initialBalance1 + contribution1);
                                   // expect(finalBalance2).to.equal(initialBalance2 + contribution2);
                               });
@@ -554,7 +554,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      wallet     = wallet.connect(ethers.provider);
 
                      // NOTE: Fund the wallet
-                     await sentToken.transfer(await wallet.getAddress(), TEST_AMNT);
+                     await seshToken.transfer(await wallet.getAddress(), TEST_AMNT);
                      await snOperator.sendTransaction({
                          to:    await wallet.getAddress(),
                          value: ethers.parseEther("1.0")
@@ -569,7 +569,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
                  for (let i = 0; i < signers.length; i++) {
                      const signer          = signers[i];
-                     await sentToken.connect(signer).approve(snContribution, minContribution);
+                     await seshToken.connect(signer).approve(snContribution, minContribution);
 
                      if (i == (signers.length - 1)) {
                          await expect(snContribution.connect(signer)
@@ -603,8 +603,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                  const [owner, contributor] = await ethers.getSigners();
                  const minContribution = await snContribution.minimumContribution();
                  let previousContribution = await snContribution.totalContribution();
-                 await sentToken.transfer(contributor, minContribution);
-                 await sentToken.connect(contributor).approve(snContribution, minContribution);
+                 await seshToken.transfer(contributor, minContribution);
+                 await seshToken.connect(contributor).approve(snContribution, minContribution);
 
                  await expect(await snContribution.connect(contributor).contributeFunds(minContribution, beneficiaryData))
                      .to.emit(snContribution, "NewContribution")
@@ -613,7 +613,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                  await expect(snContribution.finalize()).to.be.reverted;
 
                  await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_OpenForPublicContrib)
-                 await expect(await sentToken.balanceOf(snContribution))
+                 await expect(await seshToken.balanceOf(snContribution))
                      .to.equal(previousContribution + minContribution);
              });
 
@@ -621,8 +621,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                  const [owner, contributor, contributor2] = await ethers.getSigners();
                  const stakingRequirement = await snContribution.stakingRequirement();
                  let previousContribution = await snContribution.totalContribution();
-                 await sentToken.transfer(contributor, stakingRequirement - previousContribution);
-                 await sentToken.connect(contributor).approve(snContribution, stakingRequirement - previousContribution + BigInt(1));
+                 await seshToken.transfer(contributor, stakingRequirement - previousContribution);
+                 await seshToken.connect(contributor).approve(snContribution, stakingRequirement - previousContribution + BigInt(1));
                  await expect(snContribution.connect(contributor).contributeFunds(stakingRequirement - previousContribution + BigInt(1), beneficiaryData))
                      .to.be.revertedWithCustomError(snContribution, "ContributionExceedsStakingRequirement");
              });
@@ -637,23 +637,23 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      const stakingRequirement    = await snContribution.stakingRequirement();
                      const previousContribution  = await snContribution.totalContribution();
 
-                     await sentToken.transfer(contributor1, stakingRequirement - previousContribution);
-                     await sentToken.connect(contributor1)
+                     await seshToken.transfer(contributor1, stakingRequirement - previousContribution);
+                     await seshToken.connect(contributor1)
                                     .approve(snContribution, stakingRequirement - previousContribution);
 
                      await expect(await snContribution.connect(contributor1).contributeFunds(stakingRequirement - previousContribution, beneficiaryData)).to.not.be.reverted;
-                     expect(await sentToken.balanceOf(snContribution)).to.equal(stakingRequirement);
+                     expect(await seshToken.balanceOf(snContribution)).to.equal(stakingRequirement);
 
                  });
 
                  it("Manually finalize", async function () {
                      await expect(await snContribution.connect(snOperator).finalize()).to.not.be.reverted; // Test we need to manually finalized
                      const stakingRequirement = await snContribution.stakingRequirement();
-                     expect(await sentToken.balanceOf(snRewards)).to.equal(stakingRequirement);
+                     expect(await seshToken.balanceOf(snRewards)).to.equal(stakingRequirement);
                      expect(await snRewards.totalNodes()).to.equal(1);
 
                      await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_Finalized);
-                     expect(await sentToken.balanceOf(snContribution)).to.equal(0);
+                     expect(await seshToken.balanceOf(snContribution)).to.equal(0);
                  });
 
                  it("Withdraw and check status", async function () {
@@ -680,18 +680,18 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      // NOTE: Contribute as contributor2
                      const prevContribAmount = await snContribution.totalContribution();
                      const contribAmount     = stakingRequirement - prevContribAmount;
-                     await sentToken.transfer(contributor2, contribAmount);
-                     await sentToken.connect(contributor2)
+                     await seshToken.transfer(contributor2, contribAmount);
+                     await seshToken.connect(contributor2)
                                     .approve(snContribution, contribAmount);
                      await expect(await snContribution.connect(contributor2).contributeFunds(contribAmount, beneficiaryData)).to.not.be.reverted;
 
                      // NOTE: Finalize
                      await expect(await snContribution.connect(snOperator).finalize()).to.not.be.reverted; // Test we need to manually finalized
-                     expect(await sentToken.balanceOf(snRewards)).to.equal(stakingRequirement);
+                     expect(await seshToken.balanceOf(snRewards)).to.equal(stakingRequirement);
                      expect(await snRewards.totalNodes()).to.equal(1);
 
                      await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_Finalized);
-                     expect(await sentToken.balanceOf(snContribution)).to.equal(0);
+                     expect(await seshToken.balanceOf(snContribution)).to.equal(0);
                  });
 
                  it("Withdraw operator", async function () {
@@ -700,7 +700,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
                      // NOTE: Check all funds are returned and contract state is reverted
                      await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_WaitForOperatorContrib);
-                     expect(await sentToken.balanceOf(snContribution)).to.equal(0);
+                     expect(await seshToken.balanceOf(snContribution)).to.equal(0);
                  })
              })
 
@@ -710,16 +710,16 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      const stakingRequirement = await snContribution.stakingRequirement();
                      let previousContribution = await snContribution.totalContribution();
 
-                     await sentToken.transfer(contributor1, stakingRequirement - previousContribution);
-                     await sentToken.connect(contributor1)
+                     await seshToken.transfer(contributor1, stakingRequirement - previousContribution);
+                     await seshToken.connect(contributor1)
                                     .approve(snContribution, stakingRequirement - previousContribution);
 
                      await expect(await snContribution.connect(contributor1).contributeFunds(stakingRequirement - previousContribution, beneficiaryData)).to.not.be.reverted;
-                     expect(await sentToken.balanceOf(snRewards)).to.equal(stakingRequirement);
+                     expect(await seshToken.balanceOf(snRewards)).to.equal(stakingRequirement);
                      expect(await snRewards.totalNodes()).to.equal(1);
 
                      await expect(await snContribution.connect(snOperator).status()).to.equal(SN_CONTRIB_Status_Finalized);
-                     expect(await sentToken.balanceOf(snContribution)).to.equal(0);
+                     expect(await seshToken.balanceOf(snContribution)).to.equal(0);
                  });
 
                  it("Check withdraw is no-op via operator and contributor", async function () {
@@ -756,7 +756,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      const serviceNodeParamsBefore = await snContribution.serviceNodeParams();
                      const maxContributorsBefore   = await snContribution.maxContributors();
 
-                     await sentToken.connect(owner).approve(snContributionAddress, minOperatorContribution);
+                     await seshToken.connect(owner).approve(snContributionAddress, minOperatorContribution);
                      await expect(snContribution.connect(owner).reset()).to.not.be.reverted;
                      await expect(snContribution.connect(owner).contributeFunds(minOperatorContribution, beneficiaryData)).to
                                                                                                          .emit(snContribution, "NewContribution");
@@ -776,30 +776,30 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      expect(await snContribution.maxContributors()).to.equal(maxContributorsBefore);
                  });
 
-                 it("Check we can rescue ERC20 tokens sent after finalisation", async function() {
+                 it("Check we can rescue ERC20 tokens sesh after finalisation", async function() {
                      const [owner, contributor1, contributor2] = await ethers.getSigners();
 
-                     // NOTE: Check that the contract SENT balance is empty
-                     const contractBalance = await sentToken.balanceOf(snContribution);
+                     // NOTE: Check that the contract SESH balance is empty
+                     const contractBalance = await seshToken.balanceOf(snContribution);
                      expect(contractBalance).to.equal(BigInt(0));
 
                      // NOTE: Transfer tokens to the contract after it was finalised
-                     await sentToken.transfer(snContribution, TEST_AMNT);
+                     await seshToken.transfer(snContribution, TEST_AMNT);
 
                      // NOTE: Check contributors can't rescue the token
                      await expect(snContribution.connect(contributor1)
-                                                .rescueERC20(sentToken)).to.be.reverted;
+                                                .rescueERC20(seshToken)).to.be.reverted;
                      await expect(snContribution.connect(contributor2)
-                                                .rescueERC20(sentToken)).to.be.reverted;
+                                                .rescueERC20(seshToken)).to.be.reverted;
 
                      // NOTE: Check that the operator can rescue the tokens
-                     const balanceBefore = await sentToken.balanceOf(owner);
+                     const balanceBefore = await seshToken.balanceOf(owner);
                      expect(await snContribution.connect(owner)
-                                                .rescueERC20(sentToken));
+                                                .rescueERC20(seshToken));
 
                      // NOTE: Verify the balances
-                     const balanceAfter         = await sentToken.balanceOf(owner);
-                     const contractBalanceAfter = await sentToken.balanceOf(snContribution);
+                     const balanceAfter         = await seshToken.balanceOf(owner);
+                     const contractBalanceAfter = await seshToken.balanceOf(snContribution);
                      expect(balanceBefore + BigInt(TEST_AMNT)).to.equal(balanceAfter);
                      expect(contractBalanceAfter).to.equal(BigInt(0));
 
@@ -807,11 +807,11 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      // one can rescue, not even the operator (because the
                      // balance of the contract is empty).
                      await expect(snContribution.connect(contributor1)
-                                                .rescueERC20(sentToken)).to.be.reverted;
+                                                .rescueERC20(seshToken)).to.be.reverted;
                      await expect(snContribution.connect(contributor2)
-                                                .rescueERC20(sentToken)).to.be.reverted;
+                                                .rescueERC20(seshToken)).to.be.reverted;
                      await expect(snContribution.connect(owner)
-                                                .rescueERC20(sentToken)).to.be.reverted;
+                                                .rescueERC20(seshToken)).to.be.reverted;
                  });
              });
 
@@ -825,8 +825,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                  const [owner, contributor] = await ethers.getSigners();
                  const minContribution = await snContribution.minimumContribution();
                  // Setting up contribution
-                 await sentToken.transfer(contributor, TEST_AMNT);
-                 await sentToken.connect(contributor).approve(snContribution, minContribution);
+                 await seshToken.transfer(contributor, TEST_AMNT);
+                 await seshToken.connect(contributor).approve(snContribution, minContribution);
                  await snContribution.connect(contributor).contributeFunds(minContribution, beneficiaryData);
 
                  // Attempting to withdraw before 24 hours
@@ -842,8 +842,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
                  const [owner, contributor] = await ethers.getSigners();
                  const minContribution = await snContribution.minimumContribution();
                  // Setting up contribution
-                 await sentToken.transfer(contributor, TEST_AMNT);
-                 await sentToken.connect(contributor).approve(snContribution, minContribution);
+                 await seshToken.transfer(contributor, TEST_AMNT);
+                 await seshToken.connect(contributor).approve(snContribution, minContribution);
                  await snContribution.connect(contributor).contributeFunds(minContribution, beneficiaryData);
 
                  // Waiting for 24 hours
@@ -851,7 +851,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                  await network.provider.send("evm_mine");
 
                  // Checking the initial balance before withdrawal
-                 const initialBalance = await sentToken.balanceOf(contributor.getAddress());
+                 const initialBalance = await seshToken.balanceOf(contributor.getAddress());
 
                  // Performing the withdrawal
                  await expect(snContribution.connect(contributor).withdrawContribution())
@@ -859,7 +859,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
                      .withArgs(await contributor.getAddress(), minContribution);
 
                  // Verify that the funds have returned to the contributor
-                 const finalBalance = await sentToken.balanceOf(contributor.getAddress());
+                 const finalBalance = await seshToken.balanceOf(contributor.getAddress());
                  expect(finalBalance).to.equal(initialBalance + minContribution);
             });
          });
@@ -889,8 +889,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
             snContribution = await ethers.getContractAt("ServiceNodeContribution", snContributionAddress);
 
             ownerContribution = await snContribution.minimumContribution();
-            await sentToken.transfer(snOperator, TEST_AMNT);
-            await sentToken.connect(snOperator).approve(snContributionAddress, ownerContribution);
+            await seshToken.transfer(snOperator, TEST_AMNT);
+            await seshToken.connect(snOperator).approve(snContributionAddress, ownerContribution);
         });
 
         it("should succeed with valid reserved contributions: [25% operator, 10%, 10%, 15%, 40%]", async function () {
@@ -1036,8 +1036,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
             snContributionAddress = event.args[0];
             snContribution        = await ethers.getContractAt("ServiceNodeContribution", snContributionAddress);
 
-            await sentToken.transfer(snOperator, TEST_AMNT);
-            await sentToken.connect(snOperator).approve(snContributionAddress, ownerContribution);
+            await seshToken.transfer(snOperator, TEST_AMNT);
+            await seshToken.connect(snOperator).approve(snContributionAddress, ownerContribution);
             await snContribution.connect(snOperator).contributeFunds(ownerContribution, beneficiaryData);
         });
 
@@ -1072,10 +1072,10 @@ describe("ServiceNodeContribution Contract Tests", function () {
             }
 
             // NOTE: Fund reserved contributor 1
-            await sentToken.transfer(reservedContributor1.address, contribution1);
+            await seshToken.transfer(reservedContributor1.address, contribution1);
 
             // NOTE: Contribute to the contract
-            await sentToken.connect(reservedContributor1).approve(snContribution.getAddress(), contribution1);
+            await seshToken.connect(reservedContributor1).approve(snContribution.getAddress(), contribution1);
             await expect(snContribution.connect(reservedContributor1).contributeFunds(contribution1, beneficiaryData))
                 .to.emit(snContribution, "NewContribution")
                 .withArgs(reservedContributor1.address, contribution1);
@@ -1106,8 +1106,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
         });
 
         it("Should prevent reserved contributor to contribute less than their reserved funds", async function () {
-            await sentToken.transfer(reservedContributor1.address, contribution1);
-            await sentToken.connect(reservedContributor1).approve(snContribution.getAddress(), contribution1);
+            await seshToken.transfer(reservedContributor1.address, contribution1);
+            await seshToken.connect(reservedContributor1).approve(snContribution.getAddress(), contribution1);
 
             await expect(snContribution.connect(reservedContributor1).contributeFunds(contribution1 - 1, beneficiaryData))
                 .to.be.revertedWithCustomError(snContribution, "ContributionBelowReservedAmount");
@@ -1121,8 +1121,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
         });
 
         it("Should allow reserved contributor to contribute more than their reserved funds", async function () {
-            await sentToken.transfer(reservedContributor1.address, contribution1 + 1);
-            await sentToken.connect(reservedContributor1).approve(snContribution.getAddress(), contribution1 + 1);
+            await seshToken.transfer(reservedContributor1.address, contribution1 + 1);
+            await seshToken.connect(reservedContributor1).approve(snContribution.getAddress(), contribution1 + 1);
 
             await expect(snContribution.connect(reservedContributor1).contributeFunds(contribution1 + 1, beneficiaryData))
                 .to.emit(snContribution, "NewContribution")
@@ -1154,8 +1154,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
             const amountToFillNode = await snContribution.stakingRequirement() - BigInt(ownerContribution);
             const [contributor] = await ethers.getSigners();
 
-            await sentToken.transfer(contributor.address, amountToFillNode);
-            await sentToken.connect(contributor).approve(snContribution.getAddress(), amountToFillNode);
+            await seshToken.transfer(contributor.address, amountToFillNode);
+            await seshToken.connect(contributor).approve(snContribution.getAddress(), amountToFillNode);
 
             await expect(snContribution.connect(contributor).contributeFunds(amountToFillNode, beneficiaryData))
                 .to.be.revertedWithCustomError(snContribution, "ContributionExceedsStakingRequirement");
@@ -1163,10 +1163,10 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
         it("Test withdraw preserves reserved contributor info", async function () {
             // NOTE: Fund reserved contributor 2
-            await sentToken.transfer(reservedContributor2.address, contribution2);
+            await seshToken.transfer(reservedContributor2.address, contribution2);
 
             // NOTE: Contribute to the contract
-            await sentToken.connect(reservedContributor2).approve(snContribution.getAddress(), contribution2);
+            await seshToken.connect(reservedContributor2).approve(snContribution.getAddress(), contribution2);
             await expect(snContribution.connect(reservedContributor2).contributeFunds(contribution2, beneficiaryData))
                 .to.emit(snContribution, "NewContribution")
                 .withArgs(reservedContributor2.address, contribution2);
@@ -1183,7 +1183,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
             await network.provider.send("evm_increaseTime", [60 * 60 * 24]);
 
             // NOTE: Withdraw
-            await withdrawContributor(sentToken, snContribution, reservedContributor2);
+            await withdrawContributor(seshToken, snContribution, reservedContributor2);
 
             // NOTE: Check contract reservation data after having withdrawn
             await expect(await snContribution.getReserved()).to.deep.equal(
@@ -1237,8 +1237,8 @@ describe("ServiceNodeContribution Contract Tests", function () {
 
             // Contribute operator funds
             const minContribution = await snContribution.minimumContribution();
-            await sentToken.transfer(snOperator, TEST_AMNT);
-            await sentToken.connect(snOperator).approve(snContributionAddress, minContribution);
+            await seshToken.transfer(snOperator, TEST_AMNT);
+            await seshToken.connect(snOperator).approve(snContributionAddress, minContribution);
         });
 
         it("Should allow operator to update fee before other contributions", async function () {
@@ -1273,7 +1273,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         it("Should fail to update fee after operator contributes", async function () {
             // Contribute
             const minContribution = await snContribution.minimumContribution();
-            await sentToken.connect(snOperator).approve(snContribution.target, minContribution);
+            await seshToken.connect(snOperator).approve(snContribution.target, minContribution);
             await snContribution.connect(snOperator).contributeFunds(minContribution, beneficiaryData);
 
             await expect(snContribution.connect(snOperator).updateFee(1n))
@@ -1283,7 +1283,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         it("Should fail to update pubkeys after another contributor has joined", async function () {
             // Contribute
             const minContribution = await snContribution.minimumContribution();
-            await sentToken.connect(snOperator).approve(snContribution.target, minContribution);
+            await seshToken.connect(snOperator).approve(snContribution.target, minContribution);
             await snContribution.connect(snOperator).contributeFunds(minContribution, beneficiaryData);
 
             await expect(snContribution.connect(snOperator)
@@ -1298,7 +1298,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         it("Should fail to update fee after contract is finalized", async function () {
             // Finalize the contract
             const stakingRequirement  = await snContribution.stakingRequirement();
-            await sentToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
+            await seshToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
             await snContribution.connect(snOperator).contributeFunds(stakingRequirement, beneficiaryData);
             expect(await snContribution.status()).to.equal(SN_CONTRIB_Status_Finalized);
 
@@ -1310,7 +1310,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         it("Should fail to update pubkey after contract is finalized", async function () {
             // Finalize the contract
             const stakingRequirement  = await snContribution.stakingRequirement();
-            await sentToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
+            await seshToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
             await snContribution.connect(snOperator).contributeFunds(stakingRequirement, beneficiaryData);
             expect(await snContribution.status()).to.equal(SN_CONTRIB_Status_Finalized);
 
@@ -1326,7 +1326,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         it("Should update fee after contract reset", async function () {
             // Finalize the contract
             const stakingRequirement  = await snContribution.stakingRequirement();
-            await sentToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
+            await seshToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
             await snContribution.connect(snOperator).contributeFunds(stakingRequirement, beneficiaryData);
             expect(await snContribution.status()).to.equal(SN_CONTRIB_Status_Finalized);
 
@@ -1347,7 +1347,7 @@ describe("ServiceNodeContribution Contract Tests", function () {
         it("Should update pubkey after contract reset", async function () {
             // Finalize the contract
             const stakingRequirement  = await snContribution.stakingRequirement();
-            await sentToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
+            await seshToken.connect(snOperator).approve(snContribution.target, stakingRequirement);
             await snContribution.connect(snOperator).contributeFunds(stakingRequirement, beneficiaryData);
             expect(await snContribution.status()).to.equal(SN_CONTRIB_Status_Finalized);
 

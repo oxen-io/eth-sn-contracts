@@ -25,10 +25,10 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
             process.exit(1); // Exit with an error code
         }
     }
-    const SENT_UNIT = args.SENT_UNIT || 1_000000000n;
-    const SUPPLY = args.SUPPLY || 240_000_000n * SENT_UNIT;
-    const POOL_INITIAL = args.POOL_INITIAL || 40_000_000n * SENT_UNIT;
-    const STAKING_REQ = args.STAKING_REQ || 20_000n * SENT_UNIT;
+    const SESH_UNIT = args.SESH_UNIT || 1_000000000n;
+    const SUPPLY = args.SUPPLY || 240_000_000n * SESH_UNIT;
+    const POOL_INITIAL = args.POOL_INITIAL || 40_000_000n * SESH_UNIT;
+    const STAKING_REQ = args.STAKING_REQ || 20_000n * SESH_UNIT;
 
     MockERC20 = await ethers.getContractFactory("MockERC20");
     mockERC20 = null
@@ -101,16 +101,18 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
       // Add verify task runners
       console.log("\nVerifying contracts...");
 
-      console.log(chalk.yellow("\n--- Verifying mockERC20 ---\n"));
-      mockERC20.waitForDeployment();
-      try {
-          await hre.run("verify:verify", {
-              address: await mockERC20.getAddress(),
-              constructorArguments: [tokenName, tokenSymbol, SUPPLY],
-              contract: "contracts/test/MockERC20.sol:MockERC20",
-              force: true,
-          });
-      } catch (error) {}
+      if (!args.TOKEN_ADDRESS) {
+          console.log(chalk.yellow("\n--- Verifying mockERC20 ---\n"));
+          mockERC20.waitForDeployment();
+          try {
+              await hre.run("verify:verify", {
+                  address: await mockERC20.getAddress(),
+                  constructorArguments: [tokenName, tokenSymbol, SUPPLY],
+                  contract: "contracts/test/MockERC20.sol:MockERC20",
+                  force: true,
+              });
+          } catch (error) {}
+      }
 
       console.log(chalk.yellow("\n--- Verifying rewardRatePool ---\n"));
       rewardRatePool.waitForDeployment();

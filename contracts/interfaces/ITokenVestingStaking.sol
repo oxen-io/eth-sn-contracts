@@ -45,7 +45,7 @@ interface ITokenVestingStaking {
     function end() external view returns (uint256);
 
     /// @notice The token that the contract is vesting to the investor.
-    function SENT() external view returns (IERC20);
+    function SESH() external view returns (IERC20);
 
     /// @notice The contract that accepts investor tokens for staking
     function rewardsContract() external view returns (IServiceNodeRewards);

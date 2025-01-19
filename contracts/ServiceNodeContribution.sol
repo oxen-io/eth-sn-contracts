@@ -25,7 +25,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
 
     // Staking
     // solhint-disable-next-line var-name-mixedcase
-    IERC20                                        public immutable SENT;
+    IERC20                                        public immutable SESH;
     IServiceNodeRewards                           public immutable stakingRewardsContract;
     uint256                                       public immutable stakingRequirement;
 
@@ -98,7 +98,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
     ) nzAddr(_stakingRewardsContract) nzUint(_maxContributors) {
         stakingRewardsContract = IServiceNodeRewards(_stakingRewardsContract);
         stakingRequirement     = stakingRewardsContract.stakingRequirement();
-        SENT                   = IERC20(stakingRewardsContract.designatedToken());
+        SESH                   = IERC20(stakingRewardsContract.designatedToken());
         maxContributors        = _maxContributors;
         operator               = tx.origin; // NOTE: Creation is delegated by operator through factory
         address nilBeneficiary = address(0);
@@ -324,7 +324,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
 
         // NOTE: Transfer funds from sender to contract
         emit NewContribution(caller, amount);
-        SENT.safeTransferFrom(caller, address(this), amount);
+        SESH.safeTransferFrom(caller, address(this), amount);
 
         // NOTE: Auto finalize the node if valid
         if (status == Status.WaitForFinalized && !manualFinalize) {
@@ -351,7 +351,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         }
 
         // NOTE: Transfer tokens and register the node on the `stakingRewardsContract`
-        SENT.approve(address(stakingRewardsContract), stakingRequirement);
+        SESH.approve(address(stakingRewardsContract), stakingRequirement);
         stakingRewardsContract.addBLSPublicKey(blsPubkey, _blsSignature, _serviceNodeParams, contributors);
     }
 
@@ -366,7 +366,7 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
             address toRemove = _contributorAddresses[i].addr;
             uint256 refund   = contributions[toRemove];
             if (status != Status.Finalized && refund > 0)
-                SENT.safeTransfer(toRemove, refund);
+                SESH.safeTransfer(toRemove, refund);
             clearContributorMapData(toRemove);
             unchecked { i += 1; }
         }
@@ -477,9 +477,9 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
     ///   1) Removing contributor from contribution mapping
     ///   2) Removing their address from the contribution array
     ///   3) Resetting the addresses reservation amounts (if applicable)
-    ///   4) Refunding the SENT amount contributed to the contributor
+    ///   4) Refunding the SESH amount contributed to the contributor
     ///
-    /// @return result The amount of SENT refunded for the given `toRemove`
+    /// @return result The amount of SESH refunded for the given `toRemove`
     /// address. If `toRemove` is not a contributor/does not exist, 0 is returned
     /// as the refunded amount.
     function removeAndRefundContributor(address toRemove) private returns (uint256 result) {
@@ -505,13 +505,13 @@ contract ServiceNodeContribution is Shared, IServiceNodeContribution {
         ReservedContribution storage reserved = reservedContributions[toRemove];
         reserved.received                     = false;
 
-        // 4) Refunding the SENT amount contributed to the contributor
+        // 4) Refunding the SESH amount contributed to the contributor
         if (status == Status.Finalized) {
             // NOTE: Funds have been transferred out already, we just needed to
             // clean up the contract book-keeping for `toRemove`.
             result = 0;
         } else {
-            SENT.safeTransfer(toRemove, result);
+            SESH.safeTransfer(toRemove, result);
 
             // NOTE: Reopen the contract for contribution if we were previously
             // ready to be finalized (e.g. fully collateralised)

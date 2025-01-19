@@ -57,7 +57,7 @@ describe("TokenVestingStaking Contract Tests", function () {
         try {
             // Deploy a mock ERC20 token
             MockERC20 = await ethers.getContractFactory("MockERC20");
-            mockERC20 = await MockERC20.deploy("SENT Token", "SENT", 240_000_000n * 1_000_000_000n)
+            mockERC20 = await MockERC20.deploy("SESH Token", "SESH", 240_000_000n * 1_000_000_000n)
         } catch (error) {
             console.error("Error deploying MockERC20:", error);
         }
@@ -152,7 +152,7 @@ describe("TokenVestingStaking Contract Tests", function () {
             const balanceBefore = await mockERC20.balanceOf(vestingContract);
             await mockServiceNodeRewards.exitBLSPublicKeyWithSignature(/*serviceNodeID*/ 1,0,0,0,0,0,0,[]);
 
-            // TODO: The mock adds +50 $SENT everytime we claim, using mocks
+            // TODO: The mock adds +50 $SESH everytime we claim, using mocks
             // isn't great because we're not actually testing against the real
             // contract.
             const beneficiaryBalanceBefore = await mockERC20.balanceOf(beneficiary);

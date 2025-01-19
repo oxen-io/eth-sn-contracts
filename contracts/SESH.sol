@@ -6,14 +6,14 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "./libraries/Shared.sol";
 
 /**
- * @title SENT contract
- * @notice The SENT utility token
+ * @title SESH contract
+ * @notice The SESH utility token
  */
-contract SENT is ERC20, ERC20Permit, Shared {
+contract SESH is ERC20, ERC20Permit, Shared {
     constructor(
         uint256 totalSupply_,
         address receiverGenesisAddress
-    ) ERC20("Session", "SENT") ERC20Permit("Session") nzAddr(receiverGenesisAddress) nzUint(totalSupply_) {
+    ) ERC20("Session", "SESH") ERC20Permit("Session") nzAddr(receiverGenesisAddress) nzUint(totalSupply_) {
         _mint(receiverGenesisAddress, totalSupply_);
     }
 

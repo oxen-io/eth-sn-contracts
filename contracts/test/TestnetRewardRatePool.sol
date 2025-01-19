@@ -10,12 +10,12 @@ contract TestnetRewardRatePool is RewardRatePool {
         lastPaidOutTime = _lastPaidOutTime;
     }
 
-    event SENTWithdrawn(uint256 amount);
+    event SESHWithdrawn(uint256 amount);
 
-    // Function to withdraw SENT tokens back to the owner
-    function withdrawSENT(uint256 amount) external onlyOwner {
-        SENT.safeTransfer(owner(), amount);
-        emit SENTWithdrawn(amount);
+    // Function to withdraw SESH tokens back to the owner
+    function withdrawSESH(uint256 amount) external onlyOwner {
+        SESH.safeTransfer(owner(), amount);
+        emit SESHWithdrawn(amount);
     }
 
 }

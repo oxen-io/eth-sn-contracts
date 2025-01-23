@@ -8,7 +8,12 @@ const hre = require("hardhat");
 const chalk = require('chalk')
 
 async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify = true, local_devnet = false) {
+    args.TOKEN_NAME   = tokenName;
+    args.TOKEN_SYMBOL = tokenSymbol;
+    return deployContracts(args, verify, local_devnet);
+}
 
+async function deployContracts(args = {}, verify = true, local_devnet = false) {
     const networkName = hre.network.name;
     console.log("Deploying contracts to:", networkName);
 
@@ -25,19 +30,21 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
             process.exit(1); // Exit with an error code
         }
     }
+    const TOKEN_NAME     = args.TOKEN_NAME     || "SESH Token";
+    const TOKEN_SYMBOL   = args.TOKEN_SYMBOL   || "SESH";
     const SESH_UNIT = args.SESH_UNIT || 1_000000000n;
     const SUPPLY = args.SUPPLY || 240_000_000n * SESH_UNIT;
     const POOL_INITIAL = args.POOL_INITIAL || 40_000_000n * SESH_UNIT;
     const STAKING_REQ = args.STAKING_REQ || 20_000n * SESH_UNIT;
+    const TOKEN_ADDRESS  = args.TOKEN_ADDRESS  || "";
 
     MockERC20 = await ethers.getContractFactory("MockERC20");
-    mockERC20 = null
-    if (args.TOKEN_ADDRESS) {
-        mockERC20 = await MockERC20.attach(args.TOKEN_ADDRESS);
+    tokenContract = null
+    if (TOKEN_ADDRESS) {
+        tokenContract = await MockERC20.attach(TOKEN_ADDRESS);
     } else {
         try { // Deploy a mock ERC20 token
-            mockERC20    = await MockERC20.deploy(tokenName, tokenSymbol, SUPPLY);
-            tokenAddress = await mockERC20.getAddress()
+            tokenContract = await MockERC20.deploy(TOKEN_NAME, TOKEN_SYMBOL, SUPPLY);
         } catch (error) {
             console.error("Failed to deploy Testnet contracts, error when deploying MockERC20 contract:", error);
             return;
@@ -48,15 +55,15 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
     [owner] = await ethers.getSigners();
 
     RewardRatePool = await ethers.getContractFactory("TestnetRewardRatePool");
-    rewardRatePool = await upgrades.deployProxy(RewardRatePool, [await owner.getAddress(), await mockERC20.getAddress()]);
+    rewardRatePool = await upgrades.deployProxy(RewardRatePool, [await owner.getAddress(), await tokenContract.getAddress()]);
 
-    await mockERC20.transfer(rewardRatePool, POOL_INITIAL);
+    await tokenContract.transfer(rewardRatePool, POOL_INITIAL);
 
     // Deploy the ServiceNodeRewards contract
     const serviceNodeRewardsDeployContract = local_devnet ? "LocalDevnetServiceNodeRewards" : "TestnetServiceNodeRewards";
     ServiceNodeRewardsMaster = await ethers.getContractFactory(serviceNodeRewardsDeployContract);
     serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,[
-        await mockERC20.getAddress(),      // token address
+        await tokenContract.getAddress(),  // token address
         await rewardRatePool.getAddress(), // foundation pool address
         STAKING_REQ,                       // staking requirement
         10,                                // max contributors
@@ -75,9 +82,9 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
 
     console.log(
         '  ',
-        chalk.cyan(`${tokenSymbol} (${tokenName}) Contract`),
+        chalk.cyan(`ERC20 Contract`),
         'deployed to:',
-        chalk.greenBright(await mockERC20.getAddress()),
+        chalk.greenBright(await tokenContract.getAddress()),
     )
     console.log(
         '  ',
@@ -104,11 +111,11 @@ async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify 
 
       if (!args.TOKEN_ADDRESS) {
           console.log(chalk.yellow("\n--- Verifying mockERC20 ---\n"));
-          mockERC20.waitForDeployment();
+          tokenContract.waitForDeployment();
           try {
               await hre.run("verify:verify", {
-                  address: await mockERC20.getAddress(),
-                  constructorArguments: [tokenName, tokenSymbol, SUPPLY],
+                  address: await tokenContract.getAddress(),
+                  constructorArguments: [TOKEN_NAME, TOKEN_SYMBOL, SUPPLY],
                   contract: "contracts/test/MockERC20.sol:MockERC20",
                   force: true,
               });

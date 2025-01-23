@@ -659,7 +659,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         uint256 liquidatorAmount = (deposit * liquidatorRewardRatio) / ratioSum;
         uint256 poolAmount = deposit * poolShareOfLiquidationRatio == 0
             ? 0
-            : (poolShareOfLiquidationRatio - 1) / ratioSum + 1;
+            : (deposit * poolShareOfLiquidationRatio - 1) / ratioSum + 1;
 
         _exitBLSPublicKey(serviceNodeID, deposit - liquidatorAmount - poolAmount);
 

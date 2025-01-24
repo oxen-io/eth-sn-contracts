@@ -66,7 +66,8 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         uint256 recipientRatio_
     ) public initializer {
         if (recipientRatio_ < 1) revert PositiveNumberRequirement();
-        if (liquidatorRewardRatio_< 1) revert LiquidatorRewardsTooLow();
+        if ((liquidatorRewardRatio_ + poolShareOfLiquidationRatio_) * 3 > recipientRatio_)
+            revert LiquidatorPenaltyTooHigh();
         isStarted                   = false;
         totalNodes                  = 0;
         blsNonSignerThreshold       = 0;
@@ -168,9 +169,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     event BLSNonSignerThresholdMaxUpdated(uint256 newMax);
     event ClaimThresholdUpdated(uint256 newThreshold);
     event ClaimCycleUpdated(uint256 newValue);
-    event LiquidatorRewardRatioUpdated(uint256 newValue);
-    event PoolShareOfLiquidationRatioUpdated(uint256 newValue);
-    event RecipientRatioUpdated(uint256 newValue);
+    event LiquidationRatiosUpdated(uint256 liquidatorRatio, uint256 poolRatio, uint256 recipientRatio);
     event ServiceNodeLiquidated(uint64 indexed serviceNodeID, address operator, BN256G1.G1Point pubkey);
     event ServiceNodeExit(
         uint64 indexed serviceNodeID,
@@ -212,7 +211,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
     error LeaveRequestTooEarly(uint64 serviceNodeID, uint256 endTimestamp, uint256 currTimestamp);
     error LeaveRequestNotInitiatedYet(uint64 serviceNodeID);
 
-    error LiquidatorRewardsTooLow();
+    error LiquidatorPenaltyTooHigh();
     error MaxContributorsExceeded();
     error MaxClaimExceeded();
     error MaxPubkeyAggregationsExceeded();
@@ -939,25 +938,30 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
         emit ClaimCycleUpdated(newValue);
     }
 
-    function setLiquidatorRewardRatio(uint256 newValue) public onlyOwner {
-        if (newValue <= 0)
-            revert LiquidatorRewardsTooLow();
-        liquidatorRewardRatio = newValue;
-        emit LiquidatorRewardRatioUpdated(newValue);
-    }
-
-    function setPoolShareOfLiquidationRatio(uint256 newValue) public onlyOwner {
-        poolShareOfLiquidationRatio = newValue;
-        emit PoolShareOfLiquidationRatioUpdated(newValue);
-    }
-
-    function setRecipientRatio(uint256 newValue) public onlyOwner {
-        if (newValue <= 0)
+    /// @notice Sets the three ratio values that define the penalty and
+    /// transfers issued for liquidations.  All values are a ratio with respect
+    /// to the sum of the three values (liquidator+pool+recipient) and apply to
+    /// the stake of the operator of the node being liquidated.  The recipient
+    /// ratio value must be at least 3/4 of the total ratio sum.
+    function setLiquidationRatios(uint256 liquidator, uint256 pool, uint256 recipient) public onlyOwner {
+        if (recipient <= 0)
             revert PositiveNumberRequirement();
-        recipientRatio = newValue;
-        emit RecipientRatioUpdated(newValue);
-    }
 
+        // The liquidator and pool amounts are deducted (on the oxend side) from the operator
+        // stakes, which we can only guarantee will be up to 1/4 of the total stake (equivalently,
+        // up to 1/3 as much as the recipient amount).  If this ratio was ever set higher, we would
+        // potentially reward the liquidator and pool with more reward from the rewards contract
+        // than the Oxen chain is capable of removing from the operator stake and we would end up
+        // with more owed on the Oxen chain than is in the rewards contract.
+        if ((liquidator + pool) * 3 > recipient)
+            revert LiquidatorPenaltyTooHigh();
+
+        liquidatorRewardRatio = liquidator;
+        poolShareOfLiquidationRatio = pool;
+        recipientRatio = recipient;
+
+        emit LiquidationRatiosUpdated(liquidatorRewardRatio, poolShareOfLiquidationRatio, recipientRatio);
+    }
 
     //////////////////////////////////////////////////////////////
     //                                                          //

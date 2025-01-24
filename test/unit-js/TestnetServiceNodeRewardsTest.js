@@ -42,8 +42,8 @@ describe("TestnetServiceNodeRewards Contract Tests", function () {
             staking_req,                       // testnet staking requirement
             10,                                // max contributors
             1,                                 // liquidator reward ratio
-            0,                                 // pool share of liquidation ratio
-            1                                  // recipient ratio
+            1,                                 // pool share of liquidation ratio
+            8                                  // recipient ratio
             ]);
     });
 

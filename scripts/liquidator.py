@@ -2,8 +2,9 @@
 
 # Session Token network auto-liquidation script.  This script scans the network for liquidatable
 # nodes and submits liquidation requests for any liquidatable nodes to remove them from the Service
-# Node contract, rewarding the wallet holder with a small penalty (0.2%) of the node's staked SESH,
-# deducted from the operator's stake.
+# Node contract, rewarding the wallet holder and the possibly rewards pool (see the contract for
+# specific ratios) with a small penalty taken from the node's staked SESH, deducted from the
+# operator's returned stake.
 #
 # To run it, you need various Python dependencies (easily installed via pip or system dependencies),
 # and you need to set up a wallet with ARB-ETH funds to submit the transactions; this wallet then
@@ -167,8 +168,8 @@ if args.devnet:
 elif args.stagenet:
     print("Configured for Oxen stagenet")
     sesh_addr, snrewards_addr = (
-        "0x70c1f36C9cEBCa51B9344121D284D85BE36CD6bB",
-        "0x4abfFB7f922767f22c7aa6524823d93FDDaB54b1",
+        "0x7D7fD4E91834A96cD9Fb2369E7f4EB72383bbdEd",
+        "0x9d8aB00880CBBdc2Dcd29C179779469A82E7be35",
     )
 elif args.testnet:
     print("Configured for Oxen testnet")

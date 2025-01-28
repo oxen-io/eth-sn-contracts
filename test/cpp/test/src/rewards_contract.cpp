@@ -418,15 +418,6 @@ TEST_CASE( "Rewards Contract", "[ethereum]" ) {
                 signers,
                 std::chrono::system_clock::now() + 2h);
         tx = rewards_contract.exitBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
-
-        // Leave request has not been submitted
-        REQUIRE_THROWS(signer.sendTransaction(tx, seckey));
-
-        tx = rewards_contract.initiateExitBLSPublicKey(service_node_to_exit);
-        signer.sendTransaction(tx, seckey);
-
-        // Now we can actually exit:
-        tx = rewards_contract.exitBLSPublicKeyWithSignature(pubkey, timestamp, sig, non_signers);
         hash = signer.sendTransaction(tx, seckey);
 
         REQUIRE(hash != "");

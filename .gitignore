@@ -11,3 +11,7 @@ artifacts
 
 # echidna
 crytic-export
+
+deployments
+
+investors.csv

@@ -23,6 +23,9 @@ importers:
       chalk:
         specifier: ^4.1.2
         version: 4.1.2
+      csv-parse:
+        specifier: ^5.6.0
+        version: 5.6.0
       dotenv:
         specifier: ^16.4.5
         version: 16.4.5
@@ -1050,6 +1053,9 @@ packages:
 
   crypt@0.0.2:
     resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
+
+  csv-parse@5.6.0:
+    resolution: {integrity: sha512-l3nz3euub2QMg5ouu5U09Ew9Wf6/wQ8I++ch1loQ0ljmzhmfZYrH9fflS22i/PQEvsPvxCwxgz5q7UB8K1JO4Q==}
 
   death@1.1.0:
     resolution: {integrity: sha512-vsV6S4KVHvTGxbEcij7hkWRv0It+sGGWVOM67dQde/o5Xjnr+KmLjxWJii2uEObIrt1CcM9w0Yaovx+iOlIL+w==}
@@ -3655,6 +3661,8 @@ snapshots:
   create-require@1.1.1: {}
 
   crypt@0.0.2: {}
+
+  csv-parse@5.6.0: {}
 
   death@1.1.0: {}
 

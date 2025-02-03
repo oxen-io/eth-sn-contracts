@@ -1,3 +1,4 @@
+require("./deploy-common.js")();
 //TODO set this before running
 const TOKEN_ADDRESS = "";
 
@@ -11,6 +12,7 @@ async function main() {
     const SESH_UNIT = 1_000_000_000n;
     const SUPPLY = 240_000_000n * SESH_UNIT;
     const POOL_INITIAL = 40_000_000n * SESH_UNIT;
+    const mainnet = true;
     
     //TODO change this to the actual staking requirement
     //const STAKING_REQ = 120n * SESH_UNIT;
@@ -24,6 +26,7 @@ async function main() {
         POOL_INITIAL,
         STAKING_REQ,
         TOKEN_ADDRESS,
+        mainnet
     };
 
     await deployContracts(args);

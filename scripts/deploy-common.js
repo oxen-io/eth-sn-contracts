@@ -10,10 +10,11 @@ const chalk = require('chalk')
 async function deployTestnetContracts(tokenName, tokenSymbol, args = {}, verify = true, local_devnet = false) {
     args.TOKEN_NAME   = tokenName;
     args.TOKEN_SYMBOL = tokenSymbol;
-    return deployContracts(args, verify, local_devnet);
+    args.local_devnet = local_devnet;
+    return deployContracts(args, verify);
 }
 
-async function deployContracts(args = {}, verify = true, local_devnet = false) {
+async function deployContracts(args = {}, verify = true) {
     const networkName = hre.network.name;
     console.log("Deploying contracts to:", networkName);
 
@@ -37,6 +38,8 @@ async function deployContracts(args = {}, verify = true, local_devnet = false) {
     const POOL_INITIAL = args.POOL_INITIAL || 40_000_000n * SESH_UNIT;
     const STAKING_REQ = args.STAKING_REQ || 20_000n * SESH_UNIT;
     const TOKEN_ADDRESS  = args.TOKEN_ADDRESS  || "";
+    const local_devnet = args.local_devnet || false;
+    const mainnet = args.mainnet || false;
 
     MockERC20 = await ethers.getContractFactory("MockERC20");
     tokenContract = null
@@ -54,14 +57,21 @@ async function deployContracts(args = {}, verify = true, local_devnet = false) {
     // Get signers
     [owner] = await ethers.getSigners();
 
-    RewardRatePool = await ethers.getContractFactory("TestnetRewardRatePool");
+    const rewardPoolFactoryName = mainnet ? "RewardRatePool" : "TestnetRewardRatePool";
+    RewardRatePool = await ethers.getContractFactory(rewardPoolFactoryName);
     rewardRatePool = await upgrades.deployProxy(RewardRatePool, [await owner.getAddress(), await tokenContract.getAddress()]);
 
     await tokenContract.transfer(rewardRatePool, POOL_INITIAL);
 
     // Deploy the ServiceNodeRewards contract
-    const serviceNodeRewardsDeployContract = local_devnet ? "LocalDevnetServiceNodeRewards" : "TestnetServiceNodeRewards";
+    let serviceNodeRewardsDeployContract;
+    if (mainnet) {
+        serviceNodeRewardsDeployContract = "ServiceNodeRewards";
+    } else {
+        serviceNodeRewardsDeployContract = local_devnet ? "LocalDevnetServiceNodeRewards" : "TestnetServiceNodeRewards";
+    }
     ServiceNodeRewardsMaster = await ethers.getContractFactory(serviceNodeRewardsDeployContract);
+
     serviceNodeRewards = await upgrades.deployProxy(ServiceNodeRewardsMaster,[
         await tokenContract.getAddress(),  // token address
         await rewardRatePool.getAddress(), // foundation pool address
@@ -158,4 +168,5 @@ async function deployContracts(args = {}, verify = true, local_devnet = false) {
 
 module.exports = function() {
     this.deployTestnetContracts = deployTestnetContracts;
+    this.deployContracts = deployContracts;
 };

@@ -1,5 +1,4 @@
-
-require("./testnet-common.js")();
+require("./deploy-common.js")();
 
 async function main() {
     await deployTestnetContracts("SESH Token (devnet v3)", "DEVSESH3");

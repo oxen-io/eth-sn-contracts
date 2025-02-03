@@ -1,5 +1,4 @@
-
-require("./testnet-common.js")();
+require("./deploy-common.js")();
 
 async function main() {
     // NOTE: We reuse the token address of the existing $SESH contract on stagenet

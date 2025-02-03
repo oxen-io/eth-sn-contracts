@@ -1,6 +1,6 @@
 const hre = require("hardhat");
 const chalk = require('chalk');
-require("./testnet-common.js")();
+require("./deploy-common.js")();
 
 async function main() {
     const tokenName = "SESH Token";

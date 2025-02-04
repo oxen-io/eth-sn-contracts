@@ -13,7 +13,7 @@ contract SESH is ERC20, ERC20Permit, Shared {
     constructor(
         uint256 totalSupply_,
         address receiverGenesisAddress
-    ) ERC20("Session", "SESH") ERC20Permit("Session") nzAddr(receiverGenesisAddress) nzUint(totalSupply_) {
+    ) ERC20("Session Token", "SESH") ERC20Permit("Session Token") nzAddr(receiverGenesisAddress) nzUint(totalSupply_) {
         _mint(receiverGenesisAddress, totalSupply_);
     }
 

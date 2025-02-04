@@ -77,9 +77,9 @@ async function deployContracts(args = {}, verify = true) {
         await rewardRatePool.getAddress(), // foundation pool address
         STAKING_REQ,                       // staking requirement
         10,                                // max contributors
-        2,                                 // liquidator reward ratio
-        0,                                 // pool share of liquidation ratio
-        998                                // recipient ratio
+        3,                                 // liquidator reward ratio
+        17,                                // pool share of liquidation ratio
+        9980                               // recipient ratio
     ]);
     await serviceNodeRewards.waitForDeployment();
 

@@ -7,6 +7,7 @@ require("dotenv/config");
 
 const arb_sepolia_account = process.env.ARB_SEPOLIA_PRIVATE_KEY ? [process.env.ARB_SEPOLIA_PRIVATE_KEY] : [];
 const arb_account = process.env.ARB_PRIVATE_KEY ? [process.env.ARB_PRIVATE_KEY] : [];
+const eth_account = process.env.ETH_PRIVATE_KEY ? [process.env.ETH_PRIVATE_KEY] : [];
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -25,7 +26,12 @@ module.exports = {
          url: "https://sepolia-rollup.arbitrum.io/rpc",
          chainId: 421614,
          accounts: arb_sepolia_account,
-      }
+      },
+      mainnet: {
+          url: "http://10.24.0.1/eth",  // Private Session foundation VPN address
+          chainId: 1,
+          accounts: eth_account,
+      },
   },
   solidity: {
     version: '0.8.26',

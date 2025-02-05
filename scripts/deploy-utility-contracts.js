@@ -2,10 +2,13 @@ const hre = require("hardhat");
 
 // === Global constants for constructor parameters ===
 // TODO SET THESE WITH ACTUAL ADDRESSES AND PARAMETERS
+// wOXEN contract:
 const TOKEN_A_ADDRESS       = "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+// *Ethereum* (not Arbitrum) ERC20 SESH token address:
 const TOKEN_B_ADDRESS       = "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
-const INITIAL_NUMERATOR     = 100;
-const INITIAL_DENOMINATOR   = 1;
+// These two define the ratio.  DENOMINATOR wOxen in becomes NUMERATOR SESH out.
+const INITIAL_NUMERATOR     = 1;
+const INITIAL_DENOMINATOR   = 2;
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));

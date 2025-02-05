@@ -33,7 +33,7 @@ async function main() {
     console.log("Verifying contract on Etherscan...");
     try {
         await hre.run("verify:verify", {
-            address: tokenConverter.address,
+            address: await tokenConverter.getAddress(),
             constructorArguments: [
                 TOKEN_A_ADDRESS,
                 TOKEN_B_ADDRESS,

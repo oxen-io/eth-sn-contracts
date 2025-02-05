@@ -74,7 +74,7 @@ contract TokenVestingStaking is ITokenVestingStaking, Shared {
     bool                            public           revoked;
 
     // Contracts
-    /// solhint-disable-next-line var-name-mixedcase
+    // solhint-disable-next-line var-name-mixedcase
     IERC20                          public immutable SESH;
     IServiceNodeRewards             public immutable rewardsContract;
     IServiceNodeContributionFactory public           snContribFactory;

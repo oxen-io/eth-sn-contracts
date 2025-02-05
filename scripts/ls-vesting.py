@@ -16,6 +16,7 @@ import os
 from Crypto.Hash import keccak
 import time
 from terminaltables import SingleTable
+from datetime import datetime, timezone
 
 
 parser = argparse.ArgumentParser(
@@ -90,6 +91,7 @@ def tx_url(txid):
 def get_contract(name, addr):
     return w3.eth.contract(address=addr, abi=compiled_sol[name]["abi"])
 
+
 def validate(expected, value):
     if expected:
         if expected == value:
@@ -103,10 +105,12 @@ results = [
         "Vesting Contract Address",
         "SESH",
         "Beneficiary",
+        "Start",
+        "End",
         "Rvokd",
         "Rvokr",
-        "Rewards",
-        "Contrib",
+        "Rwrds",
+        "MC",
         "Trnsfr",
     ]
 ]
@@ -116,7 +120,7 @@ for caddr in args.contracts:
             "utils/TokenVestingStaking.sol:TokenVestingStaking", caddr
         )
         c = contract.functions
-        sesh, bene, revoked, revoker, rewards, contrib, transfer = (
+        sesh, bene, revoked, revoker, rewards, contrib, transfer, start, end = (
             x().call()
             for x in (
                 c.SESH,
@@ -126,17 +130,24 @@ for caddr in args.contracts:
                 c.rewardsContract,
                 c.snContribFactory,
                 c.transferableBeneficiary,
+                c.start,
+                c.end,
             )
         )
         SESH = get_contract("SESH.sol:SESH", sesh).functions
         balance = SESH.balanceOf(c.address).call()
         b1 = balance // 1000000000
         b2 = balance % 1000000000
+        balance = f"{b1}.{b2:09d}" if b2 != 0 else b1
+        start = datetime.fromtimestamp(start, tz=timezone.utc).strftime("%Y-%m-%d")
+        end = datetime.fromtimestamp(end, tz=timezone.utc).strftime("%Y-%m-%d")
         results.append(
             [
                 c.address,
-                f"{b1}.{b2:09d} {validate(args.sesh, sesh)}",
+                f"{balance} {validate(args.sesh, sesh)}",
                 bene,
+                start,
+                end,
                 revoked,
                 validate(args.revoker, revoker),
                 validate(args.rewards, rewards),
@@ -166,5 +177,5 @@ if args.sesh or args.revoker or args.rewards or args.contrib:
 
 table = SingleTable(results)
 for i in range(8):
-    table.justify_columns[i] = 'center'
+    table.justify_columns[i] = "center"
 print(table.table)

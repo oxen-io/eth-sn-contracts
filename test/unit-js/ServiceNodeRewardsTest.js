@@ -67,6 +67,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                             Y: "0x1dbb7bf2b1f5340d4b5c466a0641b00cd3a9d9588c7bcad1c3158bdcc65c3332",
                         },
                         ed25519Pubkey: ed25519Generator++,
+                        addedTimestamp: Math.floor(new Date().getTime() / 1000),
                         contributors: [
                             {
                                 staker: {
@@ -115,6 +116,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
                     ed25519Pubkey: ed25519Generator++,
+                    addedTimestamp: Math.floor(new Date().getTime() / 1000),
                     contributors: [
                         {
                             staker: {
@@ -132,6 +134,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                     },
                     deposit: 2000,
                     ed25519Pubkey: ed25519Generator++,
+                    addedTimestamp: Math.floor(new Date().getTime() / 1000),
                     contributors: [
                         {
                             staker: {
@@ -167,6 +170,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
 
         it("Should fail to seed public key list with duplicate items", async function () {
             let ed25519Generator = 1n;
+            let ts = Math.floor(new Date().getTime() / 1000);
             const seedData = [
                 {
                     blsPubkey: {
@@ -174,6 +178,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
                     ed25519Pubkey: ed25519Generator++,
+                    addedTimestamp: ts-100000,
                     contributors: [
                         {
                             staker: {
@@ -190,6 +195,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
                     ed25519Pubkey: ed25519Generator++,
+                    addedTimestamp: ts,
                     contributors: [
                         {
                             staker: {
@@ -215,6 +221,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
                     ed25519Pubkey: ed25519Generator++,
+                    addedTimestamp: Math.floor(new Date().getTime() / 1000),
                     contributors: [
                         {
                             staker: {
@@ -238,6 +245,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
                     ed25519Pubkey: 0n,
+                    addedTimestamp: Math.floor(new Date().getTime() / 1000),
                     contributors: [
                         {
                             staker: {
@@ -262,6 +270,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         Y: "0x0000000000000000000000000000000000000000000000000000000000000000",
                     },
                     ed25519Pubkey: ed25519Generator++,
+                    addedTimestamp: Math.floor(new Date().getTime() / 1000),
                     contributors: [
                         {
                             staker: {
@@ -286,6 +295,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
                     ed25519Pubkey: ed25519Generator++,
+                    addedTimestamp: Math.floor(new Date().getTime() / 1000),
                     contributors: [
                         {
                             staker: {
@@ -310,6 +320,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         Y: "0x0000000000000000000000000000000000000000000000000000000000000000",
                     },
                     ed25519Pubkey: ed25519Generator++,
+                    addedTimestamp: Math.floor(new Date().getTime() / 1000),
                     contributors: [
                         {
                             staker: {
@@ -327,6 +338,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
 
         it("Fails if the BLS pubkey is repeated", async function () {
             let ed25519Generator = 1n;
+            let ts = Math.floor(new Date().getTime() / 1000);
             const seedData = [
                 {
                     blsPubkey: {
@@ -334,6 +346,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
                     ed25519Pubkey: ed25519Generator++,
+                    addedTimestamp: ts-1,
                     contributors: [
                         {
                             staker: {
@@ -351,6 +364,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                     },
                     deposit: 2000,
                     ed25519Pubkey: ed25519Generator++,
+                    addedTimestamp: ts,
                     contributors: [
                         {
                             staker: {
@@ -372,6 +386,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
 
         it("Fails if the Ed25519 pubkey is repeated", async function () {
             let ed25519Generator = 1n;
+            let ts = Math.floor(new Date().getTime() / 1000);
             const seedData = [
                 {
                     blsPubkey: {
@@ -379,6 +394,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
                     ed25519Pubkey: ed25519Generator,
+                    addedTimestamp: ts,
                     contributors: [
                         {
                             staker: {
@@ -396,6 +412,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                     },
                     deposit: 2000,
                     ed25519Pubkey: ed25519Generator,
+                    addedTimestamp: ts-1,
                     contributors: [
                         {
                             staker: {
@@ -423,6 +440,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    addedTimestamp: Math.floor(new Date().getTime() / 1000),
                     ed25519Pubkey: ed25519Generator++,
                     contributors: []
                 },
@@ -439,6 +457,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    addedTimestamp: Math.floor(new Date().getTime() / 1000),
                     ed25519Pubkey: ed25519Generator++,
                     contributors: []
                 },
@@ -464,6 +483,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                         X: "0x12c59fb45c483177873406e5b74a2e6914fe25a591185f30d2788e737da6f2ed",
                         Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                     },
+                    addedTimestamp: Math.floor(new Date().getTime() / 1000),
                     ed25519Pubkey: ed25519Generator++,
                     contributors: []
                 },
@@ -6490,7 +6510,14 @@ describe("ServiceNodeRewards Contract Tests", function () {
                 [{"addr":"0x0b9f031ed0e4018f362f796156fa3d0c38266971", "stakedAmount":120000000000n}],
             ];
 
-
+            let now = new Date().getTime();
+            addedTS = [];
+            for (let i = 0; i < contributors.length; i++) {
+                // Choose a timestamp randomly from the last 1600 days (which looks vaguely like
+                // oxen mainnet where all but three nodes were registered since block 641111, 12
+                // October 2020, 9:31 am UTC).
+                addedTS.push(Math.floor(now / 1000 - 1600 * 86400 * Math.random()));
+            }
 
             let contract = await serviceNodeRewards.connect(owner);
             await contract.setStakingRequirement(120000000000n);
@@ -6516,6 +6543,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
                     seed_sns.push({
                         "blsPubkey": [Px[i+j], Py[i+j]],
                         "ed25519Pubkey": ed25519Generator++,
+                        "addedTimestamp": addedTS[i+j],
                         "contributors": contrib_array,
                     });
                 }
@@ -6545,6 +6573,7 @@ describe("ServiceNodeRewards Contract Tests", function () {
             let sn27 = await serviceNodeRewards.serviceNodes(27);
             expect(sn27.operator).to.equal(BigInt(contributors[26][0]["addr"]));
             expect(sn27.contributors.length).to.equal(4);
+            expect(sn27.addedTimestamp).to.equal(addedTS[26]);
             expect(sn27.contributors).to.deep.equal([
                 [[contributors[26][0]['addr'], contributors[26][0]['addr'] /*beneficiary*/], contributors[26][0]['stakedAmount']],
                 [[contributors[26][1]['addr'], contributors[26][1]['addr'] /*beneficiary*/], contributors[26][1]['stakedAmount']],

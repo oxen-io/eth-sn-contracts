@@ -700,6 +700,7 @@ contract ServiceNodeRewards is Initializable, Ownable2StepUpgradeable, PausableU
             (uint64 allocID, ServiceNode storage sn) = serviceNodeAdd(node.blsPubkey, node.ed25519Pubkey);
             sn.deposit                               = stakingRequirement;
             sn.operator                              = node.contributors[0].staker.addr;
+            sn.addedTimestamp                        = node.addedTimestamp;
 
             uint256 stakedAmountSum        = 0;
             uint256 nodeContributorsLength = node.contributors.length;

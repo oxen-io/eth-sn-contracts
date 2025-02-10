@@ -56,6 +56,7 @@ describe("TestnetServiceNodeRewards Contract Tests", function () {
                     Y: "0x016e56f330d11faaf90ec281b1c4184e98a52d4043075fcbe45a976de0f795ab",
                 },
                 ed25519Pubkey: ed25519_generator++,
+                addedTimestamp: Math.floor(new Date().getTime() / 1000),
                 contributors: [
                     {
                         staker: {

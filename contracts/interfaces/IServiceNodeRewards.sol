@@ -23,6 +23,7 @@ interface IServiceNodeRewards {
     struct SeedServiceNode {
         BN256G1.G1Point blsPubkey;
         uint256         ed25519Pubkey;
+        uint256         addedTimestamp;
         Contributor[]   contributors;
     }
 

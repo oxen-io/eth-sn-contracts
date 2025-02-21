@@ -1,3 +1,7 @@
+# Repository Deprecated
+## This repository is now deprecated. The Session Token contracts now exist [here](https://github.com/session-foundation/session-token-contracts).This is in line with announcements from [Session](https://getsession.org/blog/introducing-the-session-technology-foundation) and the [OPTF](https://optf.ngo/blog/the-optf-and-session), indicating that the OPTF has handed over the stewardship of the Session Project and token to the [Session Technology Foundation](https://session.foundation), a Swiss-based foundation dedicated to advancing digital rights and innovation.
+
+
 # Session Token Rewards Contract
 
 This contract is designed to facilitate the integration and functioning of the
